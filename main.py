@@ -14,7 +14,7 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "your_gemini_api_key_here")
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
 
-# Hedra API Config
+# Hedra API Config (V3 Endpoint)
 BASE_URL = "https://api.hedra.com/v1"
 HEADERS = {
     "Authorization": f"Bearer {HEDRA_API_KEY}",
@@ -39,7 +39,7 @@ def generate_script():
         print(f"Generated Script: {script_text}")
         return script_text
     except Exception as e:
-        print(f"Gemini Script Error (Using fallback): {e}")
+        print(f"Gemini Script Warning/Error (Using fallback): {e}")
         return "Haan bhai, chai peele pehle, kaam toh hota rahega!"
 
 
@@ -70,14 +70,18 @@ def generate_hedra_video(audio_file_path, image_url):
     upload_url = f"{BASE_URL}/assets"
     upload_headers = {"Authorization": f"Bearer {HEDRA_API_KEY}"}
 
-    with open(audio_file_path, "rb") as f:
-        files = {"file": f}
-        data = {"type": "audio"}
-        upload_res = requests.post(
-            upload_url, headers=upload_headers, files=files, data=data
-        )
+    try:
+        with open(audio_file_path, "rb") as f:
+            files = {"file": ("audio.mp3", f, "audio/mpeg")}
+            data = {"type": "audio"}
+            upload_res = requests.post(
+                upload_url, headers=upload_headers, files=files, data=data
+            )
+    except Exception as e:
+        print(f"File reading error: {e}")
+        return None
 
-    if upload_res.status_code != 200:
+    if upload_res.status_code not in [200, 201]:
         print(f"Audio upload failed! Code: {upload_res.status_code}")
         print(f"Response: {upload_res.text}")
         return None
