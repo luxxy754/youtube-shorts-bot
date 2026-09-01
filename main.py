@@ -57,6 +57,27 @@ def generate_audio(text, output_file="hindi_audio.mp3"):
     return output_file
 
 
+def upload_audio_to_public_url(file_path):
+    """Audio file ko temporary hosting par upload karke direct URL lene ke liye"""
+    print("Uploading Audio to temporary public URL...")
+    try:
+        with open(file_path, 'rb') as f:
+            response = requests.post('https://tmpfiles.org/api/v1/upload', files={'file': f})
+        
+        if response.status_code == 200:
+            data = response.json()
+            # Convert normal URL to direct download URL
+            url = data['data']['url'].replace('tmpfiles.org/', 'tmpfiles.org/dl/')
+            print(f"Audio Hosted URL: {url}")
+            return url
+        else:
+            print(f"Hosting Failed with status code: {response.status_code}")
+            return None
+    except Exception as e:
+        print(f"Audio upload hosting error: {e}")
+        return None
+
+
 def generate_image_url():
     """Pollinations AI se Character Image Link banane ke liye"""
     print("Generating 3D Character Image URL via Pollinations AI...")
@@ -66,92 +87,74 @@ def generate_image_url():
     return image_url
 
 
-def generate_hedra_video(audio_file_path, image_url):
-    """Hedra API Flow"""
+def generate_hedra_video(audio_url, image_url):
+    """Hedra V3 API Video Generation"""
     print("\n--- Starting Hedra Video Generation ---")
 
     headers = {
-        "X-API-Key": HEDRA_API_KEY
+        "X-API-Key": HEDRA_API_KEY,
+        "Authorization": f"Bearer {HEDRA_API_KEY}",
+        "Content-Type": "application/json"
     }
 
-    # Step A: Audio Asset Upload
-    print("Uploading Audio to Hedra...")
+    # Submit Video Generation Job using Audio URL directly
+    print("Submitting Character Generation Request to Hedra...")
     
-    # Hedra V1 Endpoints
-    upload_url = "https://api.hedra.com/v1/audio"
-    
-    try:
-        with open(audio_file_path, "rb") as f:
-            files = {"file": ("audio.mp3", f, "audio/mpeg")}
-            upload_res = requests.post(upload_url, headers=headers, files=files)
-            
-        if upload_res.status_code not in [200, 201]:
-            # Alternate Endpoint Try
-            upload_url = "https://api.hedra.com/v1/assets/audio"
-            with open(audio_file_path, "rb") as f:
-                files = {"file": ("audio.mp3", f, "audio/mpeg")}
-                upload_res = requests.post(upload_url, headers=headers, files=files)
-                
-    except Exception as e:
-        print(f"File reading error: {e}")
-        return None
-
-    if upload_res.status_code not in [200, 201]:
-        print(f"Audio upload failed! Code: {upload_res.status_code}")
-        print(f"Response: {upload_res.text}")
-        return None
-
-    audio_data = upload_res.json()
-    audio_asset_id = audio_data.get("url") or audio_data.get("id")
-    print(f"Audio Uploaded Successfully. ID/URL: {audio_asset_id}")
-
-    # Step B: Submit Video Generation Job
-    print("Submitting Character Generation Request...")
-    generate_url = "https://api.hedra.com/v1/characters"
+    # Standard Hedra V1/V3 Endpoints
+    endpoints = [
+        "https://api.hedra.com/v1/characters",
+        "https://api.hedra.com/v1/generations"
+    ]
     
     payload = {
         "aspect_ratio": "9:16",
-        "audio_id": audio_asset_id if not audio_asset_id.startswith("http") else None,
-        "audio_url": audio_asset_id if audio_asset_id.startswith("http") else None,
+        "audio_url": audio_url,
         "image_url": image_url
     }
 
-    json_headers = {**headers, "Content-Type": "application/json"}
-    gen_res = requests.post(generate_url, json=payload, headers=json_headers)
+    gen_res = None
+    for url in endpoints:
+        print(f"Trying Hedra endpoint: {url}")
+        res = requests.post(url, json=payload, headers=headers)
+        if res.status_code in [200, 201]:
+            gen_res = res
+            break
+        else:
+            print(f"Endpoint {url} returned {res.status_code}: {res.text}")
 
-    if gen_res.status_code not in [200, 201]:
-        # Retry with generations endpoint if characters fails
-        generate_url = "https://api.hedra.com/v1/generations"
-        gen_res = requests.post(generate_url, json=payload, headers=json_headers)
-
-    if gen_res.status_code not in [200, 201]:
-        print(f"Generation Job Failed! Code: {gen_res.status_code}")
-        print(f"Response: {gen_res.text}")
+    if not gen_res or gen_res.status_code not in [200, 201]:
+        print("All Hedra Generation Requests Failed!")
         return None
 
     job_data = gen_res.json()
     job_id = job_data.get("job_id") or job_data.get("id")
     print(f"Job Submitted Successfully. Job ID: {job_id}")
 
-    # Step C: Status Check
-    status_url = f"https://api.hedra.com/v1/projects/{job_id}"
-    max_retries = 30
+    # Status Polling
+    status_endpoints = [
+        f"https://api.hedra.com/v1/projects/{job_id}",
+        f"https://api.hedra.com/v1/generations/{job_id}"
+    ]
+    
+    max_retries = 36  # 3 minutes max wait
     attempts = 0
 
     while attempts < max_retries:
         attempts += 1
-        status_res = requests.get(status_url, headers=headers)
+        status_res = None
         
-        if status_res.status_code != 200:
-            status_url_alt = f"https://api.hedra.com/v1/generations/{job_id}"
-            status_res = requests.get(status_url_alt, headers=headers)
+        for st_url in status_endpoints:
+            res = requests.get(st_url, headers=headers)
+            if res.status_code == 200:
+                status_res = res
+                break
 
-        if status_res.status_code == 200:
+        if status_res and status_res.status_code == 200:
             res_json = status_res.json()
             job_status = res_json.get("status")
 
-            if job_status == "completed":
-                video_url = res_json.get("video_url") or res_json.get("url")
+            if job_status in ["completed", "done", "succeeded"]:
+                video_url = res_json.get("video_url") or res_json.get("url") or res_json.get("download_url")
                 print(f"\nSUCCESS: Video URL: {video_url}")
 
                 download_res = requests.get(video_url)
@@ -171,7 +174,7 @@ def generate_hedra_video(audio_file_path, image_url):
 
             print(f"Processing status: '{job_status}' (Attempt {attempts}/{max_retries})... Waiting 5s.")
         else:
-            print(f"Status check error ({status_res.status_code})... Retrying in 5s.")
+            print(f"Status check waiting... (Attempt {attempts}/{max_retries})")
             
         time.sleep(5)
 
@@ -186,9 +189,17 @@ if __name__ == "__main__":
     print("=== YouTube Shorts Automation Bot Started ===")
 
     script_text = generate_script()
-    audio_path = generate_audio(script_text)
+    local_audio_path = generate_audio(script_text)
+    
+    # Upload local audio to get a public URL for Hedra
+    public_audio_url = upload_audio_to_public_url(local_audio_path)
+    
+    if not public_audio_url:
+        print("Could not get public URL for audio. Exiting.")
+        exit(1)
+
     image_url = generate_image_url()
-    result = generate_hedra_video(audio_path, image_url)
+    result = generate_hedra_video(public_audio_url, image_url)
 
     if result:
         print("\n=== Workflow Completed Successfully! ===")
