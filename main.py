@@ -4,7 +4,6 @@ import time
 import requests
 from google import genai
 
-# Configuration & Keys from GitHub Secrets
 GEMINI_KEY = os.environ.get("GEMINI_API_KEY")
 HEDRA_KEYS = [
     os.environ.get("HEDRA_KEY_1"),
@@ -12,7 +11,6 @@ HEDRA_KEYS = [
     os.environ.get("HEDRA_KEY_3")
 ]
 
-# 1. GENERATE HINDI SCRIPT & CHARACTER PROMPT
 def get_script_and_prompt():
     client = genai.Client(api_key=GEMINI_KEY)
     prompt = """
@@ -32,7 +30,6 @@ def get_script_and_prompt():
     clean_json = response.text.replace("```json", "").replace("```", "").strip()
     return json.loads(clean_json)
 
-# 2. GENERATE HINDI AUDIO (gTTS)
 def generate_audio(text):
     print("Generating Hindi Audio...")
     from gtts import gTTS
@@ -41,7 +38,6 @@ def generate_audio(text):
     tts.save(audio_path)
     return audio_path
 
-# 3. GENERATE CHARACTER IMAGE (POLLINATIONS FLUX)
 def generate_character_image(prompt):
     print("Generating 3D Character Image...")
     url = f"https://image.pollinations.ai/prompt/{requests.utils.quote(prompt)}?width=1080&height=1920&nologo=true&model=flux"
@@ -51,76 +47,92 @@ def generate_character_image(prompt):
         f.write(res.content)
     return image_path
 
-# 4. HEDRA LIP-SYNC ROTATOR (FIXED API REQUEST HANDLING)
 def create_hedra_talking_video(image_path, audio_path):
     for idx, key in enumerate(HEDRA_KEYS):
         if not key or not key.strip():
             print(f"Hedra Key {idx + 1} missing, skipping...")
             continue
             
-        print(f"Trying Hedra Key {idx + 1}...")
-        headers = {"X-API-KEY": key.strip()}
+        print(f"Trying Hedra V3 Key {idx + 1}...")
+        headers = {
+            "X-API-KEY": key.strip(),
+            "Authorization": f"Bearer {key.strip()}"
+        }
         
         try:
-            with open(image_path, "rb") as img_f, open(audio_path, "rb") as aud_f:
-                files = {
-                    "image": ("character.jpg", img_f, "image/jpeg"),
-                    "audio": ("audio.mp3", aud_f, "audio/mpeg")
-                }
-                res = requests.post(
-                    "https://api.hedra.com/v1/characters",
-                    headers=headers,
-                    files=files
-                )
+            # 1. Upload Audio
+            print("Uploading Audio...")
+            with open(audio_path, "rb") as af:
+                res_aud = requests.post("https://api.hedra.com/v1/audio", headers=headers, files={"file": af})
+            if res_aud.status_code not in [200, 201]:
+                # Try v2 asset endpoint if v1 fails
+                with open(audio_path, "rb") as af:
+                    res_aud = requests.post("https://api.hedra.com/v2/assets", headers=headers, files={"file": af})
             
-            print(f"Key {idx + 1} Request Status Code: {res.status_code}")
-            print(f"Response Body: {res.text}")
+            audio_url = res_aud.json().get("url") or res_aud.json().get("asset_url")
 
-            if res.status_code not in [200, 201]:
-                print(f"Key {idx + 1} request rejected. Trying next key...")
+            # 2. Upload Image
+            print("Uploading Image...")
+            with open(image_path, "rb") as imgf:
+                res_img = requests.post("https://api.hedra.com/v1/image", headers=headers, files={"file": imgf})
+            if res_img.status_code not in [200, 201]:
+                with open(image_path, "rb") as imgf:
+                    res_img = requests.post("https://api.hedra.com/v2/assets", headers=headers, files={"file": imgf})
+            
+            image_url = res_img.json().get("url") or res_img.json().get("asset_url")
+
+            # 3. Generate Project
+            print("Submitting Generation Job...")
+            payload = {
+                "aspectRatio": "9:16",
+                "audioUrl": audio_url,
+                "imageUrl": image_url
+            }
+            res_gen = requests.post("https://api.hedra.com/v1/characters", headers=headers, json=payload)
+            if res_gen.status_code not in [200, 201]:
+                res_gen = requests.post("https://api.hedra.com/v2/generations", headers=headers, json=payload)
+
+            print(f"Gen Response Code: {res_gen.status_code}")
+            if res_gen.status_code not in [200, 201]:
+                print(f"Key {idx + 1} rejected. Response: {res_gen.text}")
                 continue
 
-            job_data = res.json()
-            job_id = job_data.get("job_id") or job_data.get("id") or job_data.get("jobId")
-            
-            if not job_id:
-                print("Job ID missing from response, trying next key...")
-                continue
-
+            job_id = res_gen.json().get("id") or res_gen.json().get("job_id") or res_gen.json().get("jobId")
             print(f"Hedra Job Started! Job ID: {job_id}")
 
-            # Polling Job Status (Wait up to 3 minutes)
+            # 4. Polling Status
+            print("Rendering Video...")
             for _ in range(36):
-                status_res = requests.get(f"https://api.hedra.com/v1/jobs/{job_id}", headers=headers)
+                status_res = requests.get(f"https://api.hedra.com/v1/projects/{job_id}", headers=headers)
                 if status_res.status_code != 200:
-                    status_res = requests.get(f"https://api.hedra.com/v1/characters/{job_id}", headers=headers)
+                    status_res = requests.get(f"https://api.hedra.com/v2/generations/{job_id}", headers=headers)
                 
                 status_data = status_res.json()
                 status = status_data.get("status")
-                print(f"Current Video Status: {status}")
+                print(f"Status: {status}")
                 
-                if status in ["completed", "complete", "done"]:
-                    video_url = status_data.get("video_url") or status_data.get("videoUrl") or status_data.get("url")
+                if status in ["completed", "complete"]:
+                    video_url = status_data.get("videoUrl") or status_data.get("video_url") or status_data.get("url")
                     video_res = requests.get(video_url)
                     with open("final_short.mp4", "wb") as vf:
                         vf.write(video_res.content)
                     print("Talking Video Generated & Saved as final_short.mp4!")
                     return "final_short.mp4"
                 elif status in ["failed", "error"]:
-                    print("Hedra rendering failed on server side.")
+                    print(f"Rendering failed: {status_data}")
                     break
                 
                 time.sleep(5)
 
         except Exception as e:
-            print(f"Error executing key {idx + 1}: {e}")
+            print(f"Error with Key {idx + 1}: {e}")
             
     print("All Hedra Keys failed!")
     return None
 
 if __name__ == "__main__":
     data = get_script_and_prompt()
-    print("Generated Script:", data["script"])
+    print("Script:", data["script"])
     
     audio_file = generate_audio(data["script"])
     image_file = generate_character_image(data["image_prompt"])
