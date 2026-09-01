@@ -14,8 +14,8 @@ except ImportError:
 # ==========================================
 # 1. API KEYS SETUP
 # ==========================================
-HEDRA_API_KEY = os.getenv("HEDRA_API_KEY", "")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+REPLICATE_API_TOKEN = os.getenv("REPLICATE_API_TOKEN", "")
 
 client = None
 if GEMINI_AVAILABLE and GEMINI_API_KEY:
@@ -29,7 +29,7 @@ if GEMINI_AVAILABLE and GEMINI_API_KEY:
 # 2. HELPER FUNCTIONS
 # ==========================================
 def generate_script():
-    """Gemini AI se Script generate karne ke liye with 503 Retry logic"""
+    """Gemini AI se Script generate karne ke liye"""
     print("Generating Hindi Script...")
     if not client:
         return "हां भाई, चाय पी लो पहले, काम तो होता रहेगा!"
@@ -48,7 +48,7 @@ def generate_script():
                 return script_text
             except Exception as e:
                 print(f"Gemini Error ({model_name}, Attempt {attempt+1}): {e}")
-                time.sleep(3)
+                time.sleep(2)
                 
     print("All Gemini attempts failed. Using fallback script.")
     return "हां भाई, चाय पी लो पहले, काम तो होता रहेगा!"
@@ -92,71 +92,59 @@ def generate_image_url():
     return image_url
 
 
-def generate_hedra_video(audio_url, image_url):
-    """Direct Hedra API flow handle karne ke liye"""
-    print("\n--- Starting Hedra Video Generation ---")
+def generate_lipsync_video(audio_url, image_url):
+    """Replicate API / SadTalker backend for Lip-Sync Video"""
+    print("\n--- Starting Video Generation ---")
+
+    if not REPLICATE_API_TOKEN:
+        print("REPLICATE_API_TOKEN missing. Direct video output fallback activated.")
+        # Direct MP4 fallback download
+        download_res = requests.get(image_url)
+        if download_res.status_code == 200:
+            print("Image generated successfully as asset.")
+            return None
 
     headers = {
-        "X-API-Key": HEDRA_API_KEY,
-        "Authorization": f"Bearer {HEDRA_API_KEY}",
+        "Authorization": f"Bearer {REPLICATE_API_TOKEN}",
         "Content-Type": "application/json"
     }
 
-    endpoints = [
-        "https://api.hedra.com/v1/characters",
-        "https://api.hedra.com/v1/generations"
-    ]
-    
+    url = "https://api.replicate.com/v1/predictions"
     payload = {
-        "aspect_ratio": "9:16",
-        "audio_url": audio_url,
-        "image_url": image_url
+        "version": "c52892e22f2549d49931b2e65d83648a39a73752e259e000c25b822d6b38c032",
+        "input": {
+            "source_image": image_url,
+            "driven_audio": audio_url,
+            "still": True,
+            "enhancer": "gfpgan"
+        }
     }
 
-    gen_res = None
-    for url in endpoints:
-        print(f"Submitting job to endpoint: {url}")
-        res = requests.post(url, json=payload, headers=headers)
-        if res.status_code in [200, 201]:
-            gen_res = res
-            break
-        else:
-            print(f"Endpoint {url} status: {res.status_code} -> {res.text}")
-
-    if not gen_res:
-        print("Hedra API submission failed completely.")
+    print("Submitting LipSync job to Replicate API...")
+    res = requests.post(url, json=payload, headers=headers)
+    
+    if res.status_code not in [200, 201]:
+        print(f"Replicate Submission Error {res.status_code}: {res.text}")
         return None
 
-    job_data = gen_res.json()
-    job_id = job_data.get("job_id") or job_data.get("id")
-    print(f"Job Created Successfully! Job ID: {job_id}")
+    prediction = res.json()
+    prediction_id = prediction.get("id")
+    print(f"Prediction Created. ID: {prediction_id}")
 
-    # Status Polling
-    status_endpoints = [
-        f"https://api.hedra.com/v1/projects/{job_id}",
-        f"https://api.hedra.com/v1/generations/{job_id}",
-        f"https://api.hedra.com/v1/characters/{job_id}"
-    ]
-    
+    status_url = f"https://api.replicate.com/v1/predictions/{prediction_id}"
     max_retries = 36
     attempts = 0
 
     while attempts < max_retries:
         attempts += 1
-        status_res = None
+        st_res = requests.get(status_url, headers=headers)
         
-        for st_url in status_endpoints:
-            res = requests.get(st_url, headers=headers)
-            if res.status_code == 200:
-                status_res = res
-                break
+        if st_res.status_code == 200:
+            data = st_res.json()
+            status = data.get("status")
 
-        if status_res:
-            res_json = status_res.json()
-            job_status = res_json.get("status")
-
-            if job_status in ["completed", "done", "succeeded"]:
-                video_url = res_json.get("video_url") or res_json.get("url") or res_json.get("download_url")
+            if status == "succeeded":
+                video_url = data.get("output")
                 print(f"\nSUCCESS: Video URL: {video_url}")
 
                 download_res = requests.get(video_url)
@@ -166,14 +154,11 @@ def generate_hedra_video(audio_url, image_url):
                         f.write(download_res.content)
                     print(f"Saved locally as '{output_video}'")
                     return output_video
-            elif job_status in ["failed", "error"]:
-                print(f"Generation Failed with error: {res_json.get('error')}")
+            elif status == "failed":
+                print(f"Generation Failed: {data.get('error')}")
                 return None
 
-            print(f"Processing... status: '{job_status}' ({attempts}/{max_retries}). Waiting 5s.")
-        else:
-            print(f"Waiting for status update... ({attempts}/{max_retries})")
-            
+            print(f"Status: '{status}' ({attempts}/{max_retries}). Waiting 5s...")
         time.sleep(5)
 
     print("Polling timed out!")
@@ -195,7 +180,7 @@ if __name__ == "__main__":
         exit(1)
 
     image_url = generate_image_url()
-    result = generate_hedra_video(public_audio_url, image_url)
+    result = generate_lipsync_video(public_audio_url, image_url)
 
     if result:
         print("\n=== Workflow Completed Successfully! ===")
