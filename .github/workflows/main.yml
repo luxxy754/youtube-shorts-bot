@@ -28,8 +28,8 @@ jobs:
 
       - name: Run Automation Bot Script
         env:
-          HEDRA_API_KEY: ${{ secrets.HEDRA_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
         run: |
           python main.py
 
