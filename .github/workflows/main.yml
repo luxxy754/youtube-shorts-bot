@@ -1,10 +1,7 @@
 name: Automated YouTube Shorts Bot
 
 on:
-  schedule:
-    # Har roz UTC time ke mutabiq chalega (e.g., 2:00 PM UTC)
-    - cron: '0 14 * * *'
-  workflow_dispatch: # Manual run button ke liye
+  workflow_dispatch:
 
 jobs:
   build-and-run:
@@ -24,20 +21,21 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg
 
-      - name: Install Python Packages
+      - name: Install Python Packages Directly
         run: |
-          pip install google-genai requests "moviepy==1.0.3" gTTS google-api-python-client google-auth-oauthlib pillow
+          python -m pip install --upgrade pip
+          pip install requests gtts google-generativeai
 
       - name: Run Automation Bot Script
         env:
+          HEDRA_API_KEY: ${{ secrets.HEDRA_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          HEDRA_KEY_1: ${{ secrets.HEDRA_KEY_1 }}
-          HEDRA_KEY_2: ${{ secrets.HEDRA_KEY_2 }}
-          HEDRA_KEY_3: ${{ secrets.HEDRA_KEY_3 }}
-        run: python main.py
+        run: |
+          python main.py
 
       - name: Upload Generated Video as Artifact
         uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: talking-aalu-short
+          name: final_short_video
           path: final_short.mp4
