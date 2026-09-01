@@ -53,44 +53,37 @@ def create_hedra_talking_video(image_path, audio_path):
             print(f"Hedra Key {idx + 1} missing, skipping...")
             continue
             
-        print(f"Trying Hedra V3 Key {idx + 1}...")
+        print(f"Trying Hedra Key {idx + 1}...")
         headers = {
             "X-API-KEY": key.strip(),
-            "Authorization": f"Bearer {key.strip()}"
+            "Content-Type": "application/json"
         }
         
         try:
             # 1. Upload Audio
             print("Uploading Audio...")
             with open(audio_path, "rb") as af:
-                res_aud = requests.post("https://api.hedra.com/v1/audio", headers=headers, files={"file": af})
-            if res_aud.status_code not in [200, 201]:
-                # Try v2 asset endpoint if v1 fails
-                with open(audio_path, "rb") as af:
-                    res_aud = requests.post("https://api.hedra.com/v2/assets", headers=headers, files={"file": af})
-            
-            audio_url = res_aud.json().get("url") or res_aud.json().get("asset_url")
+                res_aud = requests.post("https://api.hedra.com/v1/audio", headers={"X-API-KEY": key.strip()}, files={"file": af})
+            audio_url = res_aud.json().get("url")
 
             # 2. Upload Image
             print("Uploading Image...")
             with open(image_path, "rb") as imgf:
-                res_img = requests.post("https://api.hedra.com/v1/image", headers=headers, files={"file": imgf})
-            if res_img.status_code not in [200, 201]:
-                with open(image_path, "rb") as imgf:
-                    res_img = requests.post("https://api.hedra.com/v2/assets", headers=headers, files={"file": imgf})
-            
-            image_url = res_img.json().get("url") or res_img.json().get("asset_url")
+                res_img = requests.post("https://api.hedra.com/v1/image", headers={"X-API-KEY": key.strip()}, files={"file": imgf})
+            image_url = res_img.json().get("url")
 
-            # 3. Generate Project
+            # 3. Submit Generation (Fixed Endpoint Fallback)
             print("Submitting Generation Job...")
             payload = {
                 "aspectRatio": "9:16",
                 "audioUrl": audio_url,
                 "imageUrl": image_url
             }
-            res_gen = requests.post("https://api.hedra.com/v1/characters", headers=headers, json=payload)
-            if res_gen.status_code not in [200, 201]:
-                res_gen = requests.post("https://api.hedra.com/v2/generations", headers=headers, json=payload)
+            
+            # Try v1/generations first, then v1/projects if needed
+            res_gen = requests.post("https://api.hedra.com/v1/generations", headers=headers, json=payload)
+            if res_gen.status_code == 404:
+                res_gen = requests.post("https://api.hedra.com/v1/projects", headers=headers, json=payload)
 
             print(f"Gen Response Code: {res_gen.status_code}")
             if res_gen.status_code not in [200, 201]:
@@ -103,9 +96,9 @@ def create_hedra_talking_video(image_path, audio_path):
             # 4. Polling Status
             print("Rendering Video...")
             for _ in range(36):
-                status_res = requests.get(f"https://api.hedra.com/v1/projects/{job_id}", headers=headers)
+                status_res = requests.get(f"https://api.hedra.com/v1/generations/{job_id}", headers=headers)
                 if status_res.status_code != 200:
-                    status_res = requests.get(f"https://api.hedra.com/v2/generations/{job_id}", headers=headers)
+                    status_res = requests.get(f"https://api.hedra.com/v1/projects/{job_id}", headers=headers)
                 
                 status_data = status_res.json()
                 status = status_data.get("status")
