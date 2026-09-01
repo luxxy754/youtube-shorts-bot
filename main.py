@@ -4,7 +4,6 @@ import requests
 from google import genai
 from moviepy.editor import ImageClip, AudioFileClip, concatenate_videoclips
 
-# Keys from GitHub Secrets
 GEMINI_KEY = os.environ.get("GEMINI_API_KEY")
 ELEVEN_KEYS = [
     os.environ.get("ELEVEN_KEY_1"),
@@ -16,10 +15,12 @@ def get_script_and_prompts():
     client = genai.Client(api_key=GEMINI_KEY)
     
     prompt = """
-    Create a 15-second interesting mind-blowing short fact script.
+    Create a 15-second viral mind-blowing fact script for YouTube Shorts in HINDI (Hinglish script using Roman script).
+    Also provide 3 extremely detailed, photorealistic visual image prompts in ENGLISH for AI image generator.
+    
     Return ONLY a raw JSON object with keys:
-    "script": "short voiceover text under 25 words",
-    "prompts": ["image prompt 1", "image prompt 2", "image prompt 3"]
+    "script": "Hindi script under 25 words (e.g. Kya aap jante hain ki...)",
+    "prompts": ["cinematic realistic photo of...", "detailed photographic image of...", "high quality 8k image of..."]
     Do not use markdown backticks.
     """
     response = client.models.generate_content(
@@ -30,30 +31,20 @@ def get_script_and_prompts():
     return json.loads(clean_json)
 
 def generate_voiceover(text):
-    voice_id = "21m00Tcm4TlvDq8ikWAM" # Default voice
-    for key in ELEVEN_KEYS:
-        if not key:
-            continue
-        url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
-        headers = {"Accept": "audio/mpeg", "Content-Type": "application/json", "xi-api-key": key}
-        payload = {"text": text, "model_id": "eleven_monolingual_v1"}
-        res = requests.post(url, json=payload, headers=headers)
-        if res.status_code == 200:
-            with open("audio.mp3", "wb") as f:
-                f.write(res.content)
-            print("Audio created successfully!")
-            return "audio.mp3"
-    
-    print("ElevenLabs failed. Falling back to gTTS...")
+    # gTTS Hindi Fallback for 100% natural accent & zero API cost
+    print("Generating Hindi Voiceover...")
     from gtts import gTTS
-    tts = gTTS(text=text, lang='en')
+    tts = gTTS(text=text, lang='hi')
     tts.save("audio.mp3")
     return "audio.mp3"
 
 def download_images(prompts):
     image_files = []
     for i, p in enumerate(prompts):
-        url = f"https://image.pollinations.ai/prompt/{requests.utils.quote(p)}?width=1080&height=1920&nologo=true"
+        # Adding quality modifiers to prompt
+        detailed_prompt = f"{p}, cinematic lighting, photorealistic, 8k resolution, vertical 9:16 portrait"
+        url = f"https://image.pollinations.ai/prompt/{requests.utils.quote(detailed_prompt)}?width=1080&height=1920&nologo=true&model=flux"
+        
         res = requests.get(url)
         filename = f"img_{i}.jpg"
         with open(filename, "wb") as f:
@@ -73,10 +64,11 @@ def render_video(audio_path, image_paths):
     video = concatenate_videoclips(clips, method="compose")
     video = video.set_audio(audio)
     video.write_videofile("final_short.mp4", fps=24, codec="libx264")
-    print("Video Rendered Successfully: final_short.mp4")
+    print("Hindi AI Short Rendered Successfully: final_short.mp4")
 
 if __name__ == "__main__":
     data = get_script_and_prompts()
+    print("Script Generated:", data["script"])
     audio_file = generate_voiceover(data["script"])
     images = download_images(data["prompts"])
     render_video(audio_file, images)
