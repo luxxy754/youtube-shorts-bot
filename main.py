@@ -24,8 +24,6 @@ if GEMINI_AVAILABLE and GEMINI_API_KEY:
     except Exception as e:
         print(f"Gemini Client Init Warning: {e}")
 
-HEDRA_BASE_URL = "https://api.hedra.com/v1"
-
 
 # ==========================================
 # 2. HELPER FUNCTIONS
@@ -38,7 +36,6 @@ def generate_script():
         return "हां भाई, चाय पी लो पहले, काम तो होता रहेगा!"
 
     try:
-        # Updated Model Name to gemini-2.5-flash
         response = client.models.generate_content(
             model="gemini-2.5-flash",
             contents="Write a very short, funny 1-line joke in Hindi (Devanagari script) for a YouTube Short character. Keep it under 15 words."
@@ -70,21 +67,31 @@ def generate_image_url():
 
 
 def generate_hedra_video(audio_file_path, image_url):
-    """Hedra V3 API flow: Audio upload -> Character Job Submit -> Download Video"""
+    """Hedra API Flow"""
     print("\n--- Starting Hedra Video Generation ---")
 
     headers = {
         "X-API-Key": HEDRA_API_KEY
     }
 
-    # Step A: Audio Asset Upload (Fixed Endpoint)
+    # Step A: Audio Asset Upload
     print("Uploading Audio to Hedra...")
-    upload_url = f"{HEDRA_BASE_URL}/assets"
-
+    
+    # Hedra V1 Endpoints
+    upload_url = "https://api.hedra.com/v1/audio"
+    
     try:
         with open(audio_file_path, "rb") as f:
             files = {"file": ("audio.mp3", f, "audio/mpeg")}
             upload_res = requests.post(upload_url, headers=headers, files=files)
+            
+        if upload_res.status_code not in [200, 201]:
+            # Alternate Endpoint Try
+            upload_url = "https://api.hedra.com/v1/assets/audio"
+            with open(audio_file_path, "rb") as f:
+                files = {"file": ("audio.mp3", f, "audio/mpeg")}
+                upload_res = requests.post(upload_url, headers=headers, files=files)
+                
     except Exception as e:
         print(f"File reading error: {e}")
         return None
@@ -95,20 +102,27 @@ def generate_hedra_video(audio_file_path, image_url):
         return None
 
     audio_data = upload_res.json()
-    audio_url = audio_data.get("url") or audio_data.get("id")
-    print(f"Audio Uploaded Successfully. URL/ID: {audio_url}")
+    audio_asset_id = audio_data.get("url") or audio_data.get("id")
+    print(f"Audio Uploaded Successfully. ID/URL: {audio_asset_id}")
 
-    # Step B: Submit Video Generation Job (Fixed Endpoint)
+    # Step B: Submit Video Generation Job
     print("Submitting Character Generation Request...")
-    generate_url = f"{HEDRA_BASE_URL}/generations"
+    generate_url = "https://api.hedra.com/v1/characters"
+    
     payload = {
         "aspect_ratio": "9:16",
-        "audio_url": audio_url,
+        "audio_id": audio_asset_id if not audio_asset_id.startswith("http") else None,
+        "audio_url": audio_asset_id if audio_asset_id.startswith("http") else None,
         "image_url": image_url
     }
 
     json_headers = {**headers, "Content-Type": "application/json"}
     gen_res = requests.post(generate_url, json=payload, headers=json_headers)
+
+    if gen_res.status_code not in [200, 201]:
+        # Retry with generations endpoint if characters fails
+        generate_url = "https://api.hedra.com/v1/generations"
+        gen_res = requests.post(generate_url, json=payload, headers=json_headers)
 
     if gen_res.status_code not in [200, 201]:
         print(f"Generation Job Failed! Code: {gen_res.status_code}")
@@ -119,9 +133,9 @@ def generate_hedra_video(audio_file_path, image_url):
     job_id = job_data.get("job_id") or job_data.get("id")
     print(f"Job Submitted Successfully. Job ID: {job_id}")
 
-    # Step C: Polling Processing Status (Fixed Endpoint)
-    status_url = f"{HEDRA_BASE_URL}/generations/{job_id}"
-    max_retries = 30  # Max 2.5 minutes wait time
+    # Step C: Status Check
+    status_url = f"https://api.hedra.com/v1/projects/{job_id}"
+    max_retries = 30
     attempts = 0
 
     while attempts < max_retries:
@@ -129,36 +143,39 @@ def generate_hedra_video(audio_file_path, image_url):
         status_res = requests.get(status_url, headers=headers)
         
         if status_res.status_code != 200:
-            print(f"Status check error ({status_res.status_code}): {status_res.text}")
-            time.sleep(5)
-            continue
+            status_url_alt = f"https://api.hedra.com/v1/generations/{job_id}"
+            status_res = requests.get(status_url_alt, headers=headers)
 
-        res_json = status_res.json()
-        job_status = res_json.get("status")
+        if status_res.status_code == 200:
+            res_json = status_res.json()
+            job_status = res_json.get("status")
 
-        if job_status == "completed":
-            video_url = res_json.get("video_url") or res_json.get("url")
-            print(f"\nSUCCESS: Video URL: {video_url}")
+            if job_status == "completed":
+                video_url = res_json.get("video_url") or res_json.get("url")
+                print(f"\nSUCCESS: Video URL: {video_url}")
 
-            download_res = requests.get(video_url)
-            if download_res.status_code == 200:
-                output_video = "final_short.mp4"
-                with open(output_video, "wb") as f:
-                    f.write(download_res.content)
-                print(f"Saved locally as '{output_video}'")
-                return output_video
-            else:
-                print("Failed to download video file from URL.")
+                download_res = requests.get(video_url)
+                if download_res.status_code == 200:
+                    output_video = "final_short.mp4"
+                    with open(output_video, "wb") as f:
+                        f.write(download_res.content)
+                    print(f"Saved locally as '{output_video}'")
+                    return output_video
+                else:
+                    print("Failed to download video file from URL.")
+                    return None
+
+            elif job_status in ["failed", "error"]:
+                print(f"\nFAILED: Generation Error: {res_json.get('error')}")
                 return None
 
-        elif job_status in ["failed", "error"]:
-            print(f"\nFAILED: Generation Error: {res_json.get('error')}")
-            return None
-
-        print(f"Processing status: '{job_status}' (Attempt {attempts}/{max_retries})... Waiting 5s.")
+            print(f"Processing status: '{job_status}' (Attempt {attempts}/{max_retries})... Waiting 5s.")
+        else:
+            print(f"Status check error ({status_res.status_code})... Retrying in 5s.")
+            
         time.sleep(5)
 
-    print("Polling timed out! Video generation took too long.")
+    print("Polling timed out!")
     return None
 
 
