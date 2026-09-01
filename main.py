@@ -3,16 +3,13 @@ import time
 import requests
 from gtts import gTTS
 
-# Gemini import safely wrapped to prevent crash if library is missing
+# New Gemini SDK Import
 try:
-    import google.generativeai as genai
-
+    from google import genai
     GEMINI_AVAILABLE = True
 except ImportError:
     GEMINI_AVAILABLE = False
-    print(
-        "Warning: google-generativeai module not installed. Using fallback script generation."
-    )
+    print("Warning: google-genai module not installed. Using fallback script.")
 
 # ==========================================
 # 1. API KEYS SETUP
@@ -20,15 +17,20 @@ except ImportError:
 HEDRA_API_KEY = os.getenv("HEDRA_API_KEY", "your_hedra_api_key_here")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "your_gemini_api_key_here")
 
-# Gemini Setup
+# Initialize Gemini Client
+client = None
 if GEMINI_AVAILABLE and GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
+    try:
+        client = genai.Client(api_key=GEMINI_API_KEY)
+    except Exception as e:
+        print(f"Gemini Client Init Warning: {e}")
 
-# Hedra API Config (V3 Endpoint)
-BASE_URL = "https://api.hedra.com/v1"
+# Hedra API Config
+HEDRA_BASE_URL = "https://api.hedra.com/web-app/public"
 HEADERS = {
+    "X-API-Key": HEDRA_API_KEY,
     "Authorization": f"Bearer {HEDRA_API_KEY}",
-    "Content-Type": "application/json",
+    "Content-Type": "application/json"
 }
 
 
@@ -38,19 +40,15 @@ HEADERS = {
 def generate_script():
     """Gemini AI se Short Hindi Script generate karne ke liye"""
     print("Generating Hindi Script...")
-    if not GEMINI_AVAILABLE or not GEMINI_API_KEY:
-        print(
-            "Gemini API Key or SDK unavailable. Using default fallback script."
-        )
+    if not client:
+        print("Gemini Client unavailable. Using default fallback script.")
         return "Haan bhai, chai peele pehle, kaam toh hota rahega!"
 
     try:
-        model = genai.GenerativeModel("gemini-1.5-flash")
-        prompt = (
-            "Write a very short, funny 1-line joke in Hindi (Hinglish/Latin script) "
-            "for a YouTube Short character. Keep it under 15 words."
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents="Write a very short, funny 1-line joke in Hindi (Hinglish script) for a YouTube Short character. Keep it under 15 words."
         )
-        response = model.generate_content(prompt)
         script_text = response.text.strip()
         print(f"Generated Script: {script_text}")
         return script_text
@@ -78,13 +76,16 @@ def generate_image_url():
 
 
 def generate_hedra_video(audio_file_path, image_url):
-    """Hedra V3 API flow: Audio upload -> Character Job Submit -> Status Check -> Download Video"""
-    print("\n--- Starting Hedra V3 Video Generation ---")
+    """Hedra API flow: Audio upload -> Character Job Submit -> Status Check -> Download Video"""
+    print("\n--- Starting Hedra Video Generation ---")
 
     # Step A: Audio Asset Upload
     print("Uploading Audio to Hedra...")
-    upload_url = f"{BASE_URL}/assets"
-    upload_headers = {"Authorization": f"Bearer {HEDRA_API_KEY}"}
+    upload_url = f"{HEDRA_BASE_URL}/assets"
+    upload_headers = {
+        "X-API-Key": HEDRA_API_KEY,
+        "Authorization": f"Bearer {HEDRA_API_KEY}"
+    }
 
     try:
         with open(audio_file_path, "rb") as f:
@@ -102,16 +103,20 @@ def generate_hedra_video(audio_file_path, image_url):
         print(f"Response: {upload_res.text}")
         return None
 
-    audio_asset_id = upload_res.json().get("id")
-    print(f"Audio Uploaded. Asset ID: {audio_asset_id}")
+    audio_data = upload_res.json()
+    audio_asset_id = audio_data.get("id") or audio_data.get("url")
+    print(f"Audio Uploaded. Asset Identifier: {audio_asset_id}")
 
     # Step B: Submit Video Generation Job
     print("Submitting Character Generation Request...")
-    generate_url = f"{BASE_URL}/characters"
+    generate_url = f"{HEDRA_BASE_URL}/generations"
     payload = {
-        "aspect_ratio": "9:16",
-        "audio_asset_id": audio_asset_id,
-        "image_url": image_url,
+        "type": "video",
+        "input": {
+            "aspect_ratio": "9:16",
+            "audio_url": audio_asset_id,
+            "image_url": image_url
+        }
     }
 
     gen_res = requests.post(generate_url, json=payload, headers=HEADERS)
@@ -121,21 +126,20 @@ def generate_hedra_video(audio_file_path, image_url):
         print(f"Response: {gen_res.text}")
         return None
 
-    job_id = gen_res.json().get("job_id")
+    job_id = gen_res.json().get("job_id") or gen_res.json().get("id")
     print(f"Job Submitted Successfully. Job ID: {job_id}")
 
     # Step C: Polling Video Processing Status
-    status_url = f"{BASE_URL}/jobs/{job_id}"
+    status_url = f"{HEDRA_BASE_URL}/generations/{job_id}"
 
     while True:
         status_res = requests.get(status_url, headers=HEADERS).json()
         job_status = status_res.get("status")
 
         if job_status == "completed":
-            video_url = status_res.get("video_url")
+            video_url = status_res.get("video_url") or status_res.get("url")
             print(f"\nSUCCESS: Video URL: {video_url}")
 
-            # Download Video for GitHub Artifacts
             video_data = requests.get(video_url).content
             output_video = "final_short.mp4"
             with open(output_video, "wb") as f:
@@ -143,7 +147,7 @@ def generate_hedra_video(audio_file_path, image_url):
             print(f"Saved locally as '{output_video}'")
             return output_video
 
-        elif job_status == "failed":
+        elif job_status in ["failed", "error"]:
             print(f"\nFAILED: Generation Error: {status_res.get('error')}")
             return None
 
