@@ -4,7 +4,7 @@ import time
 import requests
 from google import genai
 
-# Configuration & Keys
+# Configuration & Keys from GitHub Secrets
 GEMINI_KEY = os.environ.get("GEMINI_API_KEY")
 HEDRA_KEYS = [
     os.environ.get("HEDRA_KEY_1"),
@@ -12,16 +12,17 @@ HEDRA_KEYS = [
     os.environ.get("HEDRA_KEY_3")
 ]
 
-# 1. GENERATE HINDI SCRIPT & CHARACTER PROMPT
+# 1. GENERATE DYNAMIC HINDI SCRIPT & RANDOM CHARACTER PROMPT
 def get_script_and_prompt():
     client = genai.Client(api_key=GEMINI_KEY)
     prompt = """
-    Create a funny 10-second viral Short script in HINDI (Roman script/Hinglish) spoken by a funny talking potato (Aalu) character.
-    Also generate a detailed image prompt for the talking potato.
+    Create a funny 10-second viral Short script in HINDI (Roman script/Hinglish). 
+    The speaker should be a RANDOM funny 3D character (e.g. Potato, Tomato, Onion, Burger, Apple, or Coffee Cup). 
+    Pick a DIFFERENT character and topic every time.
     
     Return ONLY a raw JSON object with keys:
-    "script": "Hindi script under 20 words (e.g. Haan bhai, aalu hoon main...)",
-    "image_prompt": "3d pixar style cute animated talking potato character, big expressive eyes, neutral mouth closed, funny face, 8k render, vertical portrait 9:16"
+    "script": "Funny Hindi script under 20 words (e.g. Haan bhai, main aalu hoon...)",
+    "image_prompt": "3d pixar style cute animated talking [CHARACTER] character, big expressive eyes, neutral closed mouth, funny face, 8k render, vertical portrait 9:16"
     Do not use markdown backticks.
     """
     response = client.models.generate_content(
@@ -31,8 +32,9 @@ def get_script_and_prompt():
     clean_json = response.text.replace("```json", "").replace("```", "").strip()
     return json.loads(clean_json)
 
-# 2. GENERATE AUDIO (gTTS)
+# 2. GENERATE HINDI AUDIO (gTTS)
 def generate_audio(text):
+    print("Generating Hindi Audio...")
     from gtts import gTTS
     tts = gTTS(text=text, lang='hi')
     audio_path = "audio.mp3"
@@ -41,6 +43,7 @@ def generate_audio(text):
 
 # 3. GENERATE CHARACTER IMAGE (POLLINATIONS FLUX)
 def generate_character_image(prompt):
+    print("Generating 3D Character Image...")
     url = f"https://image.pollinations.ai/prompt/{requests.utils.quote(prompt)}?width=1080&height=1920&nologo=true&model=flux"
     res = requests.get(url)
     image_path = "character.jpg"
@@ -48,7 +51,7 @@ def generate_character_image(prompt):
         f.write(res.content)
     return image_path
 
-# 4. HEDRA LIP-SYNC ROTATOR (IMAGE + AUDIO -> TALKING VIDEO)
+# 4. HEDRA LIP-SYNC ROTATOR (IMAGE + AUDIO -> ANIMATED VIDEO)
 def create_hedra_talking_video(image_path, audio_path):
     for idx, key in enumerate(HEDRA_KEYS):
         if not key:
@@ -65,14 +68,14 @@ def create_hedra_talking_video(image_path, audio_path):
                     files={"image": img_f, "audio": aud_f}
                 )
             if init_res.status_code != 200:
-                print(f"Key {idx + 1} failed or limit reached. Status: {init_res.status_code}")
+                print(f"Key {idx + 1} failed/limit reached. Status: {init_res.status_code}")
                 continue
                 
             job_data = init_res.json()
             job_id = job_data.get("job_id") or job_data.get("id")
             
-            # Step B: Poll Status
-            print("Processing video animation...")
+            # Step B: Poll Status until complete
+            print("Rendering lip-sync video animation...")
             while True:
                 status_res = requests.get(f"https://api.hedra.com/v1/jobs/{job_id}", headers=headers)
                 status_data = status_res.json()
@@ -83,10 +86,10 @@ def create_hedra_talking_video(image_path, audio_path):
                     video_res = requests.get(video_url)
                     with open("final_short.mp4", "wb") as vf:
                         vf.write(video_res.content)
-                    print("Talking Aalu Video Generated Successfully!")
+                    print("Talking Animated Video Generated Successfully!")
                     return "final_short.mp4"
                 elif status == "failed":
-                    print("Hedra rendering failed, trying next key...")
+                    print("Hedra rendering failed, switching to next key...")
                     break
                 
                 time.sleep(5)
@@ -98,9 +101,8 @@ def create_hedra_talking_video(image_path, audio_path):
 
 if __name__ == "__main__":
     data = get_script_and_prompt()
-    print("Script:", data["script"])
+    print("Generated Script:", data["script"])
     
     audio_file = generate_audio(data["script"])
     image_file = generate_character_image(data["image_prompt"])
-    
     video_file = create_hedra_talking_video(image_file, audio_file)
