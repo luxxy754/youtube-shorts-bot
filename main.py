@@ -1,7 +1,7 @@
 import os
 import json
 import requests
-import google.generativeai as genai
+from google import genai
 from moviepy.editor import ImageClip, AudioFileClip, concatenate_videoclips
 
 # Keys from GitHub Secrets
@@ -13,8 +13,7 @@ ELEVEN_KEYS = [
 ]
 
 def get_script_and_prompts():
-    genai.configure(api_key=GEMINI_KEY)
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    client = genai.Client(api_key=GEMINI_KEY)
     
     prompt = """
     Create a 15-second interesting mind-blowing short fact script.
@@ -23,7 +22,10 @@ def get_script_and_prompts():
     "prompts": ["image prompt 1", "image prompt 2", "image prompt 3"]
     Do not use markdown backticks.
     """
-    response = model.generate_content(prompt)
+    response = client.models.generate_content(
+        model='gemini-2.5-flash',
+        contents=prompt
+    )
     clean_json = response.text.replace("```json", "").replace("```", "").strip()
     return json.loads(clean_json)
 
