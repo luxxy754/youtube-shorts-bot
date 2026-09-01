@@ -2,7 +2,17 @@ import os
 import time
 import requests
 from gtts import gTTS
-import google.generativeai as genai
+
+# Gemini import safely wrapped to prevent crash if library is missing
+try:
+    import google.generativeai as genai
+
+    GEMINI_AVAILABLE = True
+except ImportError:
+    GEMINI_AVAILABLE = False
+    print(
+        "Warning: google-generativeai module not installed. Using fallback script generation."
+    )
 
 # ==========================================
 # 1. API KEYS SETUP
@@ -11,7 +21,7 @@ HEDRA_API_KEY = os.getenv("HEDRA_API_KEY", "your_hedra_api_key_here")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "your_gemini_api_key_here")
 
 # Gemini Setup
-if GEMINI_API_KEY:
+if GEMINI_AVAILABLE and GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
 
 # Hedra API Config (V3 Endpoint)
@@ -27,7 +37,13 @@ HEADERS = {
 # ==========================================
 def generate_script():
     """Gemini AI se Short Hindi Script generate karne ke liye"""
-    print("Generating Hindi Script via Gemini...")
+    print("Generating Hindi Script...")
+    if not GEMINI_AVAILABLE or not GEMINI_API_KEY:
+        print(
+            "Gemini API Key or SDK unavailable. Using default fallback script."
+        )
+        return "Haan bhai, chai peele pehle, kaam toh hota rahega!"
+
     try:
         model = genai.GenerativeModel("gemini-1.5-flash")
         prompt = (
@@ -39,7 +55,7 @@ def generate_script():
         print(f"Generated Script: {script_text}")
         return script_text
     except Exception as e:
-        print(f"Gemini Script Warning/Error (Using fallback): {e}")
+        print(f"Gemini Script Error (Using fallback): {e}")
         return "Haan bhai, chai peele pehle, kaam toh hota rahega!"
 
 
