@@ -2,9 +2,8 @@ name: Automated YouTube Shorts Bot
 
 on:
   schedule:
-    # Har roz UTC time ke mutabiq chalega (e.g., 2:00 PM UTC)
     - cron: '0 14 * * *'
-  workflow_dispatch: # Manual run button ke liye
+  workflow_dispatch:
 
 jobs:
   build-and-run:
@@ -35,3 +34,10 @@ jobs:
           ELEVEN_KEY_2: ${{ secrets.ELEVEN_KEY_2 }}
           ELEVEN_KEY_3: ${{ secrets.ELEVEN_KEY_3 }}
         run: python main.py
+
+      # ARTIFACT SAVE KARNE KA STEP (ADDED)
+      - name: Upload Generated Video as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-youtube-short
+          path: final_short.mp4
