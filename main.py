@@ -38,9 +38,9 @@ def generate_script():
         return "हां भाई, चाय पी लो पहले, काम तो होता रहेगा!"
 
     try:
-        # Devanagari script requested for accurate gTTS voice
+        # Updated Model Name to gemini-2.5-flash
         response = client.models.generate_content(
-            model="gemini-1.5-flash",
+            model="gemini-2.5-flash",
             contents="Write a very short, funny 1-line joke in Hindi (Devanagari script) for a YouTube Short character. Keep it under 15 words."
         )
         script_text = response.text.strip()
@@ -74,13 +74,12 @@ def generate_hedra_video(audio_file_path, image_url):
     print("\n--- Starting Hedra Video Generation ---")
 
     headers = {
-        "X-API-Key": HEDRA_API_KEY,
-        "Authorization": f"Bearer {HEDRA_API_KEY}"
+        "X-API-Key": HEDRA_API_KEY
     }
 
-    # Step A: Audio Asset Upload
+    # Step A: Audio Asset Upload (Fixed Endpoint)
     print("Uploading Audio to Hedra...")
-    upload_url = f"{HEDRA_BASE_URL}/audio"
+    upload_url = f"{HEDRA_BASE_URL}/assets"
 
     try:
         with open(audio_file_path, "rb") as f:
@@ -99,9 +98,9 @@ def generate_hedra_video(audio_file_path, image_url):
     audio_url = audio_data.get("url") or audio_data.get("id")
     print(f"Audio Uploaded Successfully. URL/ID: {audio_url}")
 
-    # Step B: Submit Video Generation Job
+    # Step B: Submit Video Generation Job (Fixed Endpoint)
     print("Submitting Character Generation Request...")
-    generate_url = f"{HEDRA_BASE_URL}/characters"
+    generate_url = f"{HEDRA_BASE_URL}/generations"
     payload = {
         "aspect_ratio": "9:16",
         "audio_url": audio_url,
@@ -120,8 +119,8 @@ def generate_hedra_video(audio_file_path, image_url):
     job_id = job_data.get("job_id") or job_data.get("id")
     print(f"Job Submitted Successfully. Job ID: {job_id}")
 
-    # Step C: Polling Processing Status with Timeout Guard
-    status_url = f"{HEDRA_BASE_URL}/projects/{job_id}"
+    # Step C: Polling Processing Status (Fixed Endpoint)
+    status_url = f"{HEDRA_BASE_URL}/generations/{job_id}"
     max_retries = 30  # Max 2.5 minutes wait time
     attempts = 0
 
