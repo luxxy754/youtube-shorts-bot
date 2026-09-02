@@ -1,6 +1,7 @@
 import os
 import time
 import requests
+import subprocess
 from gtts import gTTS
 
 # Gemini SDK Setup
@@ -15,7 +16,6 @@ except ImportError:
 # 1. API KEYS SETUP
 # ==========================================
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-REPLICATE_API_TOKEN = os.getenv("REPLICATE_API_TOKEN", "")
 
 client = None
 if GEMINI_AVAILABLE and GEMINI_API_KEY:
@@ -47,10 +47,10 @@ def generate_script():
                 print(f"Generated Script: {script_text}")
                 return script_text
             except Exception as e:
-                print(f"Gemini Error ({model_name}, Attempt {attempt+1}): {e}")
+                print(f"Gemini Error ({model_name}): {e}")
                 time.sleep(2)
                 
-    print("All Gemini attempts failed. Using fallback script.")
+    print("Using fallback script.")
     return "हां भाई, चाय पी लो पहले, काम तो होता रहेगा!"
 
 
@@ -63,106 +63,52 @@ def generate_audio(text, output_file="hindi_audio.mp3"):
     return output_file
 
 
-def upload_audio_to_public_url(file_path):
-    """Audio ko public URL me convert karne ke liye"""
-    print("Uploading Audio to temporary public host...")
-    try:
-        with open(file_path, 'rb') as f:
-            response = requests.post('https://tmpfiles.org/api/v1/upload', files={'file': f})
-        
-        if response.status_code == 200:
-            data = response.json()
-            url = data['data']['url'].replace('tmpfiles.org/', 'tmpfiles.org/dl/')
-            print(f"Audio Hosted URL: {url}")
-            return url
-        else:
-            print(f"Hosting Failed with code: {response.status_code}")
-            return None
-    except Exception as e:
-        print(f"Audio upload hosting error: {e}")
-        return None
-
-
-def generate_image_url():
-    """Pollinations AI Character Image Link"""
-    print("Generating 3D Character Image URL...")
+def download_character_image(output_image="character.jpg"):
+    """Pollinations AI se Direct Image Download"""
+    print("Downloading 3D Character Image...")
     prompt = "3d Pixar style funny character, cute male character talking, front facing portrait, high quality"
     image_url = f"https://image.pollinations.ai/prompt/{requests.utils.quote(prompt)}?width=720&height=1280&nologo=true"
-    print(f"Image URL: {image_url}")
-    return image_url
-
-
-def generate_lipsync_video(audio_url, image_url):
-    """Replicate API / SadTalker backend for Lip-Sync Video"""
-    print("\n--- Starting Video Generation ---")
-
-    if not REPLICATE_API_TOKEN:
-        print("REPLICATE_API_TOKEN missing. Direct video output fallback activated.")
-        # Direct MP4 fallback download
-        download_res = requests.get(image_url)
-        if download_res.status_code == 200:
-            print("Image generated successfully as asset.")
-            return None
-
-    headers = {
-        "Authorization": f"Bearer {REPLICATE_API_TOKEN}",
-        "Content-Type": "application/json"
-    }
-
-    url = "https://api.replicate.com/v1/predictions"
-    payload = {
-        "version": "c52892e22f2549d49931b2e65d83648a39a73752e259e000c25b822d6b38c032",
-        "input": {
-            "source_image": image_url,
-            "driven_audio": audio_url,
-            "still": True,
-            "enhancer": "gfpgan"
-        }
-    }
-
-    print("Submitting LipSync job to Replicate API...")
-    res = requests.post(url, json=payload, headers=headers)
     
-    if res.status_code not in [200, 201]:
-        print(f"Replicate Submission Error {res.status_code}: {res.text}")
+    res = requests.get(image_url)
+    if res.status_code == 200:
+        with open(output_image, "wb") as f:
+            f.write(res.content)
+        print(f"Image saved to: {output_image}")
+        return output_image
+    else:
+        print("Failed to download image.")
         return None
 
-    prediction = res.json()
-    prediction_id = prediction.get("id")
-    print(f"Prediction Created. ID: {prediction_id}")
 
-    status_url = f"https://api.replicate.com/v1/predictions/{prediction_id}"
-    max_retries = 36
-    attempts = 0
-
-    while attempts < max_retries:
-        attempts += 1
-        st_res = requests.get(status_url, headers=headers)
+def create_video_with_ffmpeg(image_path, audio_path, output_video="final_short.mp4"):
+    """FFmpeg ke zariye Image aur Audio ko Short Video (.mp4) me convert karna"""
+    print("Building Short Video with FFmpeg...")
+    try:
+        command = [
+            "ffmpeg",
+            "-loop", "1",
+            "-i", image_path,
+            "-i", audio_path,
+            "-c:v", "libx264",
+            "-tune", "stillimage",
+            "-c:a", "aac",
+            "-b:a", "192k",
+            "-pix_fmt", "yuv420p",
+            "-shortest",
+            "-y",
+            output_video
+        ]
         
-        if st_res.status_code == 200:
-            data = st_res.json()
-            status = data.get("status")
-
-            if status == "succeeded":
-                video_url = data.get("output")
-                print(f"\nSUCCESS: Video URL: {video_url}")
-
-                download_res = requests.get(video_url)
-                if download_res.status_code == 200:
-                    output_video = "final_short.mp4"
-                    with open(output_video, "wb") as f:
-                        f.write(download_res.content)
-                    print(f"Saved locally as '{output_video}'")
-                    return output_video
-            elif status == "failed":
-                print(f"Generation Failed: {data.get('error')}")
-                return None
-
-            print(f"Status: '{status}' ({attempts}/{max_retries}). Waiting 5s...")
-        time.sleep(5)
-
-    print("Polling timed out!")
-    return None
+        result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if result.returncode == 0:
+            print(f"SUCCESS: Video created at '{output_video}'")
+            return output_video
+        else:
+            print(f"FFmpeg Error: {result.stderr.decode('utf-8')}")
+            return None
+    except Exception as e:
+        print(f"Video Creation Failed: {e}")
+        return None
 
 
 # ==========================================
@@ -172,17 +118,14 @@ if __name__ == "__main__":
     print("=== YouTube Shorts Automation Bot Started ===")
 
     script_text = generate_script()
-    local_audio_path = generate_audio(script_text)
-    
-    public_audio_url = upload_audio_to_public_url(local_audio_path)
-    if not public_audio_url:
-        print("Failed to host audio. Terminating.")
-        exit(1)
+    audio_path = generate_audio(script_text)
+    image_path = download_character_image()
 
-    image_url = generate_image_url()
-    result = generate_lipsync_video(public_audio_url, image_url)
-
-    if result:
-        print("\n=== Workflow Completed Successfully! ===")
+    if image_path and audio_path:
+        video_result = create_video_with_ffmpeg(image_path, audio_path)
+        if video_result:
+            print("\n=== Workflow Completed Successfully! ===")
+        else:
+            print("\n=== Workflow Failed at Video Creation ===")
     else:
-        print("\n=== Workflow Failed ===")
+        print("\n=== Workflow Failed at Media Generation ===")
