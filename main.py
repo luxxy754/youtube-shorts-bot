@@ -43,7 +43,8 @@ def generate_story_script():
     if not gemini_client:
         return default_data
 
-    models_to_try = ["gemini-2.5-flash", "gemini-1.5-flash"]
+    # Updated active Gemini models
+    models_to_try = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash-latest"]
     prompt_text = (
         "Create a funny 2-scene animated Hindi short story starring 3D cartoon veggies. "
         "Each scene must have a visual video prompt in English describing action/motion (max 12 words) and 1 pure Hindi dialogue line.\n\n"
@@ -80,21 +81,19 @@ def generate_story_script():
 
 
 def generate_video_replicate(prompt_text, idx):
-    """Generates Real Moving AI Video via Replicate Wan2.1 Model"""
+    """Generates Video via Replicate Wan 2.1 Model with Rate Limit handling"""
     print(f"Submitting Scene {idx+1} to Replicate Video Engine...")
     
-    # Rate limit handle karne ke liye 12-second delay
-    if idx > 0:
-        print("Waiting 12 seconds to respect Replicate free-tier rate limits...")
-        time.sleep(12)
+    # Free tier rate limits (1 req / 10 sec) se bachne ke liye cooldown delay
+    time.sleep(12)
 
     headers = {
         "Authorization": f"Bearer {REPLICATE_API_TOKEN}",
         "Content-Type": "application/json"
     }
 
-    # Model specific predictions endpoint
-    url = "https://api.replicate.com/v1/models/wan-video/wan-2.1-1.4b/predictions"
+    # Model deployment endpoint for Wan 2.1
+    url = "https://api.replicate.com/v1/models/wan-video/wan-2.1-t2v-480p/predictions"
     payload = {
         "input": {
             "prompt": prompt_text,
@@ -105,25 +104,17 @@ def generate_video_replicate(prompt_text, idx):
     try:
         res = requests.post(url, json=payload, headers=headers, timeout=30)
 
-        # Fallback to general predictions endpoint if model path varies
-        if res.status_code == 404 or res.status_code == 422:
-            print("Retrying with general Replicate version predictions endpoint...")
-            fallback_url = "https://api.replicate.com/v1/predictions"
-            payload_fallback = {
-                "version": "wan-video/wan-2.1-1.4b",
-                "input": {
-                    "prompt": prompt_text,
-                    "aspect_ratio": "9:16"
-                }
-            }
-            res = requests.post(fallback_url, json=payload_fallback, headers=headers, timeout=30)
+        # Retrying after rate-limit cooldown if 429 happens
+        if res.status_code == 429:
+            print("Rate limit reached! Waiting 15 seconds before retrying...")
+            time.sleep(15)
+            res = requests.post(url, json=payload, headers=headers, timeout=30)
 
         if res.status_code in [200, 201]:
             pred_data = res.json()
             pred_id = pred_data.get("id")
             poll_url = pred_data.get("urls", {}).get("get") or f"https://api.replicate.com/v1/predictions/{pred_id}"
             
-            # Polling loop
             print("Waiting for Wan 2.1 to render video...")
             for _ in range(40):
                 time.sleep(10)
