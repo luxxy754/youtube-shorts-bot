@@ -83,30 +83,49 @@ def generate_video_replicate(prompt_text, idx):
     """Generates Real Moving AI Video via Replicate Wan2.1 Model"""
     print(f"Submitting Scene {idx+1} to Replicate Video Engine...")
     
-    url = "https://api.replicate.com/v1/predictions"
+    # Rate limit handle karne ke liye 12-second delay
+    if idx > 0:
+        print("Waiting 12 seconds to respect Replicate free-tier rate limits...")
+        time.sleep(12)
+
     headers = {
         "Authorization": f"Bearer {REPLICATE_API_TOKEN}",
         "Content-Type": "application/json"
     }
-    
-    # Model: Wan 2.1 Video Generation
+
+    # Model specific predictions endpoint
+    url = "https://api.replicate.com/v1/models/wan-video/wan-2.1-1.4b/predictions"
     payload = {
-        "version": "wan-video/wan-2.1-1.4b",
         "input": {
             "prompt": prompt_text,
-            "aspect_ratio": "9:16",
-            "frames": 81
+            "aspect_ratio": "9:16"
         }
     }
 
     try:
         res = requests.post(url, json=payload, headers=headers, timeout=30)
+
+        # Fallback to general predictions endpoint if model path varies
+        if res.status_code == 404 or res.status_code == 422:
+            print("Retrying with general Replicate version predictions endpoint...")
+            fallback_url = "https://api.replicate.com/v1/predictions"
+            payload_fallback = {
+                "version": "wan-video/wan-2.1-1.4b",
+                "input": {
+                    "prompt": prompt_text,
+                    "aspect_ratio": "9:16"
+                }
+            }
+            res = requests.post(fallback_url, json=payload_fallback, headers=headers, timeout=30)
+
         if res.status_code in [200, 201]:
-            pred_id = res.json().get("id")
-            poll_url = f"https://api.replicate.com/v1/predictions/{pred_id}"
+            pred_data = res.json()
+            pred_id = pred_data.get("id")
+            poll_url = pred_data.get("urls", {}).get("get") or f"https://api.replicate.com/v1/predictions/{pred_id}"
             
-            # Polling for completion
-            for _ in range(30):
+            # Polling loop
+            print("Waiting for Wan 2.1 to render video...")
+            for _ in range(40):
                 time.sleep(10)
                 status_res = requests.get(poll_url, headers=headers).json()
                 status = status_res.get("status")
@@ -116,13 +135,14 @@ def generate_video_replicate(prompt_text, idx):
                     if isinstance(output_url, list):
                         output_url = output_url[0]
                     
-                    vid_bytes = requests.get(output_url).content
+                    vid_bytes = requests.get(output_url, timeout=60).content
                     out_file = f"replicate_scene_{idx}.mp4"
                     with open(out_file, "wb") as f:
                         f.write(vid_bytes)
+                    print(f"Scene {idx+1} video rendered successfully!")
                     return out_file
                 elif status == "failed":
-                    print("Replicate rendering failed.")
+                    print(f"Replicate rendering failed: {status_res.get('error')}")
                     return None
         else:
             print(f"Replicate API Error: {res.status_code} - {res.text}")
