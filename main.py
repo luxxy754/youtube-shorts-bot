@@ -1,5 +1,6 @@
 import os
 import time
+import random
 import requests
 import subprocess
 from gtts import gTTS
@@ -29,19 +30,20 @@ if GEMINI_AVAILABLE and GEMINI_API_KEY:
 # 2. HELPER FUNCTIONS
 # ==========================================
 def generate_script():
-    """Gemini AI se Script generate karne ke liye"""
-    print("Generating Hindi Script...")
+    """Gemini AI se Trending Short Script Generate Karna"""
+    print("Generating Script via Gemini...")
     if not client:
-        return "हां भाई, चाय पी लो पहले, काम तो होता रहेगा!"
+        return "आज का ज्ञान: डायमंड खरीदो या सब्जी, एटीट्यूड भारी होना चाहिए!"
 
     models_to_try = ["gemini-2.5-flash", "gemini-1.5-flash"]
-    
+    prompt_text = "Write a super short, 1-line viral funny Hindi quote/joke for a YouTube Short about luxury jewelry or funny vegetables. Under 12 words."
+
     for model_name in models_to_try:
         for attempt in range(3):
             try:
                 response = client.models.generate_content(
                     model=model_name,
-                    contents="Write a very short, funny 1-line joke in Hindi (Devanagari script) for a YouTube Short character. Keep it under 15 words."
+                    contents=prompt_text
                 )
                 script_text = response.text.strip()
                 print(f"Generated Script: {script_text}")
@@ -49,13 +51,12 @@ def generate_script():
             except Exception as e:
                 print(f"Gemini Error ({model_name}): {e}")
                 time.sleep(2)
-                
-    print("Using fallback script.")
-    return "हां भाई, चाय पी लो पहले, काम तो होता रहेगा!"
+
+    return "आज का ज्ञान: डायमंड खरीदो या सब्जी, एटीट्यूड भारी होना चाहिए!"
 
 
 def generate_audio(text, output_file="hindi_audio.mp3"):
-    """gTTS ke zariye Audio File generate karne ke liye"""
+    """Hindi Audio Generation"""
     print("Generating Hindi Audio via gTTS...")
     tts = gTTS(text=text, lang="hi", slow=False)
     tts.save(output_file)
@@ -63,51 +64,65 @@ def generate_audio(text, output_file="hindi_audio.mp3"):
     return output_file
 
 
-def download_character_image(output_image="character.jpg"):
-    """Pollinations AI se Direct Image Download"""
-    print("Downloading 3D Character Image...")
-    prompt = "3d Pixar style funny character, cute male character talking, front facing portrait, high quality"
-    image_url = f"https://image.pollinations.ai/prompt/{requests.utils.quote(prompt)}?width=720&height=1280&nologo=true"
+def generate_trending_ai_video(output_video="ai_generated_base.mp4"):
+    """Pollinations AI Free Unlimited Video Engine"""
+    print("Generating Trending AI Video clip...")
     
-    res = requests.get(image_url)
+    # Trending video themes: Hulk with Jewelry or Funny Talking Vegetable
+    trending_prompts = [
+        "Incredible Hulk wearing massive sparkling black diamond chain and luxury Rolex watch, cinematic lighting, 4k resolution, hyperrealistic, moving character",
+        "Funny cute 3d talking carrot with big eyes talking animatedly, pixar style, vibrant colors, photorealistic motion, 4k",
+        "Muscular Hulk adorned in rich iced out platinum diamond necklace, flexes in luxury setting, cinematic camera motion, highly detailed"
+    ]
+    
+    chosen_prompt = random.choice(trending_prompts)
+    print(f"Selected Prompt: {chosen_prompt}")
+
+    encoded_prompt = requests.utils.quote(chosen_prompt)
+    seed = random.randint(1000, 99999)
+    video_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=720&height=1280&model=video&seed={seed}&nologo=true"
+
+    print("Requesting video stream from server...")
+    res = requests.get(video_url, stream=True)
     if res.status_code == 200:
-        with open(output_image, "wb") as f:
-            f.write(res.content)
-        print(f"Image saved to: {output_image}")
-        return output_image
+        with open(output_video, "wb") as f:
+            for chunk in res.iter_content(chunk_size=1024*1024):
+                if chunk:
+                    f.write(chunk)
+        print(f"Base AI Video saved at: {output_video}")
+        return output_video
     else:
-        print("Failed to download image.")
+        print(f"Video Generation failed with HTTP {res.status_code}")
         return None
 
 
-def create_video_with_ffmpeg(image_path, audio_path, output_video="final_short.mp4"):
-    """FFmpeg ke zariye Image aur Audio ko Short Video (.mp4) me convert karna"""
-    print("Building Short Video with FFmpeg...")
+def merge_video_and_audio(video_file, audio_file, final_output="final_short.mp4"):
+    """FFmpeg Sync for Video & Voiceover"""
+    print("Syncing AI Video with Voiceover using FFmpeg...")
     try:
         command = [
             "ffmpeg",
-            "-loop", "1",
-            "-i", image_path,
-            "-i", audio_path,
-            "-c:v", "libx264",
-            "-tune", "stillimage",
+            "-stream_loop", "-1",
+            "-i", video_file,
+            "-i", audio_file,
+            "-c:v", "copy",
             "-c:a", "aac",
-            "-b:a", "192k",
-            "-pix_fmt", "yuv420p",
+            "-map", "0:v:0",
+            "-map", "1:a:0",
             "-shortest",
             "-y",
-            output_video
+            final_output
         ]
         
         result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         if result.returncode == 0:
-            print(f"SUCCESS: Video created at '{output_video}'")
-            return output_video
+            print(f"SUCCESS: Final Short Created at '{final_output}'")
+            return final_output
         else:
             print(f"FFmpeg Error: {result.stderr.decode('utf-8')}")
             return None
     except Exception as e:
-        print(f"Video Creation Failed: {e}")
+        print(f"Merge Exception: {e}")
         return None
 
 
@@ -115,17 +130,17 @@ def create_video_with_ffmpeg(image_path, audio_path, output_video="final_short.m
 # 3. MAIN EXECUTION PIPELINE
 # ==========================================
 if __name__ == "__main__":
-    print("=== YouTube Shorts Automation Bot Started ===")
+    print("=== Automated Trending Shorts Bot Started ===")
 
     script_text = generate_script()
     audio_path = generate_audio(script_text)
-    image_path = download_character_image()
+    base_video_path = generate_trending_ai_video()
 
-    if image_path and audio_path:
-        video_result = create_video_with_ffmpeg(image_path, audio_path)
-        if video_result:
+    if base_video_path and audio_path:
+        final_result = merge_video_and_audio(base_video_path, audio_path)
+        if final_result:
             print("\n=== Workflow Completed Successfully! ===")
         else:
-            print("\n=== Workflow Failed at Video Creation ===")
+            print("\n=== Workflow Failed at Syncing Step ===")
     else:
-        print("\n=== Workflow Failed at Media Generation ===")
+        print("\n=== Workflow Failed at Generation Step ===")
