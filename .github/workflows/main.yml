@@ -24,7 +24,7 @@ jobs:
       - name: Install Python Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install google-genai requests gtts
+          pip install -r requirements.txt
 
       - name: Run Automation Bot Script
         env:
