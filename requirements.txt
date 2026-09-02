@@ -1,3 +1,4 @@
 requests
 gTTS
 google-genai
+lumaai
