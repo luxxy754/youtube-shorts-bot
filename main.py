@@ -31,8 +31,7 @@ def generate_script():
     models_to_try = ["gemini-2.5-flash", "gemini-1.5-flash"]
     prompt_text = (
         "Write 1 dramatic emotional funny dialog in Hindi spoken by a crying 3D animated onion. "
-        "Strictly write only the Hindi dialogue text (in Devnagari or Hinglish), under 10 words. "
-        "Example: ओ यारों, मेरा यार ना रहा मेरा!"
+        "Strictly write only the Hindi dialogue text, under 8 words."
     )
 
     for model_name in models_to_try:
@@ -61,45 +60,61 @@ def generate_audio(text, output_file="hindi_audio.mp3"):
 
 
 def generate_video_free_pollinations(prompt_text, output_video="ai_video.mp4"):
-    """3D Video Generation via Free Engine"""
-    print("Generating 3D AI Video via Pollinations Engine...")
+    """Stable 3D AI Visual Engine"""
+    print("Generating 3D AI Visual via Pollinations Engine...")
     seed = random.randint(10000, 999999)
-    encoded_prompt = requests.utils.quote(prompt_text)
     
-    video_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=720&height=1280&model=flux&seed={seed}&nologo=true"
+    # Shortened and cleaned prompt to prevent HTTP 500 server errors
+    clean_prompt = "3D Pixar style animated crying onion character, big teary eyes, weeping, dramatic emotional face, 9:16 vertical 4k"
+    encoded_prompt = requests.utils.quote(clean_prompt)
+    
+    image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=720&height=1280&seed={seed}&nologo=true&model=pixart"
 
     try:
         headers = {'User-Agent': 'Mozilla/5.0'}
-        res = requests.get(video_url, headers=headers, stream=True, timeout=120)
+        res = requests.get(image_url, headers=headers, timeout=60)
         
         if res.status_code == 200:
-            with open(output_video, "wb") as f:
-                for chunk in res.iter_content(chunk_size=1024*1024):
-                    if chunk:
-                        f.write(chunk)
-            print(f"AI Video downloaded successfully: {output_video}")
+            temp_img = "temp_scene.jpg"
+            with open(temp_img, "wb") as f:
+                f.write(res.content)
+            print(f"AI Visual generated successfully: {temp_img}")
+
+            # FFmpeg Command to convert 3D Render into Motion Short Video
+            ffmpeg_cmd = [
+                "ffmpeg",
+                "-loop", "1",
+                "-i", temp_img,
+                "-vf", "zoompan=z='min(zoom+0.0015,1.15)':d=125:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=720x1280",
+                "-c:v", "libx264",
+                "-t", "5",
+                "-pix_fmt", "yuv420p",
+                "-y",
+                output_video
+            ]
+            subprocess.run(ffmpeg_cmd, check=True)
             return output_video
         else:
-            print(f"Pollinations Video Engine HTTP Error: {res.status_code}")
+            print(f"Pollinations HTTP Error: {res.status_code}")
             return None
     except Exception as e:
-        print(f"Video Generation Exception: {e}")
+        print(f"Visual Generation Exception: {e}")
         return None
 
 
 def merge_video_audio(video_file, audio_file, final_output="final_short.mp4"):
-    """FFmpeg Syncing Video & Audio"""
+    """FFmpeg Syncing Video & Voiceover"""
     print("Merging Video & Voiceover via FFmpeg...")
     
     command = [
         "ffmpeg",
-        "-ignore_loop", "0",
+        "-stream_loop", "-1",
         "-i", video_file,
         "-i", audio_file,
-        "-c:v", "libx264",
-        "-pix_fmt", "yuv420p",
+        "-c:v", "copy",
         "-c:a", "aac",
-        "-b:a", "192k",
+        "-map", "0:v:0",
+        "-map", "1:a:0",
         "-shortest",
         "-y",
         final_output
@@ -107,30 +122,11 @@ def merge_video_audio(video_file, audio_file, final_output="final_short.mp4"):
     
     result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if result.returncode == 0:
-        print(f"SUCCESS: Final Short Video created at '{final_output}'")
+        print(f"SUCCESS: Final Short Video produced at '{final_output}'")
         return final_output
     else:
-        print("Retrying FFmpeg basic stream merge...")
-        fallback_cmd = [
-            "ffmpeg",
-            "-stream_loop", "-1",
-            "-i", video_file,
-            "-i", audio_file,
-            "-c:v", "copy",
-            "-c:a", "aac",
-            "-map", "0:v:0",
-            "-map", "1:a:0",
-            "-shortest",
-            "-y",
-            final_output
-        ]
-        res_fb = subprocess.run(fallback_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        if res_fb.returncode == 0:
-            print(f"SUCCESS: Final Short Video created at '{final_output}'")
-            return final_output
-        else:
-            print(f"FFmpeg Error: {res_fb.stderr.decode('utf-8')}")
-            return None
+        print(f"FFmpeg Error: {result.stderr.decode('utf-8')}")
+        return None
 
 
 if __name__ == "__main__":
@@ -139,13 +135,9 @@ if __name__ == "__main__":
     script_text = generate_script()
     audio_path = generate_audio(script_text)
 
-    video_prompt = (
-        "3D Pixar style cinematic video of cute animated 3D crying onion character with big teary eyes, "
-        "dramatic emotional weeping face expression, talking and crying, rural village background, "
-        "9:16 vertical short format, highly detailed 3D animation"
-    )
+    prompt = "3D Pixar style animated crying onion character"
 
-    generated_video = generate_video_free_pollinations(video_prompt)
+    generated_video = generate_video_free_pollinations(prompt)
 
     if generated_video and audio_path:
         final_video = merge_video_audio(generated_video, audio_path)
