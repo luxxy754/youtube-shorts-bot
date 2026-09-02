@@ -3,7 +3,7 @@ import re
 import time
 import requests
 import subprocess
-from gTTS import gTTS
+from gtts import gTTS
 
 # Gemini SDK Setup
 try:
