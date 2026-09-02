@@ -3,7 +3,7 @@ import time
 import random
 import requests
 import subprocess
-from gTTS import gTTS
+from gtts import gTTS
 
 # Gemini SDK Setup
 try:
@@ -42,7 +42,6 @@ def generate_script():
                 contents=prompt_text
             )
             script_text = response.text.strip()
-            # Clean unwanted text
             script_text = script_text.replace('*', '').replace('"', '').strip()
             print(f"Generated Script: {script_text}")
             return script_text
@@ -67,7 +66,6 @@ def generate_video_free_pollinations(prompt_text, output_video="ai_video.mp4"):
     seed = random.randint(10000, 999999)
     encoded_prompt = requests.utils.quote(prompt_text)
     
-    # 3D Animation Video Request
     video_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=720&height=1280&model=flux&seed={seed}&nologo=true"
 
     try:
@@ -90,10 +88,9 @@ def generate_video_free_pollinations(prompt_text, output_video="ai_video.mp4"):
 
 
 def merge_video_audio(video_file, audio_file, final_output="final_short.mp4"):
-    """FFmpeg Syncing & Looping Video to Match Audio Length"""
+    """FFmpeg Syncing Video & Audio"""
     print("Merging Video & Voiceover via FFmpeg...")
     
-    # FFmpeg command to loop video seamlessly and match voice duration
     command = [
         "ffmpeg",
         "-ignore_loop", "0",
@@ -113,7 +110,6 @@ def merge_video_audio(video_file, audio_file, final_output="final_short.mp4"):
         print(f"SUCCESS: Final Short Video created at '{final_output}'")
         return final_output
     else:
-        # Fallback simpler copy command if libx264 re-encode fails
         print("Retrying FFmpeg basic stream merge...")
         fallback_cmd = [
             "ffmpeg",
@@ -140,23 +136,17 @@ def merge_video_audio(video_file, audio_file, final_output="final_short.mp4"):
 if __name__ == "__main__":
     print("=== YouTube Shorts AI Automation Pipeline Started ===")
 
-    # Step 1: Dialogue
     script_text = generate_script()
-    
-    # Step 2: Voiceover
     audio_path = generate_audio(script_text)
 
-    # Step 3: Exact 3D Crying Vegetables Prompt (Like the YouTube Short)
     video_prompt = (
         "3D Pixar style cinematic video of cute animated 3D crying onion character with big teary eyes, "
         "dramatic emotional weeping face expression, talking and crying, rural village background, "
         "9:16 vertical short format, highly detailed 3D animation"
     )
 
-    # Step 4: AI Video Generation
     generated_video = generate_video_free_pollinations(video_prompt)
 
-    # Step 5: Merge Video + Audio
     if generated_video and audio_path:
         final_video = merge_video_audio(generated_video, audio_path)
         if final_video:
