@@ -98,11 +98,10 @@ def generate_audio(text, output_file="hindi_audio.mp3"):
 
 
 def generate_video_free_pollinations(visual_prompt, output_video="ai_video.mp4"):
-    """Dynamic 3D Visual Engine with Short Clean Prompt"""
+    """Optimized Fast & Small File Size Video Engine"""
     print(f"Generating 3D AI Visual for Topic: {visual_prompt}...")
     seed = random.randint(10000, 999999)
     
-    # Ensure prompt is short, clean, and safe for Pollinations engine
     clean_prompt = f"3D Pixar style {visual_prompt}, highly detailed, cute expressive character, 9:16 vertical 4k"
     encoded_prompt = requests.utils.quote(clean_prompt)
     
@@ -118,16 +117,17 @@ def generate_video_free_pollinations(visual_prompt, output_video="ai_video.mp4")
                 f.write(res.content)
             print(f"AI Visual generated successfully: {temp_img}")
 
-            # Duration set to 60 seconds max (1500 frames @ 25fps)
+            # Lightweight encoding settings: CRF 28 & ultrafast preset for tiny file size
             ffmpeg_cmd = [
                 "ffmpeg",
                 "-loop", "1",
                 "-i", temp_img,
-                "-vf", "scale=720:1280,zoompan=z='min(zoom+0.0004,1.15)':d=1500:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=720x1280",
+                "-vf", "scale=720:1280,zoompan=z='min(zoom+0.001,1.15)':d=750:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=720x1280",
                 "-c:v", "libx264",
                 "-preset", "ultrafast",
+                "-crf", "28",
                 "-r", "25",
-                "-t", "60",
+                "-t", "45",
                 "-pix_fmt", "yuv420p",
                 "-y",
                 output_video
@@ -153,6 +153,7 @@ def merge_video_audio(video_file, audio_file, final_output="final_short.mp4"):
         "-i", audio_file,
         "-c:v", "copy",
         "-c:a", "aac",
+        "-b:a", "128k",
         "-map", "0:v:0",
         "-map", "1:a:0",
         "-shortest",
