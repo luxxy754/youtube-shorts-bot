@@ -24,8 +24,8 @@ if GEMINI_AVAILABLE and GEMINI_API_KEY:
 
 
 def generate_topic_and_script():
-    """Generates a dynamic unique short topic + clean long script via Gemini"""
-    print("Selecting Dynamic Topic & Script via Gemini...")
+    """Generates dynamic topic and short 10-15 sec Hindi script via Gemini"""
+    print("Selecting Dynamic Topic & Short Script via Gemini...")
     
     fallback_topics = [
         "animated crying onion character",
@@ -37,7 +37,7 @@ def generate_topic_and_script():
     ]
     
     selected_topic = random.choice(fallback_topics)
-    default_script = "ओ यारों, आज मेरा दिल बहुत उदास है! सब मुझे देखकर हंसते हैं, पर मेरा दर्द कोई नहीं समझता. काश कोई मेरी भी बात सुने!"
+    default_script = "ओ यारों, आज मेरा दिल बहुत उदास है! सब मुझे देखकर हंसते हैं, पर मेरा दर्द कोई नहीं समझता."
 
     if not gemini_client:
         return selected_topic, default_script
@@ -46,8 +46,8 @@ def generate_topic_and_script():
     
     prompt_text = (
         "You are a viral YouTube Shorts creator. Choose 1 funny 3D animated character topic. "
-        "Write a 40 to 60 words dramatic emotional dialogue in pure Hindi script for the character. "
-        "Do NOT include any stage directions, English words, or text in brackets like (crying) or (sighs).\n\n"
+        "Write a SHORT 15 to 20 words dramatic emotional dialogue in pure Hindi script. "
+        "Do NOT include any stage directions or text in brackets.\n\n"
         "STRICT OUTPUT FORMAT:\n"
         "TOPIC: [3 to 5 words max English visual description, e.g. 3D animated anxious pressure cooker]\n"
         "SCRIPT: [Pure Hindi dialogue text only]"
@@ -71,8 +71,7 @@ def generate_topic_and_script():
                 script_part = re.sub(r'\[.*?\]', '', script_part)
                 script_part = script_part.replace('*', '').replace('"', '').strip()
                 
-                # Keep topic short (max 10 words) to avoid HTTP 500 error
-                topic_part = " ".join(topic_part.split()[:10])
+                topic_part = " ".join(topic_part.split()[:8])
                 
                 print(f"--- New Clean Topic --- \n{topic_part}")
                 print(f"--- Clean Script --- \n{script_part}")
@@ -98,11 +97,11 @@ def generate_audio(text, output_file="hindi_audio.mp3"):
 
 
 def generate_video_free_pollinations(visual_prompt, output_video="ai_video.mp4"):
-    """Optimized Fast & Small File Size Video Engine"""
+    """Lightweight 15-second Video Engine (Max 5MB file size)"""
     print(f"Generating 3D AI Visual for Topic: {visual_prompt}...")
     seed = random.randint(10000, 999999)
     
-    clean_prompt = f"3D Pixar style {visual_prompt}, highly detailed, cute expressive character, 9:16 vertical 4k"
+    clean_prompt = f"3D Pixar style {visual_prompt}, cute expressive character, 9:16 vertical"
     encoded_prompt = requests.utils.quote(clean_prompt)
     
     image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=720&height=1280&seed={seed}&nologo=true&model=pixart"
@@ -117,17 +116,17 @@ def generate_video_free_pollinations(visual_prompt, output_video="ai_video.mp4")
                 f.write(res.content)
             print(f"AI Visual generated successfully: {temp_img}")
 
-            # Lightweight encoding settings: CRF 28 & ultrafast preset for tiny file size
+            # Rendering exactly 15 seconds video (375 frames @ 25fps)
             ffmpeg_cmd = [
                 "ffmpeg",
                 "-loop", "1",
                 "-i", temp_img,
-                "-vf", "scale=720:1280,zoompan=z='min(zoom+0.001,1.15)':d=750:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=720x1280",
+                "-vf", "scale=720:1280,zoompan=z='min(zoom+0.0015,1.12)':d=375:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=720x1280",
                 "-c:v", "libx264",
                 "-preset", "ultrafast",
-                "-crf", "28",
+                "-crf", "30",
                 "-r", "25",
-                "-t", "45",
+                "-t", "15",
                 "-pix_fmt", "yuv420p",
                 "-y",
                 output_video
@@ -143,19 +142,16 @@ def generate_video_free_pollinations(visual_prompt, output_video="ai_video.mp4")
 
 
 def merge_video_audio(video_file, audio_file, final_output="final_short.mp4"):
-    """FFmpeg Syncing Video & Voiceover dynamically based on audio length"""
+    """Syncing Video & Audio accurately without loops"""
     print("Merging Video & Voiceover via FFmpeg...")
     
     command = [
         "ffmpeg",
-        "-stream_loop", "-1",
         "-i", video_file,
         "-i", audio_file,
         "-c:v", "copy",
         "-c:a", "aac",
         "-b:a", "128k",
-        "-map", "0:v:0",
-        "-map", "1:a:0",
         "-shortest",
         "-y",
         final_output
@@ -171,18 +167,18 @@ def merge_video_audio(video_file, audio_file, final_output="final_short.mp4"):
 
 
 if __name__ == "__main__":
-    print("=== Dynamic Trending YouTube Shorts Bot Started ===")
+    print("=== Fast Shorts Bot Started ===")
 
-    # Step 1: Generate dynamic topic and script
+    # Step 1: Topic & Script
     topic_prompt, script_text = generate_topic_and_script()
     
-    # Step 2: Generate Audio
+    # Step 2: Audio
     audio_path = generate_audio(script_text)
 
-    # Step 3: Generate matching 3D Video
+    # Step 3: Video
     generated_video = generate_video_free_pollinations(topic_prompt)
 
-    # Step 4: Sync & Output
+    # Step 4: Sync
     if generated_video and audio_path:
         final_video = merge_video_audio(generated_video, audio_path)
         if final_video:
