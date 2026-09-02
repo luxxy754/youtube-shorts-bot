@@ -22,16 +22,37 @@ if GEMINI_AVAILABLE and GEMINI_API_KEY:
         print(f"Gemini Init Warning: {e}")
 
 
-def generate_script():
-    """YouTube Shorts Style Script Generation"""
-    print("Generating Hindi Script via Gemini...")
+def generate_topic_and_script():
+    """Generates a dynamic unique topic + long script (30-60 secs) via Gemini"""
+    print("Selecting Dynamic Topic & Script via Gemini...")
+    
+    # Fallback topics in case API fails
+    fallback_topics = [
+        "A 3D animated crying onion who complains people cry when cutting him",
+        "A 3D animated angry red chilli warning people not to eat him",
+        "A 3D animated melting ice cream scared of the hot summer sun",
+        "A 3D animated chai cup complaining people sip him too fast",
+        "A 3D animated sad potato who wants to be famous fries",
+        "A 3D animated dramatic mango boasting he is the king of fruits",
+        "A 3D animated smartphone complaining it gets used all night"
+    ]
+    
+    selected_topic = random.choice(fallback_topics)
+    default_script = "ओ यारों, आज मेरा दिल बहुत उदास है! सब मुझे देखकर हंसते हैं, पर मेरा दर्द कोई नहीं समझता. काश कोई मेरी भी बात सुने!"
+
     if not gemini_client:
-        return "ओ यारों, मेरा यार ना रहा मेरा!"
+        return selected_topic, default_script
 
     models_to_try = ["gemini-2.5-flash", "gemini-1.5-flash"]
+    
     prompt_text = (
-        "Write 1 dramatic emotional funny dialog in Hindi spoken by a crying 3D animated onion. "
-        "Strictly write only the Hindi dialogue text, under 8 words."
+        "You are a viral YouTube Shorts creator. Choose 1 funny, unique, dramatic, 3D animated character topic "
+        "(like crying onion, angry chilli, melting ice cream, dramatic mango, stressed chai cup, etc.). "
+        "Then write a 40 to 60 words dramatic emotional funny monologue dialogue in Hindi spoken by that character. "
+        "The dialogue should take around 30 to 45 seconds to speak out loud.\n\n"
+        "STRICT OUTPUT FORMAT:\n"
+        "TOPIC: [Visual prompt description of the 3D animated character in English]\n"
+        "SCRIPT: [Hindi dialogue text only]"
     )
 
     for model_name in models_to_try:
@@ -40,14 +61,25 @@ def generate_script():
                 model=model_name,
                 contents=prompt_text
             )
-            script_text = response.text.strip()
-            script_text = script_text.replace('*', '').replace('"', '').strip()
-            print(f"Generated Script: {script_text}")
-            return script_text
+            raw_text = response.text.strip()
+            
+            if "TOPIC:" in raw_text and "SCRIPT:" in raw_text:
+                parts = raw_text.split("SCRIPT:")
+                topic_part = parts[0].replace("TOPIC:", "").strip()
+                script_part = parts[1].strip().replace('*', '').replace('"', '').strip()
+                
+                print(f"--- New Topic Generated --- \n{topic_part}")
+                print(f"--- Script Generated --- \n{script_part}")
+                return topic_part, script_part
+            else:
+                # If Gemini gave plain script without format label
+                script_part = raw_text.replace('*', '').replace('"', '').strip()
+                return selected_topic, script_part
+                
         except Exception as e:
             print(f"Gemini Error ({model_name}): {e}")
 
-    return "ओ यारों, मेरा यार ना रहा मेरा!"
+    return selected_topic, default_script
 
 
 def generate_audio(text, output_file="hindi_audio.mp3"):
@@ -59,13 +91,12 @@ def generate_audio(text, output_file="hindi_audio.mp3"):
     return output_file
 
 
-def generate_video_free_pollinations(prompt_text, output_video="ai_video.mp4"):
-    """Stable 3D AI Visual Engine"""
-    print("Generating 3D AI Visual via Pollinations Engine...")
+def generate_video_free_pollinations(visual_prompt, output_video="ai_video.mp4"):
+    """Dynamic 3D Visual Engine for any character (30-60 second video)"""
+    print(f"Generating 3D AI Visual for Topic: {visual_prompt}...")
     seed = random.randint(10000, 999999)
     
-    # Shortened and cleaned prompt to prevent HTTP 500 server errors
-    clean_prompt = "3D Pixar style animated crying onion character, big teary eyes, weeping, dramatic emotional face, 9:16 vertical 4k"
+    clean_prompt = f"3D Pixar style animated {visual_prompt}, highly detailed, cute expressive face, dramatic lighting, 9:16 vertical 4k"
     encoded_prompt = requests.utils.quote(clean_prompt)
     
     image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=720&height=1280&seed={seed}&nologo=true&model=pixart"
@@ -80,14 +111,16 @@ def generate_video_free_pollinations(prompt_text, output_video="ai_video.mp4"):
                 f.write(res.content)
             print(f"AI Visual generated successfully: {temp_img}")
 
-            # FFmpeg Command to convert 3D Render into Motion Short Video
+            # Duration set to 60 seconds max (1500 frames @ 25fps) with smooth slow zoom
             ffmpeg_cmd = [
                 "ffmpeg",
                 "-loop", "1",
                 "-i", temp_img,
-                "-vf", "zoompan=z='min(zoom+0.0015,1.15)':d=125:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=720x1280",
+                "-vf", "scale=720:1280,zoompan=z='min(zoom+0.0004,1.15)':d=1500:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=720x1280",
                 "-c:v", "libx264",
-                "-t", "5",
+                "-preset", "ultrafast",
+                "-r", "25",
+                "-t", "60",
                 "-pix_fmt", "yuv420p",
                 "-y",
                 output_video
@@ -103,7 +136,7 @@ def generate_video_free_pollinations(prompt_text, output_video="ai_video.mp4"):
 
 
 def merge_video_audio(video_file, audio_file, final_output="final_short.mp4"):
-    """FFmpeg Syncing Video & Voiceover"""
+    """FFmpeg Syncing Video & Voiceover dynamically based on audio length"""
     print("Merging Video & Voiceover via FFmpeg...")
     
     command = [
@@ -130,15 +163,18 @@ def merge_video_audio(video_file, audio_file, final_output="final_short.mp4"):
 
 
 if __name__ == "__main__":
-    print("=== YouTube Shorts AI Automation Pipeline Started ===")
+    print("=== Dynamic Trending YouTube Shorts Bot Started ===")
 
-    script_text = generate_script()
+    # Step 1: Generate dynamic topic and script
+    topic_prompt, script_text = generate_topic_and_script()
+    
+    # Step 2: Generate Audio
     audio_path = generate_audio(script_text)
 
-    prompt = "3D Pixar style animated crying onion character"
+    # Step 3: Generate matching 3D Video
+    generated_video = generate_video_free_pollinations(topic_prompt)
 
-    generated_video = generate_video_free_pollinations(prompt)
-
+    # Step 4: Sync & Output
     if generated_video and audio_path:
         final_video = merge_video_audio(generated_video, audio_path)
         if final_video:
