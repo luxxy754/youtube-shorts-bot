@@ -1,4 +1,5 @@
 import os
+import re
 import time
 import random
 import requests
@@ -23,18 +24,16 @@ if GEMINI_AVAILABLE and GEMINI_API_KEY:
 
 
 def generate_topic_and_script():
-    """Generates a dynamic unique topic + long script (30-60 secs) via Gemini"""
+    """Generates a dynamic unique short topic + clean long script via Gemini"""
     print("Selecting Dynamic Topic & Script via Gemini...")
     
-    # Fallback topics in case API fails
     fallback_topics = [
-        "A 3D animated crying onion who complains people cry when cutting him",
-        "A 3D animated angry red chilli warning people not to eat him",
-        "A 3D animated melting ice cream scared of the hot summer sun",
-        "A 3D animated chai cup complaining people sip him too fast",
-        "A 3D animated sad potato who wants to be famous fries",
-        "A 3D animated dramatic mango boasting he is the king of fruits",
-        "A 3D animated smartphone complaining it gets used all night"
+        "animated crying onion character",
+        "animated angry red chilli character",
+        "animated melting ice cream character",
+        "animated scared pressure cooker character",
+        "animated sad potato character",
+        "animated dramatic mango character"
     ]
     
     selected_topic = random.choice(fallback_topics)
@@ -46,13 +45,12 @@ def generate_topic_and_script():
     models_to_try = ["gemini-2.5-flash", "gemini-1.5-flash"]
     
     prompt_text = (
-        "You are a viral YouTube Shorts creator. Choose 1 funny, unique, dramatic, 3D animated character topic "
-        "(like crying onion, angry chilli, melting ice cream, dramatic mango, stressed chai cup, etc.). "
-        "Then write a 40 to 60 words dramatic emotional funny monologue dialogue in Hindi spoken by that character. "
-        "The dialogue should take around 30 to 45 seconds to speak out loud.\n\n"
+        "You are a viral YouTube Shorts creator. Choose 1 funny 3D animated character topic. "
+        "Write a 40 to 60 words dramatic emotional dialogue in pure Hindi script for the character. "
+        "Do NOT include any stage directions, English words, or text in brackets like (crying) or (sighs).\n\n"
         "STRICT OUTPUT FORMAT:\n"
-        "TOPIC: [Visual prompt description of the 3D animated character in English]\n"
-        "SCRIPT: [Hindi dialogue text only]"
+        "TOPIC: [3 to 5 words max English visual description, e.g. 3D animated anxious pressure cooker]\n"
+        "SCRIPT: [Pure Hindi dialogue text only]"
     )
 
     for model_name in models_to_try:
@@ -66,14 +64,22 @@ def generate_topic_and_script():
             if "TOPIC:" in raw_text and "SCRIPT:" in raw_text:
                 parts = raw_text.split("SCRIPT:")
                 topic_part = parts[0].replace("TOPIC:", "").strip()
-                script_part = parts[1].strip().replace('*', '').replace('"', '').strip()
+                script_part = parts[1].strip()
                 
-                print(f"--- New Topic Generated --- \n{topic_part}")
-                print(f"--- Script Generated --- \n{script_part}")
+                # Clean brackets/parentheses and extra markup from script
+                script_part = re.sub(r'\(.*?\)', '', script_part)
+                script_part = re.sub(r'\[.*?\]', '', script_part)
+                script_part = script_part.replace('*', '').replace('"', '').strip()
+                
+                # Keep topic short (max 10 words) to avoid HTTP 500 error
+                topic_part = " ".join(topic_part.split()[:10])
+                
+                print(f"--- New Clean Topic --- \n{topic_part}")
+                print(f"--- Clean Script --- \n{script_part}")
                 return topic_part, script_part
             else:
-                # If Gemini gave plain script without format label
-                script_part = raw_text.replace('*', '').replace('"', '').strip()
+                script_part = re.sub(r'\(.*?\)', '', raw_text)
+                script_part = script_part.replace('*', '').replace('"', '').strip()
                 return selected_topic, script_part
                 
         except Exception as e:
@@ -92,11 +98,12 @@ def generate_audio(text, output_file="hindi_audio.mp3"):
 
 
 def generate_video_free_pollinations(visual_prompt, output_video="ai_video.mp4"):
-    """Dynamic 3D Visual Engine for any character (30-60 second video)"""
+    """Dynamic 3D Visual Engine with Short Clean Prompt"""
     print(f"Generating 3D AI Visual for Topic: {visual_prompt}...")
     seed = random.randint(10000, 999999)
     
-    clean_prompt = f"3D Pixar style animated {visual_prompt}, highly detailed, cute expressive face, dramatic lighting, 9:16 vertical 4k"
+    # Ensure prompt is short, clean, and safe for Pollinations engine
+    clean_prompt = f"3D Pixar style {visual_prompt}, highly detailed, cute expressive character, 9:16 vertical 4k"
     encoded_prompt = requests.utils.quote(clean_prompt)
     
     image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=720&height=1280&seed={seed}&nologo=true&model=pixart"
@@ -111,7 +118,7 @@ def generate_video_free_pollinations(visual_prompt, output_video="ai_video.mp4")
                 f.write(res.content)
             print(f"AI Visual generated successfully: {temp_img}")
 
-            # Duration set to 60 seconds max (1500 frames @ 25fps) with smooth slow zoom
+            # Duration set to 60 seconds max (1500 frames @ 25fps)
             ffmpeg_cmd = [
                 "ffmpeg",
                 "-loop", "1",
