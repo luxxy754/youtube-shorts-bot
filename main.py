@@ -23,34 +23,34 @@ if GEMINI_AVAILABLE and GEMINI_API_KEY:
         print(f"Gemini Init Warning: {e}")
 
 
-def generate_topic_and_script():
-    """Generates dynamic topic and short 10-15 sec Hindi script via Gemini"""
-    print("Selecting Dynamic Topic & Short Script via Gemini...")
-    
-    fallback_topics = [
-        "animated crying onion character",
-        "animated angry red chilli character",
-        "animated melting ice cream character",
-        "animated scared pressure cooker character",
-        "animated sad potato character",
-        "animated dramatic mango character"
-    ]
-    
-    selected_topic = random.choice(fallback_topics)
-    default_script = "ओ यारों, आज मेरा दिल बहुत उदास है! सब मुझे देखकर हंसते हैं, पर मेरा दर्द कोई नहीं समझता."
+def generate_story_script():
+    """Generates a 3-Scene Hindi Animated Story Script via Gemini"""
+    print("Generating Multi-Scene Animated Story Script via Gemini...")
+
+    default_data = {
+        "character": "3D Pixar animated cute Aalu character",
+        "scenes": [
+            {"prompt": "3D Pixar style animated Aalu character looking confused in a market", "script": "ओ यारों, आज मैं नया कारोबार शुरू करने निकला हूँ!"},
+            {"prompt": "3D Pixar style animated angry Baingan character staring fiercely", "script": "अरे बैंगन भाई, तुम मुझसे इतना जलते क्यों हो?"},
+            {"prompt": "3D Pixar style animated Aalu character celebrating happily", "script": "मेहनत का फल मीठा होता है, अब मेरा काम चल पड़ा!"}
+        ]
+    }
 
     if not gemini_client:
-        return selected_topic, default_script
+        return default_data
 
     models_to_try = ["gemini-2.5-flash", "gemini-1.5-flash"]
-    
     prompt_text = (
-        "You are a viral YouTube Shorts creator. Choose 1 funny 3D animated character topic. "
-        "Write a SHORT 15 to 20 words dramatic emotional dialogue in pure Hindi script. "
-        "Do NOT include any stage directions or text in brackets.\n\n"
-        "STRICT OUTPUT FORMAT:\n"
-        "TOPIC: [3 to 5 words max English visual description, e.g. 3D animated anxious pressure cooker]\n"
-        "SCRIPT: [Pure Hindi dialogue text only]"
+        "Create a funny 3-scene animated Hindi short story starring 3D veggie characters like Aalu, Baingan, Gajar, Chilli. "
+        "Each scene must have a short visual image description in English (max 6 words) and 1 pure Hindi dialogue line (under 10 words). "
+        "Do NOT use brackets or stage directions.\n\n"
+        "STRICT FORMAT:\n"
+        "SCENE 1 IMAGE: [3D Pixar animated character visual prompt]\n"
+        "SCENE 1 SCRIPT: [Hindi dialogue line]\n"
+        "SCENE 2 IMAGE: [3D Pixar animated character visual prompt]\n"
+        "SCENE 2 SCRIPT: [Hindi dialogue line]\n"
+        "SCENE 3 IMAGE: [3D Pixar animated character visual prompt]\n"
+        "SCENE 3 SCRIPT: [Hindi dialogue line]"
     )
 
     for model_name in models_to_try:
@@ -61,129 +61,135 @@ def generate_topic_and_script():
             )
             raw_text = response.text.strip()
             
-            if "TOPIC:" in raw_text and "SCRIPT:" in raw_text:
-                parts = raw_text.split("SCRIPT:")
-                topic_part = parts[0].replace("TOPIC:", "").strip()
-                script_part = parts[1].strip()
-                
-                # Clean brackets/parentheses and extra markup from script
-                script_part = re.sub(r'\(.*?\)', '', script_part)
-                script_part = re.sub(r'\[.*?\]', '', script_part)
-                script_part = script_part.replace('*', '').replace('"', '').strip()
-                
-                topic_part = " ".join(topic_part.split()[:8])
-                
-                print(f"--- New Clean Topic --- \n{topic_part}")
-                print(f"--- Clean Script --- \n{script_part}")
-                return topic_part, script_part
-            else:
-                script_part = re.sub(r'\(.*?\)', '', raw_text)
-                script_part = script_part.replace('*', '').replace('"', '').strip()
-                return selected_topic, script_part
-                
+            scenes = []
+            img_prompts = re.findall(r'SCENE \d+ IMAGE:\s*(.*)', raw_text)
+            scripts = re.findall(r'SCENE \d+ SCRIPT:\s*(.*)', raw_text)
+
+            if len(img_prompts) >= 3 and len(scripts) >= 3:
+                for i in range(3):
+                    clean_script = re.sub(r'\(.*?\)', '', scripts[i]).replace('*', '').replace('"', '').strip()
+                    clean_prompt = " ".join(img_prompts[i].split()[:8])
+                    scenes.append({"prompt": clean_prompt, "script": clean_script})
+                return {"scenes": scenes}
+
         except Exception as e:
-            print(f"Gemini Error ({model_name}): {e}")
+            print(f"Gemini Story Error ({model_name}): {e}")
 
-    return selected_topic, default_script
-
-
-def generate_audio(text, output_file="hindi_audio.mp3"):
-    """Voiceover Generation using gTTS"""
-    print("Generating Hindi Voiceover...")
-    tts = gTTS(text=text, lang="hi", slow=False)
-    tts.save(output_file)
-    print(f"Audio saved to: {output_file}")
-    return output_file
+    return default_data
 
 
-def generate_video_free_pollinations(visual_prompt, output_video="ai_video.mp4"):
-    """Lightweight 15-second Video Engine (Max 5MB file size)"""
-    print(f"Generating 3D AI Visual for Topic: {visual_prompt}...")
+def generate_audio_segments(scenes):
+    """Generates audio for each scene and returns file list"""
+    audio_files = []
+    print("Generating Hindi Voiceovers for Scenes...")
+    for idx, scene in enumerate(scenes):
+        out_file = f"audio_scene_{idx}.mp3"
+        tts = gTTS(text=scene["script"], lang="hi", slow=False)
+        tts.save(out_file)
+        audio_files.append(out_file)
+    return audio_files
+
+
+def download_scene_image(visual_prompt, idx):
+    """Downloads 3D Image for a Scene"""
     seed = random.randint(10000, 999999)
-    
-    clean_prompt = f"3D Pixar style {visual_prompt}, cute expressive character, 9:16 vertical"
+    clean_prompt = f"3D Pixar style {visual_prompt}, highly detailed, vertical 9:16"
     encoded_prompt = requests.utils.quote(clean_prompt)
-    
     image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=720&height=1280&seed={seed}&nologo=true&model=pixart"
 
     try:
-        headers = {'User-Agent': 'Mozilla/5.0'}
-        res = requests.get(image_url, headers=headers, timeout=60)
-        
+        res = requests.get(image_url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=60)
         if res.status_code == 200:
-            temp_img = "temp_scene.jpg"
-            with open(temp_img, "wb") as f:
+            img_path = f"scene_{idx}.jpg"
+            with open(img_path, "wb") as f:
                 f.write(res.content)
-            print(f"AI Visual generated successfully: {temp_img}")
+            return img_path
+    except Exception as e:
+        print(f"Image Download Exception: {e}")
+    return None
 
-            # Rendering exactly 15 seconds video (375 frames @ 25fps)
+
+def create_scene_videos(scenes, audio_files):
+    """Renders small MP4 videos for each scene using FFmpeg"""
+    scene_videos = []
+    print("Rendering Scene Video Clips...")
+
+    for idx, scene in enumerate(scenes):
+        img_path = download_scene_image(scene["prompt"], idx)
+        audio_path = audio_files[idx]
+        output_clip = f"clip_{idx}.mp4"
+
+        if img_path and os.path.exists(audio_path):
+            # Render video clip synced exactly to the scene audio duration
             ffmpeg_cmd = [
                 "ffmpeg",
                 "-loop", "1",
-                "-i", temp_img,
-                "-vf", "scale=720:1280,zoompan=z='min(zoom+0.0015,1.12)':d=375:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=720x1280",
+                "-i", img_path,
+                "-i", audio_path,
+                "-vf", "scale=720:1280,zoompan=z='min(zoom+0.0015,1.12)':d=125:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=720x1280",
                 "-c:v", "libx264",
                 "-preset", "ultrafast",
-                "-crf", "30",
-                "-r", "25",
-                "-t", "15",
+                "-crf", "28",
+                "-c:a", "aac",
+                "-b:a", "128k",
+                "-shortest",
                 "-pix_fmt", "yuv420p",
                 "-y",
-                output_video
+                output_clip
             ]
             subprocess.run(ffmpeg_cmd, check=True)
-            return output_video
-        else:
-            print(f"Pollinations HTTP Error: {res.status_code}")
-            return None
-    except Exception as e:
-        print(f"Visual Generation Exception: {e}")
-        return None
+            scene_videos.append(output_clip)
+
+    return scene_videos
 
 
-def merge_video_audio(video_file, audio_file, final_output="final_short.mp4"):
-    """Syncing Video & Audio accurately without loops"""
-    print("Merging Video & Voiceover via FFmpeg...")
+def merge_all_scenes(scene_videos, final_output="final_short.mp4"):
+    """Concatenates all scene clips into a single YouTube Short"""
+    print("Merging All Scenes into Final Story Short...")
     
-    command = [
+    # Create list file for FFmpeg concat
+    with open("files.txt", "w") as f:
+        for vid in scene_videos:
+            f.write(f"file '{vid}'\n")
+
+    concat_cmd = [
         "ffmpeg",
-        "-i", video_file,
-        "-i", audio_file,
-        "-c:v", "copy",
-        "-c:a", "aac",
-        "-b:a", "128k",
-        "-shortest",
+        "-f", "concat",
+        "-safe", "0",
+        "-i", "files.txt",
+        "-c", "copy",
         "-y",
         final_output
     ]
     
-    result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    result = subprocess.run(concat_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if result.returncode == 0:
-        print(f"SUCCESS: Final Short Video produced at '{final_output}'")
+        print(f"SUCCESS: Final Multi-Scene Story Video generated: {final_output}")
         return final_output
     else:
-        print(f"FFmpeg Error: {result.stderr.decode('utf-8')}")
+        print(f"Merge Error: {result.stderr.decode('utf-8')}")
         return None
 
 
 if __name__ == "__main__":
-    print("=== Fast Shorts Bot Started ===")
+    print("=== Multi-Scene Animated Story Bot Started ===")
 
-    # Step 1: Topic & Script
-    topic_prompt, script_text = generate_topic_and_script()
-    
+    # Step 1: Script
+    story_data = generate_story_script()
+    scenes = story_data["scenes"]
+
     # Step 2: Audio
-    audio_path = generate_audio(script_text)
+    audio_files = generate_audio_segments(scenes)
 
-    # Step 3: Video
-    generated_video = generate_video_free_pollinations(topic_prompt)
+    # Step 3: Render Scene Clips
+    video_clips = create_scene_videos(scenes, audio_files)
 
-    # Step 4: Sync
-    if generated_video and audio_path:
-        final_video = merge_video_audio(generated_video, audio_path)
+    # Step 4: Final Merge
+    if video_clips:
+        final_video = merge_all_scenes(video_clips)
         if final_video:
             print("\n=== Automation Finished Successfully! ===")
         else:
-            print("\n=== Syncing Failed ===")
+            print("\n=== Merging Failed ===")
     else:
-        print("\n=== Pipeline Failed at Generation Step ===")
+        print("\n=== Scene Generation Failed ===")
