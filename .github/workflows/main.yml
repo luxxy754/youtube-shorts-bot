@@ -37,6 +37,8 @@ jobs:
       - name: Run Automation Bot Script
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          LUMA_API_KEY: ${{ secrets.LUMA_API_KEY }}
+          KLING_API_KEY: ${{ secrets.KLING_API_KEY }}
         run: |
           python main.py
 
