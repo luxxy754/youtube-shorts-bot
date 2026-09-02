@@ -1,7 +1,7 @@
 import os
 import re
 import time
-import random
+import uuid
 import requests
 import subprocess
 from gtts import gTTS
@@ -22,17 +22,30 @@ if GEMINI_AVAILABLE and GEMINI_API_KEY:
     except Exception as e:
         print(f"Gemini Init Warning: {e}")
 
+# PixVerse API Keys Load
+PIXVERSE_KEYS = [
+    os.getenv("PIXVERSE_KEY_1"),
+    os.getenv("PIXVERSE_KEY_2"),
+    os.getenv("PIXVERSE_KEY_3"),
+    os.getenv("PIXVERSE_KEY_4")
+]
+ACTIVE_PIXVERSE_KEYS = [k for k in PIXVERSE_KEYS if k]
+
 
 def generate_story_script():
-    """Generates a 3-Scene Hindi Animated Story Script via Gemini"""
-    print("Generating Multi-Scene Animated Story Script via Gemini...")
+    """Generates a 2-Scene Animated Story Script via Gemini"""
+    print("Generating 2-Scene Animated Story Script via Gemini...")
 
     default_data = {
-        "character": "3D Pixar animated cute Aalu character",
         "scenes": [
-            {"prompt": "3D Pixar style animated Aalu character looking confused in a market", "script": "ओ यारों, आज मैं नया कारोबार शुरू करने निकला हूँ!"},
-            {"prompt": "3D Pixar style animated angry Baingan character staring fiercely", "script": "अरे बैंगन भाई, तुम मुझसे इतना जलते क्यों हो?"},
-            {"prompt": "3D Pixar style animated Aalu character celebrating happily", "script": "मेहनत का फल मीठा होता है, अब मेरा काम चल पड़ा!"}
+            {
+                "prompt": "3D animated cute potato character speaking in a colorful market, 9:16 vertical video",
+                "script": "ओ यारों, आज मैं नया कारोबार शुरू करने निकला हूँ!"
+            },
+            {
+                "prompt": "3D animated funny eggplant character arguing furiously, 9:16 vertical video",
+                "script": "अरे बैंगन भाई, तुम मुझसे इतना जलते क्यों हो?"
+            }
         ]
     }
 
@@ -41,16 +54,13 @@ def generate_story_script():
 
     models_to_try = ["gemini-2.5-flash", "gemini-1.5-flash"]
     prompt_text = (
-        "Create a funny 3-scene animated Hindi short story starring 3D veggie characters like Aalu, Baingan, Gajar, Chilli. "
-        "Each scene must have a short visual image description in English (max 6 words) and 1 pure Hindi dialogue line (under 10 words). "
-        "Do NOT use brackets or stage directions.\n\n"
+        "Create a funny 2-scene animated Hindi short story starring 3D cartoon veggies. "
+        "Each scene must have a visual video prompt in English describing action/motion (max 12 words) and 1 pure Hindi dialogue line.\n\n"
         "STRICT FORMAT:\n"
-        "SCENE 1 IMAGE: [3D Pixar animated character visual prompt]\n"
+        "SCENE 1 PROMPT: [Video prompt]\n"
         "SCENE 1 SCRIPT: [Hindi dialogue line]\n"
-        "SCENE 2 IMAGE: [3D Pixar animated character visual prompt]\n"
-        "SCENE 2 SCRIPT: [Hindi dialogue line]\n"
-        "SCENE 3 IMAGE: [3D Pixar animated character visual prompt]\n"
-        "SCENE 3 SCRIPT: [Hindi dialogue line]"
+        "SCENE 2 PROMPT: [Video prompt]\n"
+        "SCENE 2 SCRIPT: [Hindi dialogue line]"
     )
 
     for model_name in models_to_try:
@@ -62,13 +72,13 @@ def generate_story_script():
             raw_text = response.text.strip()
             
             scenes = []
-            img_prompts = re.findall(r'SCENE \d+ IMAGE:\s*(.*)', raw_text)
+            video_prompts = re.findall(r'SCENE \d+ PROMPT:\s*(.*)', raw_text)
             scripts = re.findall(r'SCENE \d+ SCRIPT:\s*(.*)', raw_text)
 
-            if len(img_prompts) >= 3 and len(scripts) >= 3:
-                for i in range(3):
+            if len(video_prompts) >= 2 and len(scripts) >= 2:
+                for i in range(2):
                     clean_script = re.sub(r'\(.*?\)', '', scripts[i]).replace('*', '').replace('"', '').strip()
-                    clean_prompt = " ".join(img_prompts[i].split()[:8])
+                    clean_prompt = video_prompts[i].strip() + ", 3D animated style, 9:16 vertical video"
                     scenes.append({"prompt": clean_prompt, "script": clean_script})
                 return {"scenes": scenes}
 
@@ -78,79 +88,105 @@ def generate_story_script():
     return default_data
 
 
-def generate_audio_segments(scenes):
-    """Generates audio for each scene and returns file list"""
-    audio_files = []
-    print("Generating Hindi Voiceovers for Scenes...")
-    for idx, scene in enumerate(scenes):
-        out_file = f"audio_scene_{idx}.mp3"
-        tts = gTTS(text=scene["script"], lang="hi", slow=False)
-        tts.save(out_file)
-        audio_files.append(out_file)
-    return audio_files
+def generate_video_with_pixverse(prompt_text, idx):
+    """Generates Text-To-Video using PixVerse API Key Rotation"""
+    submit_url = "https://app-api.pixverse.ai/openapi/v2/video/text/generate"
 
+    payload = {
+        "prompt": prompt_text,
+        "aspect_ratio": "9:16",
+        "duration": 5,
+        "model": "v6",
+        "quality": "540p",
+        "water_mark": False
+    }
 
-def download_scene_image(visual_prompt, idx):
-    """Downloads 3D Image for a Scene"""
-    seed = random.randint(10000, 999999)
-    clean_prompt = f"3D Pixar style {visual_prompt}, highly detailed, vertical 9:16"
-    encoded_prompt = requests.utils.quote(clean_prompt)
-    image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=720&height=1280&seed={seed}&nologo=true&model=pixart"
+    for key in ACTIVE_PIXVERSE_KEYS:
+        headers = {
+            "API-KEY": key,
+            "Ai-Trace-Id": str(uuid.uuid4()),
+            "Content-Type": "application/json"
+        }
 
-    try:
-        res = requests.get(image_url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=60)
-        if res.status_code == 200:
-            img_path = f"scene_{idx}.jpg"
-            with open(img_path, "wb") as f:
-                f.write(res.content)
-            return img_path
-    except Exception as e:
-        print(f"Image Download Exception: {e}")
+        print(f"Trying PixVerse Video Request for Scene {idx+1} with Key ending in ...{key[-4:] if len(key)>4 else key}")
+        try:
+            res = requests.post(submit_url, json=payload, headers=headers, timeout=30)
+            if res.status_code == 200:
+                res_data = res.json()
+                if res_data.get("ErrCode") == 0 and "Resp" in res_data:
+                    video_id = res_data["Resp"]["video_id"]
+                    print(f"PixVerse Task Created Successfully! Task ID: {video_id}")
+                    return poll_pixverse_video(video_id, headers, idx)
+                else:
+                    print(f"PixVerse Response Error: {res_data.get('ErrMsg')}")
+            else:
+                print(f"Key failed with HTTP status {res.status_code}. Switching key...")
+        except Exception as e:
+            print(f"PixVerse Exception: {e}")
+
+    print("All PixVerse API Keys failed or exhausted.")
     return None
 
 
-def create_scene_videos(scenes, audio_files):
-    """Renders small MP4 videos for each scene using FFmpeg"""
-    scene_videos = []
-    print("Rendering Scene Video Clips...")
+def poll_pixverse_video(video_id, headers, idx):
+    """Polls status until PixVerse video is ready and downloads it"""
+    status_url = f"https://app-api.pixverse.ai/openapi/v2/video/result/{video_id}"
+    print(f"Waiting for PixVerse to render video clip {idx+1}...")
 
-    for idx, scene in enumerate(scenes):
-        img_path = download_scene_image(scene["prompt"], idx)
-        audio_path = audio_files[idx]
-        output_clip = f"clip_{idx}.mp4"
+    for _ in range(30):  # Poll up to 5 minutes
+        time.sleep(10)
+        try:
+            res = requests.get(status_url, headers=headers, timeout=20)
+            if res.status_code == 200:
+                res_data = res.json()
+                resp = res_data.get("Resp", {})
+                status = resp.get("status")
 
-        if img_path and os.path.exists(audio_path):
-            # Render video clip synced exactly to the scene audio duration
-            ffmpeg_cmd = [
-                "ffmpeg",
-                "-loop", "1",
-                "-i", img_path,
-                "-i", audio_path,
-                "-vf", "scale=720:1280,zoompan=z='min(zoom+0.0015,1.12)':d=125:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=720x1280",
-                "-c:v", "libx264",
-                "-preset", "ultrafast",
-                "-crf", "28",
-                "-c:a", "aac",
-                "-b:a", "128k",
-                "-shortest",
-                "-pix_fmt", "yuv420p",
-                "-y",
-                output_clip
-            ]
-            subprocess.run(ffmpeg_cmd, check=True)
-            scene_videos.append(output_clip)
+                if status == 1 or resp.get("url"):  # 1 = Success
+                    download_url = resp.get("url")
+                    print(f"Downloading PixVerse rendered video: {download_url}")
+                    vid_bytes = requests.get(download_url, timeout=60).content
+                    output_file = f"pixverse_raw_{idx}.mp4"
+                    with open(output_file, "wb") as f:
+                        f.write(vid_bytes)
+                    return output_file
+                elif status == 2:  # Failed
+                    print("PixVerse Server Error: Generation Failed.")
+                    return None
+        except Exception as e:
+            print(f"Polling Exception: {e}")
 
-    return scene_videos
+    return None
 
 
-def merge_all_scenes(scene_videos, final_output="final_short.mp4"):
-    """Concatenates all scene clips into a single YouTube Short"""
-    print("Merging All Scenes into Final Story Short...")
-    
-    # Create list file for FFmpeg concat
+def assemble_scene(video_file, script_text, idx):
+    """Combines PixVerse Video with TTS Audio via FFmpeg"""
+    audio_file = f"audio_{idx}.mp3"
+    tts = gTTS(text=script_text, lang="hi", slow=False)
+    tts.save(audio_file)
+
+    output_clip = f"clip_{idx}.mp4"
+    ffmpeg_cmd = [
+        "ffmpeg",
+        "-i", video_file,
+        "-i", audio_file,
+        "-c:v", "copy",
+        "-c:a", "aac",
+        "-map", "0:v:0",
+        "-map", "1:a:0",
+        "-shortest",
+        "-y",
+        output_clip
+    ]
+    subprocess.run(ffmpeg_cmd, check=True)
+    return output_clip
+
+
+def merge_clips(clip_files, final_output="final_short.mp4"):
+    """Merges scene clips into a single short"""
     with open("files.txt", "w") as f:
-        for vid in scene_videos:
-            f.write(f"file '{vid}'\n")
+        for clip in clip_files:
+            f.write(f"file '{clip}'\n")
 
     concat_cmd = [
         "ffmpeg",
@@ -161,35 +197,30 @@ def merge_all_scenes(scene_videos, final_output="final_short.mp4"):
         "-y",
         final_output
     ]
-    
-    result = subprocess.run(concat_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    if result.returncode == 0:
-        print(f"SUCCESS: Final Multi-Scene Story Video generated: {final_output}")
-        return final_output
-    else:
-        print(f"Merge Error: {result.stderr.decode('utf-8')}")
-        return None
+    subprocess.run(concat_cmd, check=True)
+    return final_output
 
 
 if __name__ == "__main__":
-    print("=== Multi-Scene Animated Story Bot Started ===")
+    print("=== PixVerse Real AI Video Bot Started ===")
 
-    # Step 1: Script
-    story_data = generate_story_script()
-    scenes = story_data["scenes"]
+    if not ACTIVE_PIXVERSE_KEYS:
+        print("ERROR: No PixVerse API Keys found in Repository Secrets!")
+        exit(1)
 
-    # Step 2: Audio
-    audio_files = generate_audio_segments(scenes)
+    story = generate_story_script()
+    scenes = story["scenes"]
+    final_clips = []
 
-    # Step 3: Render Scene Clips
-    video_clips = create_scene_videos(scenes, audio_files)
+    for idx, scene in enumerate(scenes):
+        print(f"\n--- Processing Scene {idx+1} ---")
+        raw_video = generate_video_with_pixverse(scene["prompt"], idx)
+        if raw_video:
+            clip = assemble_scene(raw_video, scene["script"], idx)
+            final_clips.append(clip)
 
-    # Step 4: Final Merge
-    if video_clips:
-        final_video = merge_all_scenes(video_clips)
-        if final_video:
-            print("\n=== Automation Finished Successfully! ===")
-        else:
-            print("\n=== Merging Failed ===")
+    if final_clips:
+        final_video = merge_clips(final_clips)
+        print(f"\nSUCCESS: Multi-Scene Real Video Generated: {final_video}")
     else:
-        print("\n=== Scene Generation Failed ===")
+        print("\nFAILED: Could not generate video scenes.")
