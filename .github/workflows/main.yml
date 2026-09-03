@@ -29,10 +29,10 @@ jobs:
       - name: Run Automation Bot Script
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          PIXVERSE_API_KEY_1: ${{ secrets.PIXVERSE_API_KEY_1 }}
-          PIXVERSE_API_KEY_2: ${{ secrets.PIXVERSE_API_KEY_2 }}
-          PIXVERSE_API_KEY_3: ${{ secrets.PIXVERSE_API_KEY_3 }}
-          PIXVERSE_API_KEY_4: ${{ secrets.PIXVERSE_API_KEY_4 }}
+          PIXVERSE_API_KEY_1: ${{ secrets.PIXVERSE_KEY_1 }}
+          PIXVERSE_API_KEY_2: ${{ secrets.PIXVERSE_KEY_2 }}
+          PIXVERSE_API_KEY_3: ${{ secrets.PIXVERSE_KEY_3 }}
+          PIXVERSE_API_KEY_4: ${{ secrets.PIXVERSE_KEY_4 }}
           ELEVEN_KEY_1: ${{ secrets.ELEVEN_KEY_1 }}
           ELEVEN_KEY_2: ${{ secrets.ELEVEN_KEY_2 }}
         run: |
