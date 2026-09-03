@@ -105,10 +105,22 @@ def download_background_video():
         "https://assets.mixkit.co/videos/preview/mixkit-tunnel-of-futuristic-neon-lights-41552-large.mp4"
     ]
     url = random.choice(video_urls)
-    res = requests.get(url, timeout=30)
     bg_path = "bg_video.mp4"
-    with open(bg_path, "wb") as f:
-        f.write(res.content)
+    try:
+        res = requests.get(url, timeout=30)
+        if res.status_code == 200:
+            with open(bg_path, "wb") as f:
+                f.write(res.content)
+            return bg_path
+    except Exception as e:
+        print(f"Background Download Error: {e}")
+
+    # Fallback to creating a dark background if video fails
+    print("Creating fallback dark background...")
+    subprocess.run([
+        "ffmpeg", "-f", "lavfi", "-i", "color=c=0x111122:s=1080x1920:d=60",
+        "-c:v", "libx264", "-pix_fmt", "yuv420p", "-y", bg_path
+    ], check=True)
     return bg_path
 
 
@@ -122,20 +134,21 @@ def generate_free_audio(text):
 
 
 def build_final_short(bg_video, card_img, audio_file):
-    """Combines Video, Image Card, and Voiceover via FFmpeg"""
+    """Combines Video, Image Card, and Voiceover via FFmpeg cleanly"""
     print("Rendering Final YouTube Short...")
     final_output = "final_short.mp4"
 
     ffmpeg_cmd = [
         "ffmpeg",
-        "-stream_loop", "-1", "-i", bg_video,
-        "-i", audio_file,
+        "-i", bg_video,
         "-i", card_img,
-        "-filter_complex", "[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920[bg];[bg][2:v]overlay=0:0[v]",
+        "-i", audio_file,
+        "-filter_complex", "[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920[bg];[bg][1:v]overlay=0:0[v]",
         "-map", "[v]",
-        "-map", "1:a",
+        "-map", "2:a",
         "-c:v", "libx264",
         "-c:a", "aac",
+        "-pix_fmt", "yuv420p",
         "-shortest",
         "-y",
         final_output
