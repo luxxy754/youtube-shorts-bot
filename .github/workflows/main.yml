@@ -29,6 +29,13 @@ jobs:
           ELEVEN_KEY_1: ${{ secrets.ELEVEN_KEY_1 }}
           ELEVEN_KEY_2: ${{ secrets.ELEVEN_KEY_2 }}
           ELEVEN_KEY_3: ${{ secrets.ELEVEN_KEY_3 }}
+          PIXVERSE_KEY_1: ${{ secrets.PIXVERSE_KEY_1 }}
+          PIXVERSE_KEY_2: ${{ secrets.PIXVERSE_KEY_2 }}
+          PIXVERSE_KEY_3: ${{ secrets.PIXVERSE_KEY_3 }}
+          PIXVERSE_KEY_4: ${{ secrets.PIXVERSE_KEY_4 }}
+          KLING_API_KEY: ${{ secrets.KLING_API_KEY }}
+          REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: python main.py
 
       - name: Upload final video as artifact
