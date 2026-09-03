@@ -1,3 +1,4 @@
 google-genai
 requests
 gtts
+huggingface_hub
