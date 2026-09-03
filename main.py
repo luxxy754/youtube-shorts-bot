@@ -1,13 +1,13 @@
 import os
 import re
 import sys
-import time
 import uuid
+import urllib.parse
 import requests
 import subprocess
 from gtts import gTTS
 
-# Gemini Setup
+# Gemini Setup (free tier - used only for writing the story script)
 try:
     from google import genai
     GEMINI_AVAILABLE = True
@@ -16,34 +16,14 @@ except ImportError:
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
-# ElevenLabs keys fallback list (matches secrets ELEVEN_KEY_1/2/3)
+# ElevenLabs keys fallback list (free tier has a monthly character limit,
+# once it's used up it just fails - no charge - and gTTS below kicks in)
 ELEVEN_KEYS = [
     os.getenv("ELEVEN_KEY_1", ""),
     os.getenv("ELEVEN_KEY_2", ""),
     os.getenv("ELEVEN_KEY_3", ""),
 ]
 ELEVEN_KEYS = [k for k in ELEVEN_KEYS if k.strip()]
-
-# PixVerse API Keys Fallback List
-# NOTE: your repo secrets are named PIXVERSE_KEY_1.._4 (see screenshot),
-# the old code was reading PIXVERSE_API_KEY_1.._4 which do not exist -> always empty -> instant failure.
-PIXVERSE_KEYS = [
-    os.getenv("PIXVERSE_KEY_1", ""),
-    os.getenv("PIXVERSE_KEY_2", ""),
-    os.getenv("PIXVERSE_KEY_3", ""),
-    os.getenv("PIXVERSE_KEY_4", ""),
-]
-PIXVERSE_KEYS = [k for k in PIXVERSE_KEYS if k.strip()]
-
-KLING_API_KEY = os.getenv("KLING_API_KEY", "")
-REPLICATE_API_TOKEN = os.getenv("REPLICATE_API_TOKEN", "")
-HF_TOKEN = os.getenv("HF_TOKEN", "")
-HEDRA_KEYS = [
-    os.getenv("HEDRA_KEY_1", ""),
-    os.getenv("HEDRA_KEY_2", ""),
-    os.getenv("HEDRA_KEY_3", ""),
-]
-HEDRA_KEYS = [k for k in HEDRA_KEYS if k.strip()]
 
 gemini_client = None
 if GEMINI_AVAILABLE and GEMINI_API_KEY:
@@ -105,7 +85,7 @@ def generate_story_script():
             if len(video_prompts) >= 2 and len(scripts) >= 2:
                 for i in range(2):
                     clean_script = re.sub(r'\(.*?\)', '', scripts[i]).replace('*', '').replace('"', '').strip()
-                    clean_prompt = video_prompts[i].strip() + ", 3D animated Pixar style, 9:16 vertical video"
+                    clean_prompt = video_prompts[i].strip() + ", 3D animated Pixar style, colorful, vertical"
                     if clean_script and clean_prompt:
                         scenes.append({"prompt": clean_prompt, "script": clean_script})
                 if len(scenes) == 2:
@@ -122,311 +102,9 @@ def generate_story_script():
     return default_data
 
 
-# ---------------------------------------------------------------------------
-# PROVIDER 1: PixVerse
-# ---------------------------------------------------------------------------
-def generate_video_pixverse_single_key(api_key, prompt_text, idx):
-    """Tries video generation with one specific PixVerse API Key
-    (Official PixVerse Platform API: docs.platform.pixverse.ai)"""
-    url = "https://app-api.pixverse.ai/openapi/v2/video/text/generate"
-    headers = {
-        "API-KEY": api_key,
-        "Ai-trace-id": str(uuid.uuid4()),
-        "Content-Type": "application/json"
-    }
-    payload = {
-        "prompt": prompt_text,
-        "aspect_ratio": "9:16",
-        "quality": "540p",
-        "duration": 5,
-        "model": "v3.5"
-    }
-
-    try:
-        res = requests.post(url, json=payload, headers=headers, timeout=30)
-    except requests.exceptions.RequestException as e:
-        print(f"PixVerse Request Failed (network/timeout): {e}")
-        return None
-
-    if res.status_code != 200:
-        print(f"PixVerse API HTTP Error {res.status_code}: {res.text[:500]}")
-        return None
-
-    try:
-        data = res.json()
-    except ValueError:
-        print(f"PixVerse API returned non-JSON response: {res.text[:500]}")
-        return None
-
-    if data.get("ErrCode") != 0:
-        print(f"PixVerse API Error Response: {data}")
-        return None
-
-    video_id = data.get("Resp", {}).get("video_id")
-    if not video_id:
-        print(f"PixVerse response did not contain a video_id: {data}")
-        return None
-
-    print(f"PixVerse Video ID Created: {video_id}. Polling for render...")
-
-    poll_url = f"https://app-api.pixverse.ai/openapi/v2/video/result/{video_id}"
-    for attempt in range(40):
-        time.sleep(10)
-        poll_headers = {
-            "API-KEY": api_key,
-            "Ai-trace-id": str(uuid.uuid4())
-        }
-        try:
-            status_res = requests.get(poll_url, headers=poll_headers, timeout=30)
-            status_res.raise_for_status()
-            status_data = status_res.json()
-        except requests.exceptions.RequestException as e:
-            print(f"PixVerse Poll Request Failed (attempt {attempt + 1}/40): {e}")
-            continue
-        except ValueError:
-            print(f"PixVerse Poll returned non-JSON response (attempt {attempt + 1}/40)")
-            continue
-
-        resp_data = status_data.get("Resp", {})
-        status = resp_data.get("status")
-
-        if status == 1:  # Generation successful
-            video_url = resp_data.get("url")
-            if not video_url:
-                print(f"PixVerse marked succeeded but no URL found: {status_data}")
-                return None
-            try:
-                vid_bytes = requests.get(video_url, timeout=60).content
-            except requests.exceptions.RequestException as e:
-                print(f"Failed to download rendered PixVerse video: {e}")
-                return None
-            out_file = f"scene_{idx}_pixverse.mp4"
-            with open(out_file, "wb") as f:
-                f.write(vid_bytes)
-            print(f"Scene {idx + 1} video rendered successfully via PixVerse!")
-            return out_file
-        elif status in (7, 8):  # 7 = content moderation failure, 8 = generation failed
-            print(f"PixVerse Rendering Failed: {status_data}")
-            return None
-        # status == 5: still waiting for generation, keep polling
-
-    print(f"PixVerse polling timed out after 40 attempts for video_id {video_id}")
-    return None
-
-
-def generate_video_pixverse(prompt_text, idx):
-    """Loops through all available PixVerse Keys until one succeeds"""
-    if not PIXVERSE_KEYS:
-        print("PixVerse: no keys configured, skipping.")
-        return None
-
-    for key_idx, key in enumerate(PIXVERSE_KEYS):
-        print(f"Attempting PixVerse Generation using Key #{key_idx + 1}...")
-        try:
-            out_file = generate_video_pixverse_single_key(key, prompt_text, idx)
-        except Exception as e:
-            print(f"PixVerse Key #{key_idx + 1} raised an unexpected error: {e}")
-            out_file = None
-        if out_file:
-            return out_file
-        print(f"Key #{key_idx + 1} failed or ran out of credits. Trying next key...")
-
-    return None
-
-
-# ---------------------------------------------------------------------------
-# PROVIDER 2: Kling AI (official api-singapore.klingai.com endpoint)
-# ---------------------------------------------------------------------------
-def generate_video_kling(prompt_text, idx):
-    """Text-to-video via Kling AI.
-    NOTE: Kling's official API historically needs a JWT built from an
-    Access Key + Secret Key. If your KLING_API_KEY secret is a single
-    ready-made token (e.g. from a reseller/aggregator), this Bearer-token
-    call will work as-is. If Kling keeps failing, check what format your
-    key actually is - this provider is treated as optional/best-effort
-    so it will never crash the run, it just gets skipped on failure.
-    """
-    if not KLING_API_KEY:
-        print("Kling: no key configured, skipping.")
-        return None
-
-    base = "https://api-singapore.klingai.com/v1/videos/text2video"
-    headers = {
-        "Authorization": f"Bearer {KLING_API_KEY}",
-        "Content-Type": "application/json"
-    }
-    payload = {
-        "model_name": "kling-v1",
-        "prompt": prompt_text,
-        "negative_prompt": "",
-        "duration": "5",
-        "mode": "std",
-        "aspect_ratio": "9:16"
-    }
-
-    try:
-        res = requests.post(base, json=payload, headers=headers, timeout=30)
-    except requests.exceptions.RequestException as e:
-        print(f"Kling Request Failed (network/timeout): {e}")
-        return None
-
-    if res.status_code != 200:
-        print(f"Kling API HTTP Error {res.status_code}: {res.text[:500]}")
-        return None
-
-    try:
-        data = res.json()
-    except ValueError:
-        print(f"Kling API returned non-JSON response: {res.text[:500]}")
-        return None
-
-    task_id = (data.get("data") or {}).get("task_id")
-    if not task_id:
-        print(f"Kling response did not contain a task_id: {data}")
-        return None
-
-    print(f"Kling task created: {task_id}. Polling for render...")
-
-    for attempt in range(40):
-        time.sleep(10)
-        try:
-            poll_res = requests.get(
-                f"{base}/{task_id}",
-                headers={"Authorization": f"Bearer {KLING_API_KEY}"},
-                timeout=30
-            )
-            poll_res.raise_for_status()
-            poll_data = poll_res.json()
-        except requests.exceptions.RequestException as e:
-            print(f"Kling Poll Request Failed (attempt {attempt + 1}/40): {e}")
-            continue
-        except ValueError:
-            print(f"Kling Poll returned non-JSON response (attempt {attempt + 1}/40)")
-            continue
-
-        task_data = poll_data.get("data") or {}
-        status = task_data.get("task_status")
-
-        if status == "succeed":
-            videos = (task_data.get("task_result") or {}).get("videos") or []
-            if not videos:
-                print(f"Kling marked succeeded but no video found: {poll_data}")
-                return None
-            video_url = videos[0].get("url")
-            if not video_url:
-                print(f"Kling video entry missing url: {poll_data}")
-                return None
-            try:
-                vid_bytes = requests.get(video_url, timeout=60).content
-            except requests.exceptions.RequestException as e:
-                print(f"Failed to download rendered Kling video: {e}")
-                return None
-            out_file = f"scene_{idx}_kling.mp4"
-            with open(out_file, "wb") as f:
-                f.write(vid_bytes)
-            print(f"Scene {idx + 1} video rendered successfully via Kling!")
-            return out_file
-        elif status == "failed":
-            print(f"Kling Rendering Failed: {poll_data}")
-            return None
-        # status == "submitted"/"processing": keep polling
-
-    print(f"Kling polling timed out after 40 attempts for task_id {task_id}")
-    return None
-
-
-# ---------------------------------------------------------------------------
-# PROVIDER 3: Replicate (cheap open model, works even on low free credit)
-# ---------------------------------------------------------------------------
-def generate_video_replicate(prompt_text, idx):
-    """Text-to-video fallback using a fast/cheap open model hosted on Replicate."""
-    if not REPLICATE_API_TOKEN:
-        print("Replicate: no token configured, skipping.")
-        return None
-
-    url = "https://api.replicate.com/v1/models/wan-video/wan-2.5-t2v-fast/predictions"
-    headers = {
-        "Authorization": f"Bearer {REPLICATE_API_TOKEN}",
-        "Content-Type": "application/json"
-    }
-    payload = {
-        "input": {
-            "prompt": prompt_text,
-            "aspect_ratio": "9:16"
-        }
-    }
-
-    try:
-        res = requests.post(url, json=payload, headers=headers, timeout=30)
-    except requests.exceptions.RequestException as e:
-        print(f"Replicate Request Failed (network/timeout): {e}")
-        return None
-
-    if res.status_code not in (200, 201):
-        print(f"Replicate API HTTP Error {res.status_code}: {res.text[:500]}")
-        return None
-
-    try:
-        data = res.json()
-    except ValueError:
-        print(f"Replicate API returned non-JSON response: {res.text[:500]}")
-        return None
-
-    get_url = (data.get("urls") or {}).get("get")
-    if not get_url:
-        print(f"Replicate response missing poll URL: {data}")
-        return None
-
-    print("Replicate prediction created. Polling for render...")
-
-    for attempt in range(40):
-        time.sleep(10)
-        try:
-            poll_res = requests.get(get_url, headers=headers, timeout=30)
-            poll_res.raise_for_status()
-            poll_data = poll_res.json()
-        except requests.exceptions.RequestException as e:
-            print(f"Replicate Poll Request Failed (attempt {attempt + 1}/40): {e}")
-            continue
-        except ValueError:
-            print(f"Replicate Poll returned non-JSON response (attempt {attempt + 1}/40)")
-            continue
-
-        status = poll_data.get("status")
-        if status == "succeeded":
-            output = poll_data.get("output")
-            video_url = output[0] if isinstance(output, list) else output
-            if not video_url:
-                print(f"Replicate marked succeeded but no output found: {poll_data}")
-                return None
-            try:
-                vid_bytes = requests.get(video_url, timeout=60).content
-            except requests.exceptions.RequestException as e:
-                print(f"Failed to download rendered Replicate video: {e}")
-                return None
-            out_file = f"scene_{idx}_replicate.mp4"
-            with open(out_file, "wb") as f:
-                f.write(vid_bytes)
-            print(f"Scene {idx + 1} video rendered successfully via Replicate!")
-            return out_file
-        elif status in ("failed", "canceled"):
-            print(f"Replicate Rendering Failed: {poll_data}")
-            return None
-        # status in ("starting", "processing"): keep polling
-
-    print("Replicate polling timed out after 40 attempts.")
-    return None
-
-
-# ---------------------------------------------------------------------------
-# PROVIDER 4: Pollinations.ai (genuinely free, no API key/signup needed)
-# Generates an AI image from the prompt, then animates it with a slow
-# zoom/pan ("Ken Burns" effect) in ffmpeg so it reads like a video clip.
-# ---------------------------------------------------------------------------
 def generate_video_pollinations(prompt_text, idx, duration=5):
-    """Free image-to-motion fallback: image.pollinations.ai + ffmpeg zoompan."""
-    import urllib.parse
-
+    """Free image-to-motion clip: image.pollinations.ai (no key/signup needed)
+    + ffmpeg zoompan ('Ken Burns' slow zoom) so the still image reads as a video."""
     encoded_prompt = urllib.parse.quote(prompt_text)
     seed = uuid.uuid4().int % 999999999
     url = (
@@ -434,7 +112,7 @@ def generate_video_pollinations(prompt_text, idx, duration=5):
         f"?width=1080&height=1920&nologo=true&safe=true&seed={seed}&model=flux"
     )
 
-    img_file = f"scene_{idx}_pollinations.jpg"
+    img_file = f"scene_{idx}.jpg"
     try:
         res = requests.get(url, timeout=60)
         if res.status_code != 200 or not res.content:
@@ -446,7 +124,7 @@ def generate_video_pollinations(prompt_text, idx, duration=5):
         print(f"Pollinations Request Failed: {e}")
         return None
 
-    out_file = f"scene_{idx}_pollinations.mp4"
+    out_file = f"scene_{idx}_video.mp4"
     fps = 25
     total_frames = duration * fps
     ffmpeg_cmd = [
@@ -466,60 +144,11 @@ def generate_video_pollinations(prompt_text, idx, duration=5):
     ]
     try:
         subprocess.run(ffmpeg_cmd, check=True, capture_output=True, text=True)
-        print(f"Scene {idx + 1}: Pollinations image + Ken Burns video created (free).")
+        print(f"Scene {idx + 1}: video created via Pollinations (free).")
         return out_file
     except subprocess.CalledProcessError as e:
-        print(f"Pollinations Ken Burns ffmpeg step failed: {e.stderr}")
+        print(f"Ken Burns ffmpeg step failed: {e.stderr}")
         return None
-
-
-# ---------------------------------------------------------------------------
-# PROVIDER 5 (last resort): local color placeholder clip so the run never dies
-# ---------------------------------------------------------------------------
-def generate_video_placeholder(prompt_text, idx):
-    """If every paid/free API fails or is out of credits, build a simple
-    animated-gradient placeholder clip locally with ffmpeg so the pipeline
-    still produces a final video instead of erroring out."""
-    out_file = f"scene_{idx}_placeholder.mp4"
-    ffmpeg_cmd = [
-        "ffmpeg",
-        "-f", "lavfi",
-        "-i", "color=c=0x1c1c2e:s=1080x1920:d=5,format=yuv420p",
-        "-vf", "geq=r='128+80*sin(2*PI*T/5)':g='60+60*cos(2*PI*T/5)':b='180'",
-        "-y",
-        out_file
-    ]
-    try:
-        subprocess.run(ffmpeg_cmd, check=True, capture_output=True, text=True)
-        print(f"Scene {idx + 1}: used local placeholder clip (all video APIs unavailable).")
-        return out_file
-    except subprocess.CalledProcessError as e:
-        print(f"Placeholder generation failed too: {e.stderr}")
-        return None
-
-
-def generate_video_any_provider(prompt_text, idx):
-    """Tries every provider in order and never raises - always returns
-    either a video file path or None."""
-    providers = [
-        ("PixVerse", generate_video_pixverse),
-        ("Kling", generate_video_kling),
-        ("Replicate", generate_video_replicate),
-        ("Pollinations (free)", generate_video_pollinations),
-    ]
-    for name, func in providers:
-        print(f"--- Trying provider: {name} ---")
-        try:
-            result = func(prompt_text, idx)
-        except Exception as e:
-            print(f"{name} raised an unexpected error, skipping: {e}")
-            result = None
-        if result:
-            return result
-        print(f"{name} did not produce a video, moving to next provider...")
-
-    print("All video APIs failed/unavailable - falling back to local placeholder.")
-    return generate_video_placeholder(prompt_text, idx)
 
 
 def assemble_scene(video_file, script_text, idx):
@@ -601,11 +230,7 @@ def merge_clips(clip_files, final_output="final_short.mp4"):
 
 
 if __name__ == "__main__":
-    print("=== Fully Automated Multi-Provider AI Short Bot Started ===")
-    print(f"PixVerse keys available: {len(PIXVERSE_KEYS)}")
-    print(f"Kling key available: {bool(KLING_API_KEY)}")
-    print(f"Replicate token available: {bool(REPLICATE_API_TOKEN)}")
-    print(f"ElevenLabs keys available: {len(ELEVEN_KEYS)}")
+    print("=== Free AI Short Bot Started (Gemini + Pollinations + TTS) ===")
 
     story = generate_story_script()
     scenes = story["scenes"]
@@ -614,12 +239,12 @@ if __name__ == "__main__":
     for idx, scene in enumerate(scenes):
         print(f"\n--- Processing Scene {idx + 1} ---")
         try:
-            raw_video = generate_video_any_provider(scene["prompt"], idx)
+            raw_video = generate_video_pollinations(scene["prompt"], idx)
             if raw_video:
                 clip = assemble_scene(raw_video, scene["script"], idx)
                 final_clips.append(clip)
             else:
-                print(f"Scene {idx + 1} skipped: no video was generated by any provider.")
+                print(f"Scene {idx + 1} skipped: image/video generation failed.")
         except Exception as e:
             print(f"Scene {idx + 1} failed with an unexpected error: {e}")
 
@@ -629,8 +254,7 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"\nFAILED: Could not merge clips into final video: {e}")
             sys.exit(1)
-        print(f"\nSUCCESS: Fully Automated Short Ready: {final_video}")
+        print(f"\nSUCCESS: Free Short Ready: {final_video}")
     else:
-        print("\nFAILED: Video generation unsuccessful. No clips were produced "
-              "(check API keys/credits and API responses above).")
+        print("\nFAILED: No clips were produced (check Pollinations/network logs above).")
         sys.exit(1)
