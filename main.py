@@ -1,9 +1,9 @@
 import os
 import re
 import time
-import requests
 import subprocess
 from gtts import gTTS
+from huggingface_hub import InferenceClient
 
 # Gemini SDK Setup
 try:
@@ -80,41 +80,27 @@ def generate_story_script():
 
 
 def generate_video_huggingface(prompt_text, idx):
-    """Generates Video via Hugging Face Free Inference API (Wan2.1 Model)"""
-    print(f"Submitting Scene {idx+1} to Hugging Face Free Video Engine...")
+    """Generates Video via Hugging Face Client SDK"""
+    print(f"Submitting Scene {idx+1} to Hugging Face Engine...")
     
-    API_URL = "https://api-inference.huggingface.co/models/Wan-AI/Wan2.1-T2V-1.4B"
-    headers = {"Authorization": f"Bearer {HF_TOKEN}"}
+    # Official HuggingFace Inference Client
+    client = InferenceClient(token=HF_TOKEN)
+    model_id = "Wan-AI/Wan2.1-T2V-1.4B"
 
-    payload = {
-        "inputs": prompt_text,
-        "parameters": {
-            "num_inference_steps": 25,
-            "guidance_scale": 6.0
-        }
-    }
-
-    for attempt in range(5):
+    for attempt in range(3):
         try:
-            response = requests.post(API_URL, headers=headers, json=payload, timeout=120)
+            # Generate video bytes directly
+            video_bytes = client.text_to_video(prompt_text, model=model_id)
+            out_file = f"hf_scene_{idx}.mp4"
             
-            if response.status_code == 200:
-                out_file = f"hf_scene_{idx}.mp4"
-                with open(out_file, "wb") as f:
-                    f.write(response.content)
-                print(f"Scene {idx+1} video rendered successfully!")
-                return out_file
+            with open(out_file, "wb") as f:
+                f.write(video_bytes)
             
-            elif response.status_code == 503:
-                estimated_time = response.json().get("estimated_time", 20)
-                print(f"Model loading on HF servers... Waiting {int(estimated_time)}s.")
-                time.sleep(int(estimated_time))
-            else:
-                print(f"HF Error Status {response.status_code}: {response.text}")
-                time.sleep(10)
+            print(f"Scene {idx+1} video rendered successfully!")
+            return out_file
         except Exception as e:
-            print(f"Hugging Face Exception: {e}")
-            time.sleep(10)
+            print(f"HF Attempt {attempt + 1} Failed: {e}")
+            time.sleep(15)
             
     return None
 
