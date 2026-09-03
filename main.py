@@ -2,6 +2,7 @@ import os
 import re
 import sys
 import time
+import uuid
 import requests
 import subprocess
 from gtts import gTTS
@@ -104,18 +105,20 @@ def generate_story_script():
 
 
 def generate_video_pixverse_single_key(api_key, prompt_text, idx):
-    """Tries video generation with one specific PixVerse API Key"""
+    """Tries video generation with one specific PixVerse API Key
+    (Official PixVerse Platform API: docs.platform.pixverse.ai)"""
+    url = "https://app-api.pixverse.ai/openapi/v2/video/text/generate"
     headers = {
         "API-KEY": api_key,
+        "Ai-trace-id": str(uuid.uuid4()),
         "Content-Type": "application/json"
     }
-
-    url = "https://api.pixverse.ai/v1/video/text"
     payload = {
         "prompt": prompt_text,
         "aspect_ratio": "9:16",
         "quality": "540p",
-        "duration": 5
+        "duration": 5,
+        "model": "v3.5"
     }
 
     try:
@@ -134,22 +137,26 @@ def generate_video_pixverse_single_key(api_key, prompt_text, idx):
         print(f"PixVerse API returned non-JSON response: {res.text[:500]}")
         return None
 
-    if not (data.get("code") == 0 or "video_id" in str(data)):
+    if data.get("ErrCode") != 0:
         print(f"PixVerse API Error Response: {data}")
         return None
 
-    video_id = data.get("data", {}).get("video_id") or data.get("video_id")
+    video_id = data.get("Resp", {}).get("video_id")
     if not video_id:
         print(f"PixVerse response did not contain a video_id: {data}")
         return None
 
     print(f"PixVerse Video ID Created: {video_id}. Polling for render...")
 
-    poll_url = f"https://api.pixverse.ai/v1/video/result/{video_id}"
+    poll_url = f"https://app-api.pixverse.ai/openapi/v2/video/result/{video_id}"
     for attempt in range(40):
         time.sleep(10)
+        poll_headers = {
+            "API-KEY": api_key,
+            "Ai-trace-id": str(uuid.uuid4())
+        }
         try:
-            status_res = requests.get(poll_url, headers=headers, timeout=30)
+            status_res = requests.get(poll_url, headers=poll_headers, timeout=30)
             status_res.raise_for_status()
             status_data = status_res.json()
         except requests.exceptions.RequestException as e:
@@ -159,10 +166,11 @@ def generate_video_pixverse_single_key(api_key, prompt_text, idx):
             print(f"PixVerse Poll returned non-JSON response (attempt {attempt + 1}/40)")
             continue
 
-        status = status_data.get("data", {}).get("status") or status_data.get("status")
+        resp_data = status_data.get("Resp", {})
+        status = resp_data.get("status")
 
-        if status in ["succeeded", "success", 1]:
-            video_url = status_data.get("data", {}).get("url") or status_data.get("url")
+        if status == 1:  # Generation successful
+            video_url = resp_data.get("url")
             if not video_url:
                 print(f"PixVerse marked succeeded but no URL found: {status_data}")
                 return None
@@ -176,10 +184,10 @@ def generate_video_pixverse_single_key(api_key, prompt_text, idx):
                 f.write(vid_bytes)
             print(f"Scene {idx + 1} video rendered successfully via PixVerse!")
             return out_file
-        elif status in ["failed", "error", -1]:
+        elif status in (7, 8):  # 7 = content moderation failure, 8 = generation failed
             print(f"PixVerse Rendering Failed: {status_data}")
             return None
-        # else: still processing, keep polling
+        # status == 5: still waiting for generation, keep polling
 
     print(f"PixVerse polling timed out after 40 attempts for video_id {video_id}")
     return None
