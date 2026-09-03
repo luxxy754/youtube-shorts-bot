@@ -1,47 +1,50 @@
-name: Automated PixVerse Video Shorts Bot
+name: Generate AI Short
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: {}   # Manual "Run workflow" button se chalega
+  # schedule:
+  #   - cron: "0 6 * * *"  # chaho to daily auto-run ke liye uncomment karo
 
 jobs:
-  build-and-run:
+  build:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout Code
+      - name: Checkout repo
         uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: "3.11"
 
-      - name: Install System Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
 
-      - name: Install Python Dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
 
-      - name: Run Automation Bot Script
+      - name: Run bot
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          PIXVERSE_API_KEY_1: ${{ secrets.PIXVERSE_KEY_1 }}
-          PIXVERSE_API_KEY_2: ${{ secrets.PIXVERSE_KEY_2 }}
-          PIXVERSE_API_KEY_3: ${{ secrets.PIXVERSE_KEY_3 }}
-          PIXVERSE_API_KEY_4: ${{ secrets.PIXVERSE_KEY_4 }}
           ELEVEN_KEY_1: ${{ secrets.ELEVEN_KEY_1 }}
           ELEVEN_KEY_2: ${{ secrets.ELEVEN_KEY_2 }}
-        run: |
-          python main.py
+          ELEVEN_KEY_3: ${{ secrets.ELEVEN_KEY_3 }}
+          PIXVERSE_KEY_1: ${{ secrets.PIXVERSE_KEY_1 }}
+          PIXVERSE_KEY_2: ${{ secrets.PIXVERSE_KEY_2 }}
+          PIXVERSE_KEY_3: ${{ secrets.PIXVERSE_KEY_3 }}
+          PIXVERSE_KEY_4: ${{ secrets.PIXVERSE_KEY_4 }}
+          KLING_API_KEY: ${{ secrets.KLING_API_KEY }}
+          REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HEDRA_KEY_1: ${{ secrets.HEDRA_KEY_1 }}
+          HEDRA_KEY_2: ${{ secrets.HEDRA_KEY_2 }}
+          HEDRA_KEY_3: ${{ secrets.HEDRA_KEY_3 }}
+        run: python main.py
 
-      - name: Upload Generated Video as Artifact
-        uses: actions/upload-artifact@v4
+      - name: Upload final video as artifact
         if: always()
+        uses: actions/upload-artifact@v4
         with:
-          name: youtube-short-video
+          name: final-short
           path: final_short.mp4
           if-no-files-found: warn
