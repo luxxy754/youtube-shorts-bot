@@ -34,6 +34,7 @@ jobs:
           PIXVERSE_API_KEY_3: ${{ secrets.PIXVERSE_API_KEY_3 }}
           PIXVERSE_API_KEY_4: ${{ secrets.PIXVERSE_API_KEY_4 }}
           ELEVEN_KEY_1: ${{ secrets.ELEVEN_KEY_1 }}
+          ELEVEN_KEY_2: ${{ secrets.ELEVEN_KEY_2 }}
         run: |
           python main.py
 
@@ -43,3 +44,4 @@ jobs:
         with:
           name: youtube-short-video
           path: final_short.mp4
+          if-no-files-found: warn
