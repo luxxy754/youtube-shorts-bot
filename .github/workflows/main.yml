@@ -1,4 +1,4 @@
-name: Automated YouTube Shorts Bot
+name: Reddit Stories Shorts Automation
 
 on:
   workflow_dispatch:
@@ -29,9 +29,6 @@ jobs:
       - name: Run Automation Bot Script
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
-          ELEVEN_KEY_1: ${{ secrets.ELEVEN_KEY_1 }}
-          ELEVEN_KEY_2: ${{ secrets.ELEVEN_KEY_2 }}
         run: |
           python main.py
 
