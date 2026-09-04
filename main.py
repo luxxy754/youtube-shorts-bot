@@ -4,7 +4,6 @@ import sys
 import time
 import uuid
 import inspect
-import itertools
 import requests
 import subprocess
 from gtts import gTTS
@@ -18,7 +17,6 @@ except ImportError:
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
-# --- YouTube auto-upload (free, YouTube Data API v3) --------------------
 YT_CLIENT_ID = os.getenv("YT_CLIENT_ID", "")
 YT_CLIENT_SECRET = os.getenv("YT_CLIENT_SECRET", "")
 YT_REFRESH_TOKEN = os.getenv("YT_REFRESH_TOKEN", "")
@@ -26,28 +24,12 @@ YT_PRIVACY_STATUS = os.getenv("YT_PRIVACY_STATUS", "private")
 
 NUM_SCENES = int(os.getenv("NUM_SCENES", "5"))
 
-# ElevenLabs keys fallback list
 ELEVEN_KEYS = [
     os.getenv("ELEVEN_KEY_1", ""),
     os.getenv("ELEVEN_KEY_2", ""),
     os.getenv("ELEVEN_KEY_3", ""),
 ]
 ELEVEN_KEYS = [k for k in ELEVEN_KEYS if k.strip()]
-
-# Hugging Face free Spaces for base video generation
-HF_TOKENS = []
-if os.getenv("HF_TOKEN", "").strip():
-    HF_TOKENS.append(os.getenv("HF_TOKEN").strip())
-for i in range(1, 5):
-    tok = os.getenv(f"HF_TOKEN_{i}", "").strip()
-    if tok:
-        HF_TOKENS.append(tok)
-HF_TOKENS = list(dict.fromkeys(HF_TOKENS))
-
-HF_VIDEO_SPACES = [
-    s.strip() for s in os.getenv("HF_VIDEO_SPACES", "Wan-AI/Wan2.1").split(",")
-    if s.strip()
-]
 
 gemini_client = None
 if GEMINI_AVAILABLE and GEMINI_API_KEY:
@@ -58,13 +40,13 @@ if GEMINI_AVAILABLE and GEMINI_API_KEY:
 
 
 def generate_story_script():
-    """Generates an NUM_SCENES-scene cute 3D Pixar cartoon style story script with vibrant visuals."""
-    print("Generating High-Quality 3D Cartoon Story Script via Gemini...")
+    """Generates extremely strict, family-friendly cute 3D Pixar animal script."""
+    print("Generating Strict Cute Animal Story Script via Gemini...")
 
     if not gemini_client:
         return {"scenes": [
-            {"prompt": "Stunning 3D Pixar style animated cute fluffy cat with expressive big eyes, vibrant cinematic lighting, ultra-detailed 8k, vertical 9:16", "script": "O yaaron, aaj maine ek naya business shuru karne ka socha hai!"},
-            {"prompt": "Stunning 3D Pixar style animated funny cartoon dog reacting with shocked expression, colorful background, ultra-detailed 8k, vertical 9:16", "script": "Arre bhai, tera naya business sunkar mere hosh udd gaye!"}
+            {"prompt": "Adorable cute fluffy 3D cartoon cat with big shiny eyes smiling happily, Pixar style, vibrant colors, vertical 9:16", "script": "O yaaron, aaj maine ek naya mazedaar game shuru kiya hai!"},
+            {"prompt": "Cute little fluffy baby panda laughing cheerfully, Pixar 3D style, vibrant lighting, vertical 9:16", "script": "Wah bhai, mujhe bhi is game mein shamil kar lo!"}
         ]}
 
     models_to_try = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash-latest"]
@@ -76,9 +58,10 @@ def generate_story_script():
     format_block = "\n".join(format_lines)
 
     prompt_text = (
-        f"Create a totally unique, random, and funny {NUM_SCENES}-scene animated Hindi short story starring cute 3D Pixar-style cartoon characters "
-        "with vibrant cinematic lighting and highly expressive details. Each scene must have a visual video prompt in English describing cute actions "
-        "in a stunning 3D Disney/Pixar style (max 15 words) and 1 pure Hindi dialogue line (roughly 6-8 seconds).\n\n"
+        f"Create a funny, super cute {NUM_SCENES}-scene animated Hindi short story starring ONLY very cute fluffy animals (such as cute cats, "
+        "bunnies, pandas, or little squirrels). ABSOLUTELY NO abstract objects, NO stones, NO strange alien shapes. "
+        "Each scene must feature a cute animal doing funny expressions in a stunning 3D Disney/Pixar style (max 12 words) "
+        "and 1 pure Hindi dialogue line (roughly 6-8 seconds).\n\n"
         "STRICT FORMAT (no extra text before/after):\n" + format_block
     )
 
@@ -97,7 +80,7 @@ def generate_story_script():
             if len(video_prompts) >= NUM_SCENES and len(scripts) >= NUM_SCENES:
                 for i in range(NUM_SCENES):
                     clean_script = re.sub(r'\(.*?\)', '', scripts[i]).replace('*', '').replace('"', '').strip()
-                    clean_prompt = video_prompts[i].strip() + ", stunning 3D Pixar style animation, vibrant cinematic lighting, highly detailed, ultra-realistic textures, vertical 9:16"
+                    clean_prompt = video_prompts[i].strip() + ", adorable cute fluffy animal, 3D Pixar style animation, vibrant cinematic lighting, highly detailed, vertical 9:16"
                     if clean_script and clean_prompt:
                         scenes.append({"prompt": clean_prompt, "script": clean_script})
                 if len(scenes) == NUM_SCENES:
@@ -106,70 +89,14 @@ def generate_story_script():
             print(f"Gemini Story Error ({model_name}): {e}")
 
     return {"scenes": [
-        {"prompt": "Stunning 3D Pixar style animated cute fluffy cat with expressive big eyes, vibrant cinematic lighting, ultra-detailed 8k, vertical 9:16", "script": "O yaaron, aaj maine ek naya business shuru karne ka socha hai!"},
-        {"prompt": "Stunning 3D Pixar style animated funny cartoon dog reacting with shocked expression, colorful background, ultra-detailed 8k, vertical 9:16", "script": "Arre bhai, tera naya business sunkar mere hosh udd gaye!"}
+        {"prompt": "Adorable cute fluffy 3D cartoon cat with big shiny eyes smiling happily, Pixar style, vibrant colors, vertical 9:16", "script": "O yaaron, aaj maine ek naya mazedaar game shuru kiya hai!"},
+        {"prompt": "Cute little fluffy baby panda laughing cheerfully, Pixar 3D style, vibrant lighting, vertical 9:16", "script": "Wah bhai, mujhe bhi is game mein shamil kar lo!"}
     ]}
 
 
-def _make_hf_client(space_id, token):
-    from gradio_client import Client
-    kwargs = {}
-    if token:
-        try:
-            sig_params = inspect.signature(Client.__init__).parameters
-        except (TypeError, ValueError):
-            sig_params = {}
-        if "hf_token" in sig_params:
-            kwargs["hf_token"] = token
-        elif "token" in sig_params:
-            kwargs["token"] = token
-    return Client(space_id, **kwargs)
-
-
-def generate_video_hf_spaces(prompt_text, idx):
-    try:
-        from gradio_client import Client  # noqa: F401
-    except ImportError:
-        return None
-
-    tokens_to_try = HF_TOKENS if HF_TOKENS else [None]
-
-    for space_id in HF_VIDEO_SPACES:
-        for token_idx, token in enumerate(tokens_to_try):
-            try:
-                client = _make_hf_client(space_id, token)
-                result = client.predict(
-                    prompt_text,
-                    "",          # negative_prompt
-                    480,         # resolution
-                    5,           # duration
-                    api_name="/generate_video"
-                )
-            except Exception:
-                continue
-
-            video_path = result
-            if isinstance(video_path, (list, tuple)) and video_path:
-                video_path = video_path[0]
-            if isinstance(video_path, dict):
-                video_path = video_path.get("video") or video_path.get("path")
-
-            if not video_path or not os.path.exists(video_path):
-                continue
-
-            out_file = f"scene_{idx}_hf.mp4"
-            try:
-                with open(video_path, "rb") as src, open(out_file, "wb") as dst:
-                    dst.write(src.read())
-                return out_file
-            except OSError:
-                continue
-    return None
-
-
-def generate_video_pollinations_zoom(prompt_text, idx):
-    # Enhanced prompt for vibrant 3D Pixar/Disney style look matching viral shorts
-    enhanced_prompt = f"{prompt_text}, stunning 3D Pixar style, highly detailed digital art, vibrant cinematic lighting, beautiful colors, 8k resolution"
+def generate_animated_clip_pollinations(prompt_text, audio_duration, idx):
+    """Generates a 3D cute animal image and applies advanced organic body movement and head tilting via FFmpeg."""
+    enhanced_prompt = f"{prompt_text}, ultra-detailed cute character, vibrant colors, 8k resolution, cinematic lighting"
     img_prompt = requests.utils.quote(enhanced_prompt)
     img_url = f"https://image.pollinations.ai/prompt/{img_prompt}?width=1080&height=1920&nologo=true"
     img_file = f"scene_{idx}_pollinations.jpg"
@@ -183,44 +110,40 @@ def generate_video_pollinations_zoom(prompt_text, idx):
         print(f"Pollinations image fetch failed: {e}")
         return None
 
-    out_file = f"scene_{idx}_pollinations.mp4"
+    out_file = f"scene_{idx}_animated.mp4"
+    fps = 25
+    frames = int(audio_duration * fps)
+    
+    # Advanced filter combining smooth sinusoidal head rotation and organic zoom-pan
     zoom_cmd = [
         "ffmpeg",
         "-loop", "1",
         "-i", img_file,
         "-vf",
-        "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,"
-        "zoompan=z='min(zoom+0.0015,1.3)':d=250:s=1080x1920:fps=25",
-        "-t", "8",
+        (
+            f"scale=1200:2140,"
+            f"rotate='0.02*sin(2*PI*t/2.5)':ow=1080:oh=1920:c=none,"
+            f"zoompan=z='min(zoom+0.0008,1.15)':d={frames}:s=1080x1920:fps={fps}"
+        ),
+        "-t", f"{audio_duration:.2f}",
         "-c:v", "libx264",
         "-pix_fmt", "yuv420p",
         "-y",
         out_file
     ]
+    
     try:
         subprocess.run(zoom_cmd, check=True, capture_output=True, text=True)
     except subprocess.CalledProcessError as e:
-        print(f"ffmpeg zoompan failed: {e.stderr}")
-        return None
+        print(f"ffmpeg advanced motion failed: {e.stderr}")
+        fallback_cmd = [
+            "ffmpeg", "-loop", "1", "-i", img_file,
+            "-vf", f"scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,zoompan=z='min(zoom+0.001,1.2)':d={frames}:s=1080x1920:fps={fps}",
+            "-t", f"{audio_duration:.2f}", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-y", out_file
+        ]
+        subprocess.run(fallback_cmd, check=True, capture_output=True, text=True)
 
-    return {"video": out_file, "face_image": img_file}
-
-
-def generate_video_any_provider(prompt_text, idx):
-    providers = [
-        ("HF Spaces (free)", generate_video_hf_spaces),
-        ("Pollinations 3D Pixar image + zoom (guaranteed high-quality)", generate_video_pollinations_zoom),
-    ]
-    for name, func in providers:
-        try:
-            result = func(prompt_text, idx)
-        except Exception:
-            result = None
-        if result:
-            if isinstance(result, dict):
-                return result
-            return {"video": result, "face_image": None}
-    return None
+    return out_file
 
 
 def get_media_duration(path):
@@ -234,33 +157,20 @@ def get_media_duration(path):
     return float(result.stdout.strip())
 
 
-def assemble_scene_direct(video_file, audio_file, output_clip, idx):
-    """Directly synchronizes audio with the scene video/image using smooth ffmpeg mapping without strict face-detection crash."""
-    print(f"Assembling scene {idx + 1} with smooth audio sync...")
-    audio_duration = get_media_duration(audio_file)
-    
-    sync_cmd = [
-        "ffmpeg", "-stream_loop", "-1", "-i", video_file, "-i", audio_file,
-        "-filter_complex", "[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920[v]",
-        "-map", "[v]", "-map", "1:a", "-c:v", "libx264", "-c:a", "aac",
-        "-t", f"{audio_duration:.2f}", "-y", output_clip
-    ]
-    subprocess.run(sync_cmd, check=True, capture_output=True, text=True)
-    return output_clip
-
-
-def assemble_scene(video_file, face_image, script_text, idx):
+def process_scene(scene, idx):
+    print(f"\n--- Processing Scene {idx + 1} ---")
     audio_file = f"audio_{idx}.mp3"
+    script_text = scene["script"]
 
     eleven_success = False
-    for key_idx, key in enumerate(ELEVEN_KEYS):
+    for key in ELEVEN_KEYS:
         try:
             url = "https://api.elevenlabs.io/v1/text-to-speech/pNInz6obpgDQGcFmaJgB"
             headers = {"xi-api-key": key, "Content-Type": "application/json"}
             payload = {
                 "text": script_text,
                 "model_id": "eleven_turbo_v2_5",
-                "voice_settings": {"stability": 0.35, "similarity_boost": 0.85}
+                "voice_settings": {"stability": 0.4, "similarity_boost": 0.8}
             }
             res = requests.post(url, json=payload, headers=headers, timeout=20)
             if res.status_code == 200 and res.content:
@@ -277,11 +187,22 @@ def assemble_scene(video_file, face_image, script_text, idx):
             tts.save(audio_file)
         except Exception as e:
             print(f"gTTS fallback failed: {e}")
-            raise
+            return None
+
+    audio_duration = get_media_duration(audio_file)
+
+    video_file = generate_animated_clip_pollinations(scene["prompt"], audio_duration, idx)
+    if not video_file:
+        return None
 
     output_clip = f"clip_{idx}.mp4"
-    # Bypass strict Wav2Lip face detection crash for cartoon/animal 3D characters by using clean direct assembly
-    return assemble_scene_direct(video_file, audio_file, output_clip, idx)
+    sync_cmd = [
+        "ffmpeg", "-i", video_file, "-i", audio_file,
+        "-map", "0:v", "-map", "1:a", "-c:v", "copy", "-c:a", "aac",
+        "-shortest", "-y", output_clip
+    ]
+    subprocess.run(sync_cmd, check=True, capture_output=True, text=True)
+    return output_clip
 
 
 def merge_clips(clip_files, final_output="final_short.mp4"):
@@ -297,65 +218,16 @@ def merge_clips(clip_files, final_output="final_short.mp4"):
     return final_output
 
 
-def upload_to_youtube(video_path, title, description):
-    if not (YT_CLIENT_ID and YT_CLIENT_SECRET and YT_REFRESH_TOKEN):
-        return None
-
-    try:
-        from google.oauth2.credentials import Credentials
-        from googleapiclient.discovery import build
-        from googleapiclient.http import MediaFileUpload
-    except ImportError:
-        return None
-
-    creds = Credentials(
-        token=None,
-        refresh_token=YT_REFRESH_TOKEN,
-        token_uri="https://oauth2.googleapis.com/token",
-        client_id=YT_CLIENT_ID,
-        client_secret=YT_CLIENT_SECRET,
-        scopes=["https://www.googleapis.com/auth/youtube.upload"],
-    )
-
-    try:
-        youtube = build("youtube", "v3", credentials=creds)
-        body = {
-            "snippet": {
-                "title": title[:100],
-                "description": description[:5000],
-                "tags": ["shorts", "comedy", "hindi", "AI animation"],
-                "categoryId": "23",
-            },
-            "status": {
-                "privacyStatus": YT_PRIVACY_STATUS,
-                "selfDeclaredMadeForKids": False,
-            },
-        }
-        media = MediaFileUpload(video_path, chunksize=-1, resumable=True, mimetype="video/mp4")
-        request = youtube.videos().insert(part="snippet,status", body=body, media_body=media)
-        response = None
-        while response is None:
-            status, response = request.next_chunk()
-        video_id = response.get("id")
-        print(f"Uploaded to YouTube: https://youtube.com/shorts/{video_id}")
-        return video_id
-    except Exception as e:
-        print(f"YouTube upload failed: {e}")
-        return None
-
-
 if __name__ == "__main__":
-    print("=== Fully Automated AI Short Bot with Optimized 3D Cartoon Generator Started ===")
+    print("=== Strict 3D Cute Animal Short Bot Started ===")
     story = generate_story_script()
     scenes = story["scenes"]
     final_clips = []
 
     for idx, scene in enumerate(scenes):
-        print(f"\n--- Processing Scene {idx + 1}/{len(scenes)} ---")
         try:
-            media = generate_video_any_provider(scene["prompt"], idx)
-            if media:
-                clip = assemble_scene(media["video"], media.get("face_image"), scene["script"], idx)
+            clip = process_scene(scene, idx)
+            if clip:
                 final_clips.append(clip)
         except Exception as e:
             print(f"Scene {idx + 1} failed: {e}")
@@ -368,10 +240,6 @@ if __name__ == "__main__":
             print(f"\nFAILED: {e}")
             sys.exit(1)
         print(f"\nSUCCESS: Short Ready: {final_video} (~{total_duration:.1f}s)")
-
-        yt_title = "मज़ेदार AI कार्टून कहानी #Shorts"
-        yt_description = "\n".join(s["script"] for s in scenes) + "\n\n#Shorts #Comedy #Hindi #AIAnimation"
-        upload_to_youtube(final_video, yt_title, yt_description)
     else:
         print("\nFAILED: No clips produced.")
         sys.exit(1)
