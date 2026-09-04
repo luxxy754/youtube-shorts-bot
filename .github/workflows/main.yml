@@ -2,8 +2,9 @@ name: Generate AI Short
 
 on:
   workflow_dispatch: {}   # Manual "Run workflow" button se chalega
-  # schedule:
-  #   - cron: "0 6 * * *"  # chaho to daily auto-run ke liye uncomment karo
+  schedule:
+    - cron: "0 3 * * *"    # ~8:30 AM PKT - short #1
+    - cron: "0 13 * * *"   # ~6:30 PM PKT - short #2
 
 jobs:
   build:
@@ -35,13 +36,24 @@ jobs:
           PIXVERSE_KEY_4: ${{ secrets.PIXVERSE_KEY_4 }}
           KLING_API_KEY: ${{ secrets.KLING_API_KEY }}
           REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
+          # Free tier: add HF_TOKEN_2 / HF_TOKEN_3 / HF_TOKEN_4 secrets too
+          # (tokens from separate free Hugging Face accounts) to stretch
+          # the daily free ZeroGPU quota further, same idea as your
+          # PIXVERSE_KEY_1..4 rotation.
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_TOKEN_2: ${{ secrets.HF_TOKEN_2 }}
+          HF_TOKEN_3: ${{ secrets.HF_TOKEN_3 }}
+          HF_TOKEN_4: ${{ secrets.HF_TOKEN_4 }}
+          # Optional: comma-separated list of HF Spaces to try, e.g.
+          # "Wan-AI/Wan2.1,someuser/some-other-free-video-space"
+          # HF_VIDEO_SPACES: ${{ secrets.HF_VIDEO_SPACES }}
+          NUM_SCENES: "5"
         run: python main.py
 
       - name: Upload final video as artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: final-short
+          name: final-short-${{ github.run_id }}
           path: final_short.mp4
           if-no-files-found: warn
