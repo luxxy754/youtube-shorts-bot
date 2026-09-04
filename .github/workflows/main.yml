@@ -1,59 +1,37 @@
-name: Generate AI Short
+name: Daily Auto YouTube Shorts Bot
 
 on:
-  workflow_dispatch: {}
   schedule:
-    - cron: "0 3 * * *"
-    - cron: "0 13 * * *"
+    # Runs twice a day at peak hours (UTC time adjusted for kids peak time: 10:00 UTC & 14:00 UTC)
+    - cron: '0 10,14 * * *'
+  workflow_dispatch: # Allows manual run anytime from GitHub Actions tab
 
 jobs:
-  build:
+  build-and-upload:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
     steps:
-      - name: Checkout repo
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: '3.10'
 
-      - name: Install ffmpeg
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg libgl1 libglib2.0-0
-
-      - name: Install Python dependencies
+      - name: Install Dependencies
         run: |
-          pip install torch==2.1.2 torchvision==0.16.2 --index-url https://download.pytorch.org/whl/cpu
-          pip install -r requirements.txt
+          sudo apt-get update && sudo apt-get install -y ffmpeg
+          pip install --upgrade pip
+          pip install requests google-genai gtts
 
-      - name: Cache Wav2Lip repo + model weights
-        uses: actions/cache@v4
-        with:
-          path: Wav2Lip
-          key: wav2lip-v2
-
-      - name: Run bot
-        timeout-minutes: 20
+      - name: Run YouTube Shorts Bot
         env:
-          PYTHONUNBUFFERED: "1"
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           ELEVEN_KEY_1: ${{ secrets.ELEVEN_KEY_1 }}
-          ELEVEN_KEY_2: ${{ secrets.ELEVEN_KEY_2 }}
-          ELEVEN_KEY_3: ${{ secrets.ELEVEN_KEY_3 }}
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
-          HF_TOKEN_2: ${{ secrets.HF_TOKEN_2 }}
-          NUM_SCENES: "5"
           YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
-          YT_PRIVACY_STATUS: ${{ vars.YT_PRIVACY_STATUS || 'private' }}
-        run: python main.py
-
-      - name: Upload final video as artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: final-short-${{ github.run_id }}
-          path: final_short.mp4
-          if-no-files-found: warn
+          YT_PRIVACY_STATUS: "public" # Automatically public upload
+          NUM_SCENES: "5"
+        run: |
+          python main.py
