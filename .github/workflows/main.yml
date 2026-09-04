@@ -9,6 +9,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -24,7 +25,14 @@ jobs:
       - name: Install Python dependencies
         run: pip install -r requirements.txt
 
+      - name: Cache Wav2Lip repo + model weights
+        uses: actions/cache@v4
+        with:
+          path: Wav2Lip
+          key: wav2lip-v1
+
       - name: Run bot
+        timeout-minutes: 20
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           ELEVEN_KEY_1: ${{ secrets.ELEVEN_KEY_1 }}
