@@ -1,4 +1,0 @@
-google-genai
-requests
-gtts
-gradio_client
