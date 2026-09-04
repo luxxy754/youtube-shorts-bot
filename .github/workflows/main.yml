@@ -29,7 +29,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: Wav2Lip
-          key: wav2lip-v1
+          key: wav2lip-v2
 
       - name: Run bot
         timeout-minutes: 20
