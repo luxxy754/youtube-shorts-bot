@@ -309,17 +309,26 @@ def apply_wav2lip_lipsync(video_file, audio_file, output_clip, idx):
         "--audio", audio_file,
         "--outfile", output_clip,
         "--pads", "0", "10", "0", "0",
-        "--nosmooth"
+        "--nosmooth",
+        "--resize_factor", "2",
+        "--face_det_batch_size", "2",
+        "--wav2lip_batch_size", "16",
     ]
-    
+
+    env = os.environ.copy()
+    env["OMP_NUM_THREADS"] = "1"
+    env["MKL_NUM_THREADS"] = "1"
+
     try:
         print(f"Running Wav2Lip lipsync for scene {idx + 1}...")
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=240, env=env)
         if result.returncode == 0 and os.path.exists(output_clip) and os.path.getsize(output_clip) > 1000:
             print(f"Wav2Lip successfully applied for scene {idx + 1}!")
             return output_clip
         else:
             print(f"Wav2Lip warning output: {result.stderr}")
+    except subprocess.TimeoutExpired:
+        print(f"Wav2Lip timed out for scene {idx + 1}, falling back...")
     except Exception as e:
         print(f"Wav2Lip execution error: {e}")
     
