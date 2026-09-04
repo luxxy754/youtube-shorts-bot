@@ -58,14 +58,13 @@ if GEMINI_AVAILABLE and GEMINI_API_KEY:
 
 
 def generate_story_script():
-    """Generates an NUM_SCENES-scene cute 3D cartoon style story script with dynamic unique plots every time."""
-    print("Generating Unique & Cute 3D Cartoon Story Script via Gemini...")
+    """Generates an NUM_SCENES-scene cute 3D Pixar cartoon style story script with vibrant visuals."""
+    print("Generating High-Quality 3D Cartoon Story Script via Gemini...")
 
     if not gemini_client:
-        print("Gemini client not available, using default script.")
         return {"scenes": [
-            {"prompt": "Cute 3D Pixar style animated fluffy cat talking with funny expressive eyes, bright cozy room background, vertical 9:16", "script": "O yaaron, aaj maine ek naya business shuru karne ka socha hai, dekhte hain kya hota hai!"},
-            {"prompt": "Cute 3D Pixar style animated funny dog reacting with shocked expression, colorful cartoon park background, vertical 9:16", "script": "Arre bhai, tera naya business sunkar mere toh hosh hi udd gaye!"}
+            {"prompt": "Stunning 3D Pixar style animated cute fluffy cat with expressive big eyes, vibrant cinematic lighting, ultra-detailed 8k, vertical 9:16", "script": "O yaaron, aaj maine ek naya business shuru karne ka socha hai!"},
+            {"prompt": "Stunning 3D Pixar style animated funny cartoon dog reacting with shocked expression, colorful background, ultra-detailed 8k, vertical 9:16", "script": "Arre bhai, tera naya business sunkar mere hosh udd gaye!"}
         ]}
 
     models_to_try = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash-latest"]
@@ -77,10 +76,9 @@ def generate_story_script():
     format_block = "\n".join(format_lines)
 
     prompt_text = (
-        f"Create a totally unique, random, and funny {NUM_SCENES}-scene animated Hindi short story starring cute 3D cartoon characters "
-        "(like funny cats, pets, or cute cartoon creatures) with a continuing storyline. Avoid repetition. Each scene must have a "
-        "visual video prompt in English describing cute actions in a vibrant 3D Pixar/Disney style (max 12 words) "
-        "and 1 pure Hindi dialogue line (roughly 6-8 seconds when spoken), making the whole short about 30-40 seconds.\n\n"
+        f"Create a totally unique, random, and funny {NUM_SCENES}-scene animated Hindi short story starring cute 3D Pixar-style cartoon characters "
+        "with vibrant cinematic lighting and highly expressive details. Each scene must have a visual video prompt in English describing cute actions "
+        "in a stunning 3D Disney/Pixar style (max 15 words) and 1 pure Hindi dialogue line (roughly 6-8 seconds).\n\n"
         "STRICT FORMAT (no extra text before/after):\n" + format_block
     )
 
@@ -99,7 +97,7 @@ def generate_story_script():
             if len(video_prompts) >= NUM_SCENES and len(scripts) >= NUM_SCENES:
                 for i in range(NUM_SCENES):
                     clean_script = re.sub(r'\(.*?\)', '', scripts[i]).replace('*', '').replace('"', '').strip()
-                    clean_prompt = video_prompts[i].strip() + ", cute 3D Pixar style animation, vibrant colors, bright lighting, vertical 9:16"
+                    clean_prompt = video_prompts[i].strip() + ", stunning 3D Pixar style animation, vibrant cinematic lighting, highly detailed, ultra-realistic textures, vertical 9:16"
                     if clean_script and clean_prompt:
                         scenes.append({"prompt": clean_prompt, "script": clean_script})
                 if len(scenes) == NUM_SCENES:
@@ -108,8 +106,8 @@ def generate_story_script():
             print(f"Gemini Story Error ({model_name}): {e}")
 
     return {"scenes": [
-        {"prompt": "Cute 3D Pixar style animated fluffy cat talking with funny expressive eyes, bright cozy room background, vertical 9:16", "script": "O yaaron, aaj maine ek naya business shuru karne ka socha hai, dekhte hain kya hota hai!"},
-        {"prompt": "Cute 3D Pixar style animated funny dog reacting with shocked expression, colorful cartoon park background, vertical 9:16", "script": "Arre bhai, tera naya business sunkar mere toh hosh hi udd gaye!"}
+        {"prompt": "Stunning 3D Pixar style animated cute fluffy cat with expressive big eyes, vibrant cinematic lighting, ultra-detailed 8k, vertical 9:16", "script": "O yaaron, aaj maine ek naya business shuru karne ka socha hai!"},
+        {"prompt": "Stunning 3D Pixar style animated funny cartoon dog reacting with shocked expression, colorful background, ultra-detailed 8k, vertical 9:16", "script": "Arre bhai, tera naya business sunkar mere hosh udd gaye!"}
     ]}
 
 
@@ -170,7 +168,9 @@ def generate_video_hf_spaces(prompt_text, idx):
 
 
 def generate_video_pollinations_zoom(prompt_text, idx):
-    img_prompt = requests.utils.quote(f"{prompt_text}, cute 3D cartoon style, bright lighting, colorful background, vertical")
+    # Enhanced prompt for vibrant 3D Pixar/Disney style look matching viral shorts
+    enhanced_prompt = f"{prompt_text}, stunning 3D Pixar style, highly detailed digital art, vibrant cinematic lighting, beautiful colors, 8k resolution"
+    img_prompt = requests.utils.quote(enhanced_prompt)
     img_url = f"https://image.pollinations.ai/prompt/{img_prompt}?width=1080&height=1920&nologo=true"
     img_file = f"scene_{idx}_pollinations.jpg"
 
@@ -190,7 +190,7 @@ def generate_video_pollinations_zoom(prompt_text, idx):
         "-i", img_file,
         "-vf",
         "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,"
-        "zoompan=z='min(zoom+0.0015,1.4)':d=200:s=1080x1920:fps=25",
+        "zoompan=z='min(zoom+0.0015,1.3)':d=250:s=1080x1920:fps=25",
         "-t", "8",
         "-c:v", "libx264",
         "-pix_fmt", "yuv420p",
@@ -209,7 +209,7 @@ def generate_video_pollinations_zoom(prompt_text, idx):
 def generate_video_any_provider(prompt_text, idx):
     providers = [
         ("HF Spaces (free)", generate_video_hf_spaces),
-        ("Pollinations cute cartoon image + zoom (guaranteed fallback)", generate_video_pollinations_zoom),
+        ("Pollinations 3D Pixar image + zoom (guaranteed high-quality)", generate_video_pollinations_zoom),
     ]
     for name, func in providers:
         try:
@@ -234,118 +234,18 @@ def get_media_duration(path):
     return float(result.stdout.strip())
 
 
-def _clone_with_retry(repo_url, dest, attempts=3, timeout_s=180):
-    """Shallow-clone with a hard timeout + retries so a stalled clone can't hang the job forever."""
-    env = os.environ.copy()
-    env["GIT_TERMINAL_PROMPT"] = "0"  # never wait for a credentials prompt
-    for attempt in range(1, attempts + 1):
-        if os.path.exists(dest):
-            return
-        try:
-            print(f"Cloning {repo_url} (attempt {attempt}/{attempts})...")
-            subprocess.run(
-                ["git", "clone", "--depth", "1", repo_url, dest],
-                check=True,
-                timeout=timeout_s,
-                env=env,
-            )
-            return
-        except subprocess.TimeoutExpired:
-            print(f"Clone timed out after {timeout_s}s, retrying...")
-            subprocess.run(["rm", "-rf", dest])
-        except subprocess.CalledProcessError as e:
-            print(f"Clone failed: {e}, retrying...")
-            subprocess.run(["rm", "-rf", dest])
-    raise RuntimeError(f"Failed to clone {repo_url} after {attempts} attempts")
-
-
-def _download_with_retry(url, dest_path, min_size_bytes=1_000_000, attempts=3, timeout_s=120):
-    """Stream a download to disk (no huge in-memory buffering) with retries + size sanity check."""
-    for attempt in range(1, attempts + 1):
-        try:
-            print(f"Downloading {os.path.basename(dest_path)} (attempt {attempt}/{attempts})...")
-            with requests.get(url, stream=True, timeout=timeout_s) as r:
-                r.raise_for_status()
-                with open(dest_path, "wb") as f:
-                    for chunk in r.iter_content(chunk_size=1 << 20):
-                        if chunk:
-                            f.write(chunk)
-            if os.path.exists(dest_path) and os.path.getsize(dest_path) >= min_size_bytes:
-                return
-            print(f"Downloaded file too small, retrying...")
-        except (requests.RequestException, OSError) as e:
-            print(f"Download failed: {e}, retrying...")
-    raise RuntimeError(f"Failed to download {url} after {attempts} attempts")
-
-
-def setup_wav2lip():
-    _clone_with_retry("https://github.com/Rudrabha/Wav2Lip.git", "Wav2Lip")
-    os.makedirs("Wav2Lip/checkpoints", exist_ok=True)
-    os.makedirs("Wav2Lip/face_detection/detection/sfd", exist_ok=True)
-
-    weights_path = "Wav2Lip/checkpoints/wav2lip.pth"
-    if not (os.path.exists(weights_path) and os.path.getsize(weights_path) >= 1_000_000):
-        weights_url = "https://github.com/justinjohn0306/Wav2Lip/releases/download/models/wav2lip.pth"
-        _download_with_retry(weights_url, weights_path)
-
-    s3fd_path = "Wav2Lip/face_detection/detection/sfd/s3fd.pth"
-    if not (os.path.exists(s3fd_path) and os.path.getsize(s3fd_path) >= 1_000_000):
-        s3fd_url = "https://www.adrianbulat.com/downloads/python-fan/s3fd-619a316812.pth"
-        _download_with_retry(s3fd_url, s3fd_path)
-
-
-def apply_wav2lip_lipsync(face_file, video_file, audio_file, output_clip, idx):
-    """Applies Wav2Lip local lipsync with proper fallback handling if face detection misses.
-    face_file: static image (fast, single face-detection pass) if available, else same as video_file.
-    video_file: always a video, used for the ffmpeg fallback if Wav2Lip fails/times out.
-    """
-    setup_wav2lip()
-    
-    # Ensure temp directory exists for Wav2Lip audio processing
-    os.makedirs("temp", exist_ok=True)
-    
-    inference_script = "Wav2Lip/inference.py"
-    checkpoint_path = "Wav2Lip/checkpoints/wav2lip.pth"
-    
-    cmd = [
-        "python", inference_script,
-        "--checkpoint_path", checkpoint_path,
-        "--face", face_file,
-        "--audio", audio_file,
-        "--outfile", output_clip,
-        "--pads", "0", "10", "0", "0",
-        "--nosmooth",
-        "--resize_factor", "2",
-        "--face_det_batch_size", "2",
-        "--wav2lip_batch_size", "16",
-    ]
-
-    env = os.environ.copy()
-    env["OMP_NUM_THREADS"] = "1"
-    env["MKL_NUM_THREADS"] = "1"
-
-    try:
-        print(f"Running Wav2Lip lipsync for scene {idx + 1}...")
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=240, env=env)
-        if result.returncode == 0 and os.path.exists(output_clip) and os.path.getsize(output_clip) > 1000:
-            print(f"Wav2Lip successfully applied for scene {idx + 1}!")
-            return output_clip
-        else:
-            print(f"Wav2Lip warning output: {result.stderr}")
-    except subprocess.TimeoutExpired:
-        print(f"Wav2Lip timed out for scene {idx + 1}, falling back...")
-    except Exception as e:
-        print(f"Wav2Lip execution error: {e}")
-    
-    print("Applying standard audio-video sync fallback for this scene...")
+def assemble_scene_direct(video_file, audio_file, output_clip, idx):
+    """Directly synchronizes audio with the scene video/image using smooth ffmpeg mapping without strict face-detection crash."""
+    print(f"Assembling scene {idx + 1} with smooth audio sync...")
     audio_duration = get_media_duration(audio_file)
-    fallback_cmd = [
+    
+    sync_cmd = [
         "ffmpeg", "-stream_loop", "-1", "-i", video_file, "-i", audio_file,
         "-filter_complex", "[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920[v]",
         "-map", "[v]", "-map", "1:a", "-c:v", "libx264", "-c:a", "aac",
         "-t", f"{audio_duration:.2f}", "-y", output_clip
     ]
-    subprocess.run(fallback_cmd, check=True, capture_output=True, text=True)
+    subprocess.run(sync_cmd, check=True, capture_output=True, text=True)
     return output_clip
 
 
@@ -380,8 +280,8 @@ def assemble_scene(video_file, face_image, script_text, idx):
             raise
 
     output_clip = f"clip_{idx}.mp4"
-    face_file = face_image if face_image else video_file
-    return apply_wav2lip_lipsync(face_file, video_file, audio_file, output_clip, idx)
+    # Bypass strict Wav2Lip face detection crash for cartoon/animal 3D characters by using clean direct assembly
+    return assemble_scene_direct(video_file, audio_file, output_clip, idx)
 
 
 def merge_clips(clip_files, final_output="final_short.mp4"):
@@ -445,7 +345,7 @@ def upload_to_youtube(video_path, title, description):
 
 
 if __name__ == "__main__":
-    print("=== Fully Automated AI Short Bot with Fixed Wav2Lip Started ===")
+    print("=== Fully Automated AI Short Bot with Optimized 3D Cartoon Generator Started ===")
     story = generate_story_script()
     scenes = story["scenes"]
     final_clips = []
@@ -455,7 +355,7 @@ if __name__ == "__main__":
         try:
             media = generate_video_any_provider(scene["prompt"], idx)
             if media:
-                clip = assemble_scene(media["video"], media["face_image"], scene["script"], idx)
+                clip = assemble_scene(media["video"], media.get("face_image"), scene["script"], idx)
                 final_clips.append(clip)
         except Exception as e:
             print(f"Scene {idx + 1} failed: {e}")
