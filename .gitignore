@@ -1,0 +1,14 @@
+# Generated per run - never commit these
+scene_*.mp4
+scene_*.jpg
+clip_*.mp4
+audio_*.mp3
+files.txt
+final_short.mp4
+
+# Local-only OAuth files - never commit these (they're secrets!)
+client_secret.json
+token.json
+
+__pycache__/
+*.pyc
