@@ -48,6 +48,16 @@ jobs:
           # "Wan-AI/Wan2.1,someuser/some-other-free-video-space"
           # HF_VIDEO_SPACES: ${{ secrets.HF_VIDEO_SPACES }}
           NUM_SCENES: "5"
+          # Optional (free): auto-upload to YouTube. See
+          # get_youtube_refresh_token.py for one-time setup. Leave these
+          # three unset to just get the video as a downloadable artifact
+          # instead, with no upload attempted.
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+          # "private" by default so you can review quality first; change
+          # to "public" (as a repo Variable or secret) once you're happy.
+          YT_PRIVACY_STATUS: ${{ vars.YT_PRIVACY_STATUS || 'private' }}
         run: python main.py
 
       - name: Upload final video as artifact
