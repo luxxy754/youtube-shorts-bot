@@ -225,6 +225,77 @@ def merge_clips(clip_files, final_output="final_short.mp4"):
     return final_output
 
 
+def upload_to_youtube(video_path, title="Cute Cat & Chick Short #Shorts", description="A funny 3D Pixar style animated short featuring cute cats and chicks! #shorts #cats #animation"):
+    print("Authenticating and uploading to YouTube...")
+    if not YT_CLIENT_ID or not YT_CLIENT_SECRET or not YT_REFRESH_TOKEN:
+        print("YouTube upload skipped: Missing credentials.")
+        return False
+
+    # Step 1: Get Access Token from Refresh Token
+    token_url = "https://oauth2.googleapis.com/token"
+    token_data = {
+        "client_id": YT_CLIENT_ID,
+        "client_secret": YT_CLIENT_SECRET,
+        "refresh_token": YT_REFRESH_TOKEN,
+        "grant_type": "refresh_token"
+    }
+    
+    try:
+        res = requests.post(token_url, data=token_data)
+        res.raise_for_status()
+        access_token = res.json().get("access_token")
+    except Exception as e:
+        print(f"Failed to refresh YouTube access token: {e}")
+        return False
+
+    # Step 2: Initialize Resumable Upload
+    metadata = {
+        "snippet": {
+            "title": title,
+            "description": description,
+            "tags": ["shorts", "cat", "chick", "pixar", "animation", "funny"],
+            "categoryId": "1"
+        },
+        "status": {
+            "privacyStatus": YT_PRIVACY_STATUS,
+            "selfDeclaredMadeForKids": False
+        }
+    }
+
+    init_url = "https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status"
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json; charset=UTF-8",
+        "X-Upload-Content-Type": "video/mp4"
+    }
+
+    try:
+        init_res = requests.post(init_url, headers=headers, json=metadata)
+        init_res.raise_for_status()
+        upload_url = init_res.headers.get("Location")
+    except Exception as e:
+        print(f"Failed to initialize YouTube upload: {e}")
+        return False
+
+    # Step 3: Upload Video File
+    try:
+        with open(video_path, "rb") as f:
+            video_data = f.read()
+        
+        upload_headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "video/mp4",
+            "Content-Length": str(len(video_data))
+        }
+        upload_res = requests.put(upload_url, headers=upload_headers, data=video_data)
+        upload_res.raise_for_status()
+        print("SUCCESS: Video uploaded to YouTube successfully!")
+        return True
+    except Exception as e:
+        print(f"Failed to upload video binary to YouTube: {e}")
+        return False
+
+
 if __name__ == "__main__":
     print("=== Strict Cat & Chick Short Bot Started ===")
     story = generate_story_script()
@@ -243,6 +314,10 @@ if __name__ == "__main__":
         try:
             final_video = merge_clips(final_clips)
             total_duration = get_media_duration(final_video)
+            
+            # YouTube Upload Trigger
+            upload_to_youtube(final_video)
+            
         except Exception as e:
             print(f"\nFAILED: {e}")
             sys.exit(1)
