@@ -225,13 +225,53 @@ def merge_clips(clip_files, final_output="final_short.mp4"):
     return final_output
 
 
-def upload_to_youtube(video_path, title="Cute Cat & Chick Short #Shorts", description="A funny 3D Pixar style animated short featuring cute cats and chicks! #shorts #cats #animation"):
-    print("Authenticating and uploading to YouTube...")
+def generate_ai_keywords_and_description(script_summary):
+    """Generates viral description, tags, and keywords using Gemini based on the generated story."""
+    if not gemini_client:
+        return "A funny animated short! #shorts #animation #trending", ["shorts", "cat", "chick", "funny", "animation"]
+    
+    prompt = (
+        f"Based on this short story script: '{script_summary}', "
+        "generate a catchy YouTube Shorts description filled with viral hashtags, "
+        "and a comma-separated list of 10-15 high-ranking YouTube tags/keywords for maximum views and reach. "
+        "Strictly output in this format:\n"
+        "DESCRIPTION: [Your catchy description with hashtags]\n"
+        "TAGS: [tag1, tag2, tag3, ...]"
+    )
+    
+    try:
+        response = gemini_client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt
+        )
+        text = response.text.strip()
+        
+        desc_match = re.search(r'DESCRIPTION:\s*(.*?)(?=TAGS:|$)', text, re.DOTALL)
+        tags_match = re.search(r'TAGS:\s*(.*)', text, re.DOTALL)
+        
+        description = desc_match.group(1).strip() if desc_match else "Cute animated shorts! #shorts #cats"
+        tags_raw = tags_match.group(1).strip() if tags_match else "shorts, cat, chick, funny"
+        tags = [t.strip() for t in tags_raw.split(',')]
+        
+        return description, tags
+    except Exception as e:
+        print(f"AI Keyword generation failed: {e}")
+        return "Funny 3D Pixar style animated short! #shorts #cats #animation", ["shorts", "cat", "chick", "pixar", "funny"]
+
+
+def upload_to_youtube(video_path, story_scenes):
+    print("Generating AI keywords and viral description...")
+    full_script_text = " ".join([s["script"] for s in story_scenes])
+    description, tags = generate_ai_keywords_and_description(full_script_text)
+    title = "Cute Cat & Chick Funny Moment! 🐱🐥 #shorts"
+
+    print(f"Generated Description: {description}")
+    print(f"Generated Tags: {tags}")
+
     if not YT_CLIENT_ID or not YT_CLIENT_SECRET or not YT_REFRESH_TOKEN:
         print("YouTube upload skipped: Missing credentials.")
         return False
 
-    # Step 1: Get Access Token from Refresh Token
     token_url = "https://oauth2.googleapis.com/token"
     token_data = {
         "client_id": YT_CLIENT_ID,
@@ -248,12 +288,11 @@ def upload_to_youtube(video_path, title="Cute Cat & Chick Short #Shorts", descri
         print(f"Failed to refresh YouTube access token: {e}")
         return False
 
-    # Step 2: Initialize Resumable Upload
     metadata = {
         "snippet": {
             "title": title,
             "description": description,
-            "tags": ["shorts", "cat", "chick", "pixar", "animation", "funny"],
+            "tags": tags,
             "categoryId": "1"
         },
         "status": {
@@ -277,7 +316,6 @@ def upload_to_youtube(video_path, title="Cute Cat & Chick Short #Shorts", descri
         print(f"Failed to initialize YouTube upload: {e}")
         return False
 
-    # Step 3: Upload Video File
     try:
         with open(video_path, "rb") as f:
             video_data = f.read()
@@ -289,7 +327,7 @@ def upload_to_youtube(video_path, title="Cute Cat & Chick Short #Shorts", descri
         }
         upload_res = requests.put(upload_url, headers=upload_headers, data=video_data)
         upload_res.raise_for_status()
-        print("SUCCESS: Video uploaded to YouTube successfully!")
+        print("SUCCESS: Video uploaded to YouTube with AI-optimized keywords!")
         return True
     except Exception as e:
         print(f"Failed to upload video binary to YouTube: {e}")
@@ -315,8 +353,8 @@ if __name__ == "__main__":
             final_video = merge_clips(final_clips)
             total_duration = get_media_duration(final_video)
             
-            # YouTube Upload Trigger
-            upload_to_youtube(final_video)
+            # Upload with AI generated keywords and tags
+            upload_to_youtube(final_video, scenes)
             
         except Exception as e:
             print(f"\nFAILED: {e}")
