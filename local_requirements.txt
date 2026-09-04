@@ -1,3 +1,0 @@
-# Only needed once, locally, to run get_youtube_refresh_token.py.
-# The GitHub Actions bot itself does NOT need this file.
-google-auth-oauthlib
