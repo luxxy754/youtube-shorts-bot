@@ -86,7 +86,7 @@ def generate_story_script():
                 if len(scenes) == NUM_SCENES:
                     return {"scenes": scenes}
         except Exception as e:
-            print(f"Gemini Story Error ({model_name}): {e})"
+            print(f"Gemini Story Error ({model_name}): {e}")
 
     return {"scenes": [
         {"prompt": "Adorable fluffy 3D Pixar cartoon cat with big expressive eyes talking happily, vibrant colors, vertical 9:16", "script": "O yaaron, aaj maine ek bohot hi mazedaar machli dekhi!"},
@@ -114,8 +114,6 @@ def generate_animated_clip_pollinations(prompt_text, audio_duration, idx):
     fps = 25
     frames = int(audio_duration * fps)
     
-    # Precise mouth-area deformation filter: targets the lower-middle face region (mouth) 
-    # and opens/closes it dynamically based on audio rhythm and time wave.
     mouth_geq = (
         "geq="
         "r='r(X,Y+if(between(X,378,702)*between(Y,1056,1382), sin(T*22)*8, 0))':"
