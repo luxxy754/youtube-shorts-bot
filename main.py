@@ -57,42 +57,16 @@ if GEMINI_AVAILABLE and GEMINI_API_KEY:
         print(f"Gemini Init Warning: {e}")
 
 
-# ---------------------------------------------------------------------------
-# Fallbarck story pool with hyper-realistic cinematic style & backgrounds
-# ---------------------------------------------------------------------------
-DEFAULT_SCENE_POOL = [
-    {
-        "prompt": "Hyper-realistic 3D animated cute cat character talking dynamically, highly detailed fur, cinematic studio lighting, bokeh background of a cozy modern room with warm LED lights, 8k resolution, vertical 9:16",
-        "script": "ओ यारों, आज मैं नया कारोबार शुरू करने निकला हूँ, देखते हैं क्या होता है!"
-    },
-    {
-        "prompt": "Hyper-realistic 3D animated fresh vegetable character shouting furiously, rich textures, dramatic cinematic rim lighting, blurred organic farm market background, 8k resolution, vertical 9:16",
-        "script": "अरे भाई, तुम मुझसे इतना जलते क्यों हो, थोड़ा तो प्यार से बात करो!"
-    },
-    {
-        "prompt": "Hyper-realistic 3D animated confused character scratching head, highly detailed features, cinematic soft lighting, aesthetic modern kitchen background with depth of field, 8k resolution, vertical 9:16",
-        "script": "यार तेरी बात सुनकर तो मेरी आँखें खुली की खुली रह गईं!"
-    },
-    {
-        "prompt": "Hyper-realistic 3D animated excited character jumping happily, vibrant realistic colors, cinematic outdoor park background with sunlight flare, 8k resolution, vertical 9:16",
-        "script": "चलो सब मिलकर आज इस माहौल में धमाल मचाते हैं, बड़ा मज़ा आएगा!"
-    },
-    {
-        "prompt": "Hyper-realistic 3D animated group of characters laughing together, intricate details, cinematic indoor lounge background, warm ambient lighting, 8k resolution, vertical 9:16",
-        "script": "और इस तरह रोज़ एक नया तमाशा खड़ा हो जाता है!"
-    },
-]
-
-
 def generate_story_script():
-    """Generates an NUM_SCENES-scene realistic story script via Gemini."""
-    print("Generating Realistic Story Script via Gemini...")
-
-    default_scenes = list(itertools.islice(itertools.cycle(DEFAULT_SCENE_POOL), NUM_SCENES))
-    default_data = {"scenes": default_scenes}
+    """Generates an NUM_SCENES-scene cute 3D cartoon style story script with dynamic unique plots every time."""
+    print("Generating Unique & Cute 3D Cartoon Story Script via Gemini...")
 
     if not gemini_client:
-        return default_data
+        print("Gemini client not available, using default script.")
+        return {"scenes": [
+            {"prompt": "Cute 3D Pixar style animated fluffy cat talking with funny expressive eyes, bright cozy room background, vertical 9:16", "script": "O yaaron, aaj maine ek naya business shuru karne ka socha hai, dekhte hain kya hota hai!"},
+            {"prompt": "Cute 3D Pixar style animated funny dog reacting with shocked expression, colorful cartoon park background, vertical 9:16", "script": "Arre bhai, tera naya business sunkar mere toh hosh hi udd gaye!"}
+        ]}
 
     models_to_try = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash-latest"]
 
@@ -103,10 +77,10 @@ def generate_story_script():
     format_block = "\n".join(format_lines)
 
     prompt_text = (
-        f"Create a funny {NUM_SCENES}-scene animated Hindi short story starring hyper-realistic 3D characters "
-        "(like cats, cute animals or realistic styled characters), continuing one storyline. Each scene must have an ultra-detailed "
-        "visual video prompt in English describing action, rich textures, cinematic lighting and a realistic background (max 15 words) "
-        "and 1 pure Hindi dialogue line (roughly 6-8 seconds when spoken), so the whole short runs about 30-40 seconds.\n\n"
+        f"Create a totally unique, random, and funny {NUM_SCENES}-scene animated Hindi short story starring cute 3D cartoon characters "
+        "(like funny cats, pets, or cute cartoon creatures) with a continuing storyline. Avoid repetition. Each scene must have a "
+        "visual video prompt in English describing cute actions in a vibrant 3D Pixar/Disney style (max 12 words) "
+        "and 1 pure Hindi dialogue line (roughly 6-8 seconds when spoken), making the whole short about 30-40 seconds.\n\n"
         "STRICT FORMAT (no extra text before/after):\n" + format_block
     )
 
@@ -125,7 +99,7 @@ def generate_story_script():
             if len(video_prompts) >= NUM_SCENES and len(scripts) >= NUM_SCENES:
                 for i in range(NUM_SCENES):
                     clean_script = re.sub(r'\(.*?\)', '', scripts[i]).replace('*', '').replace('"', '').strip()
-                    clean_prompt = video_prompts[i].strip() + ", hyper-realistic 3D animation, ultra-detailed textures, cinematic lighting, 8k, 9:16 vertical video"
+                    clean_prompt = video_prompts[i].strip() + ", cute 3D Pixar style animation, vibrant colors, bright lighting, vertical 9:16"
                     if clean_script and clean_prompt:
                         scenes.append({"prompt": clean_prompt, "script": clean_script})
                 if len(scenes) == NUM_SCENES:
@@ -133,12 +107,12 @@ def generate_story_script():
         except Exception as e:
             print(f"Gemini Story Error ({model_name}): {e}")
 
-    return default_data
+    return {"scenes": [
+        {"prompt": "Cute 3D Pixar style animated fluffy cat talking with funny expressive eyes, bright cozy room background, vertical 9:16", "script": "O yaaron, aaj maine ek naya business shuru karne ka socha hai, dekhte hain kya hota hai!"},
+        {"prompt": "Cute 3D Pixar style animated funny dog reacting with shocked expression, colorful cartoon park background, vertical 9:16", "script": "Arre bhai, tera naya business sunkar mere toh hosh hi udd gaye!"}
+    ]}
 
 
-# ---------------------------------------------------------------------------
-# PROVIDER: Hugging Face Spaces for base realistic video generation
-# ---------------------------------------------------------------------------
 def _make_hf_client(space_id, token):
     from gradio_client import Client
     kwargs = {}
@@ -164,8 +138,6 @@ def generate_video_hf_spaces(prompt_text, idx):
 
     for space_id in HF_VIDEO_SPACES:
         for token_idx, token in enumerate(tokens_to_try):
-            label = f"{space_id} (HF token #{token_idx + 1})" if token else f"{space_id} (anonymous)"
-            print(f"HF Spaces: trying {label}...")
             try:
                 client = _make_hf_client(space_id, token)
                 result = client.predict(
@@ -175,8 +147,7 @@ def generate_video_hf_spaces(prompt_text, idx):
                     5,           # duration
                     api_name="/generate_video"
                 )
-            except Exception as e:
-                print(f"HF Spaces {label} failed: {e}")
+            except Exception:
                 continue
 
             video_path = result
@@ -198,11 +169,8 @@ def generate_video_hf_spaces(prompt_text, idx):
     return None
 
 
-# ---------------------------------------------------------------------------
-# GUARANTEED FALLBACK: Pollinations realistic image + Ken Burns Zoom
-# ---------------------------------------------------------------------------
 def generate_video_pollinations_zoom(prompt_text, idx):
-    img_prompt = requests.utils.quote(f"{prompt_text}, hyper-realistic, photorealistic background, 8k, vertical")
+    img_prompt = requests.utils.quote(f"{prompt_text}, cute 3D cartoon style, bright lighting, colorful background, vertical")
     img_url = f"https://image.pollinations.ai/prompt/{img_prompt}?width=1080&height=1920&nologo=true"
     img_file = f"scene_{idx}_pollinations.jpg"
 
@@ -241,14 +209,12 @@ def generate_video_pollinations_zoom(prompt_text, idx):
 def generate_video_any_provider(prompt_text, idx):
     providers = [
         ("HF Spaces (free)", generate_video_hf_spaces),
-        ("Pollinations free realistic image + zoom (guaranteed fallback)", generate_video_pollinations_zoom),
+        ("Pollinations cute cartoon image + zoom (guaranteed fallback)", generate_video_pollinations_zoom),
     ]
     for name, func in providers:
-        print(f"--- Trying provider: {name} ---")
         try:
             result = func(prompt_text, idx)
-        except Exception as e:
-            print(f"{name} error: {e}")
+        except Exception:
             result = None
         if result:
             return result
@@ -266,16 +232,12 @@ def get_media_duration(path):
     return float(result.stdout.strip())
 
 
-# ---------------------------------------------------------------------------
-# WAV2LIP INTEGRATION (Replaces Hedra completely, 100% free, no API key needed)
-# ---------------------------------------------------------------------------
 def setup_wav2lip():
     if not os.path.exists("Wav2Lip"):
         print("Cloning Wav2Lip repository...")
         subprocess.run(["git", "clone", "https://github.com/Rudrabha/Wav2Lip.git"], check=True)
-        # Download pre-trained weights if not present
         os.makedirs("Wav2Lip/checkpoints", exist_ok=True)
-        # Using standard lightweight checkpoints download links or mirror
+        
         print("Downloading Wav2Lip model weights...")
         weights_url = "https://huggingface.co/spaces/nateraw/wav2lip/resolve/main/checkpoints/wav2lip.pth"
         r = requests.get(weights_url)
@@ -290,8 +252,11 @@ def setup_wav2lip():
 
 
 def apply_wav2lip_lipsync(video_file, audio_file, output_clip, idx):
-    """Applies Wav2Lip local open-source lipsync without any paid API."""
+    """Applies Wav2Lip local lipsync with proper fallback handling if face detection misses."""
     setup_wav2lip()
+    
+    # Ensure temp directory exists for Wav2Lip audio processing
+    os.makedirs("temp", exist_ok=True)
     
     inference_script = "Wav2Lip/inference.py"
     checkpoint_path = "Wav2Lip/checkpoints/wav2lip.pth"
@@ -302,19 +267,22 @@ def apply_wav2lip_lipsync(video_file, audio_file, output_clip, idx):
         "--face", video_file,
         "--audio", audio_file,
         "--outfile", output_clip,
-        "--pads", "0", "10", "0", "0"
+        "--pads", "0", "10", "0", "0",
+        "--nosmooth"
     ]
     
     try:
         print(f"Running Wav2Lip lipsync for scene {idx + 1}...")
-        subprocess.run(cmd, check=True, capture_output=True, text=True)
-        if os.path.exists(output_clip):
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode == 0 and os.path.exists(output_clip) and os.path.getsize(output_clip) > 1000:
+            print(f"Wav2Lip successfully applied for scene {idx + 1}!")
             return output_clip
-    except subprocess.CalledProcessError as e:
-        print(f"Wav2Lip error: {e.stderr}")
+        else:
+            print(f"Wav2Lip warning output: {result.stderr}")
+    except Exception as e:
+        print(f"Wav2Lip execution error: {e}")
     
-    # Fallback: if lipsync fails for any reason, use standard video+audio merge
-    print("Wav2Lip skipped/failed, falling back to standard video assembly...")
+    print("Applying standard audio-video sync fallback for this scene...")
     audio_duration = get_media_duration(audio_file)
     fallback_cmd = [
         "ffmpeg", "-stream_loop", "-1", "-i", video_file, "-i", audio_file,
@@ -327,7 +295,6 @@ def apply_wav2lip_lipsync(video_file, audio_file, output_clip, idx):
 
 
 def assemble_scene(video_file, script_text, idx):
-    """Syncs Audio with generated video and applies Wav2Lip lipsync"""
     audio_file = f"audio_{idx}.mp3"
 
     eleven_success = False
@@ -358,7 +325,6 @@ def assemble_scene(video_file, script_text, idx):
             raise
 
     output_clip = f"clip_{idx}.mp4"
-    # Apply Wav2Lip lipsync using the generated video and audio
     return apply_wav2lip_lipsync(video_file, audio_file, output_clip, idx)
 
 
@@ -423,7 +389,7 @@ def upload_to_youtube(video_path, title, description):
 
 
 if __name__ == "__main__":
-    print("=== Fully Automated AI Short Bot with Wav2Lip Started ===")
+    print("=== Fully Automated AI Short Bot with Fixed Wav2Lip Started ===")
     story = generate_story_script()
     scenes = story["scenes"]
     final_clips = []
@@ -447,7 +413,7 @@ if __name__ == "__main__":
             sys.exit(1)
         print(f"\nSUCCESS: Short Ready: {final_video} (~{total_duration:.1f}s)")
 
-        yt_title = "मज़ेदार AI कहानी #Shorts"
+        yt_title = "मज़ेदार AI कार्टून कहानी #Shorts"
         yt_description = "\n".join(s["script"] for s in scenes) + "\n\n#Shorts #Comedy #Hindi #AIAnimation"
         upload_to_youtube(final_video, yt_title, yt_description)
     else:
