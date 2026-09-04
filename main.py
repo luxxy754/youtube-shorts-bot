@@ -203,7 +203,7 @@ def generate_video_pollinations_zoom(prompt_text, idx):
         print(f"ffmpeg zoompan failed: {e.stderr}")
         return None
 
-    return out_file
+    return {"video": out_file, "face_image": img_file}
 
 
 def generate_video_any_provider(prompt_text, idx):
@@ -217,7 +217,9 @@ def generate_video_any_provider(prompt_text, idx):
         except Exception:
             result = None
         if result:
-            return result
+            if isinstance(result, dict):
+                return result
+            return {"video": result, "face_image": None}
     return None
 
 
@@ -292,8 +294,11 @@ def setup_wav2lip():
         _download_with_retry(s3fd_url, s3fd_path)
 
 
-def apply_wav2lip_lipsync(video_file, audio_file, output_clip, idx):
-    """Applies Wav2Lip local lipsync with proper fallback handling if face detection misses."""
+def apply_wav2lip_lipsync(face_file, video_file, audio_file, output_clip, idx):
+    """Applies Wav2Lip local lipsync with proper fallback handling if face detection misses.
+    face_file: static image (fast, single face-detection pass) if available, else same as video_file.
+    video_file: always a video, used for the ffmpeg fallback if Wav2Lip fails/times out.
+    """
     setup_wav2lip()
     
     # Ensure temp directory exists for Wav2Lip audio processing
@@ -305,7 +310,7 @@ def apply_wav2lip_lipsync(video_file, audio_file, output_clip, idx):
     cmd = [
         "python", inference_script,
         "--checkpoint_path", checkpoint_path,
-        "--face", video_file,
+        "--face", face_file,
         "--audio", audio_file,
         "--outfile", output_clip,
         "--pads", "0", "10", "0", "0",
@@ -344,7 +349,7 @@ def apply_wav2lip_lipsync(video_file, audio_file, output_clip, idx):
     return output_clip
 
 
-def assemble_scene(video_file, script_text, idx):
+def assemble_scene(video_file, face_image, script_text, idx):
     audio_file = f"audio_{idx}.mp3"
 
     eleven_success = False
@@ -375,7 +380,8 @@ def assemble_scene(video_file, script_text, idx):
             raise
 
     output_clip = f"clip_{idx}.mp4"
-    return apply_wav2lip_lipsync(video_file, audio_file, output_clip, idx)
+    face_file = face_image if face_image else video_file
+    return apply_wav2lip_lipsync(face_file, video_file, audio_file, output_clip, idx)
 
 
 def merge_clips(clip_files, final_output="final_short.mp4"):
@@ -447,9 +453,9 @@ if __name__ == "__main__":
     for idx, scene in enumerate(scenes):
         print(f"\n--- Processing Scene {idx + 1}/{len(scenes)} ---")
         try:
-            raw_video = generate_video_any_provider(scene["prompt"], idx)
-            if raw_video:
-                clip = assemble_scene(raw_video, scene["script"], idx)
+            media = generate_video_any_provider(scene["prompt"], idx)
+            if media:
+                clip = assemble_scene(media["video"], media["face_image"], scene["script"], idx)
                 final_clips.append(clip)
         except Exception as e:
             print(f"Scene {idx + 1} failed: {e}")
