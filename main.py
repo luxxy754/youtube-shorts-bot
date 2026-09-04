@@ -279,16 +279,16 @@ def _download_with_retry(url, dest_path, min_size_bytes=1_000_000, attempts=3, t
 def setup_wav2lip():
     _clone_with_retry("https://github.com/Rudrabha/Wav2Lip.git", "Wav2Lip")
     os.makedirs("Wav2Lip/checkpoints", exist_ok=True)
-    os.makedirs("Wav2Lip/face_detection/detection/s3fd", exist_ok=True)
+    os.makedirs("Wav2Lip/face_detection/detection/sfd", exist_ok=True)
 
     weights_path = "Wav2Lip/checkpoints/wav2lip.pth"
     if not (os.path.exists(weights_path) and os.path.getsize(weights_path) >= 1_000_000):
-        weights_url = "https://huggingface.co/spaces/nateraw/wav2lip/resolve/main/checkpoints/wav2lip.pth"
+        weights_url = "https://github.com/justinjohn0306/Wav2Lip/releases/download/models/wav2lip.pth"
         _download_with_retry(weights_url, weights_path)
 
-    s3fd_path = "Wav2Lip/face_detection/detection/s3fd/s3fd.pth"
+    s3fd_path = "Wav2Lip/face_detection/detection/sfd/s3fd.pth"
     if not (os.path.exists(s3fd_path) and os.path.getsize(s3fd_path) >= 1_000_000):
-        s3fd_url = "https://huggingface.co/spaces/nateraw/wav2lip/resolve/main/checkpoints/s3fd.pth"
+        s3fd_url = "https://www.adrianbulat.com/downloads/python-fan/s3fd-619a316812.pth"
         _download_with_retry(s3fd_url, s3fd_path)
 
 
