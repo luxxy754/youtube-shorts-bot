@@ -40,13 +40,13 @@ if GEMINI_AVAILABLE and GEMINI_API_KEY:
 
 
 def generate_story_script():
-    """Generates extremely strict, family-friendly cute 3D Pixar animal script."""
-    print("Generating Strict Cute Animal Story Script via Gemini...")
+    """Generates a strict script featuring ONLY cute cats and little baby chicks in 3D Pixar style."""
+    print("Generating Cat & Chick Story Script via Gemini...")
 
     if not gemini_client:
         return {"scenes": [
-            {"prompt": "Adorable cute fluffy 3D cartoon cat with big shiny eyes smiling happily, Pixar style, vibrant colors, vertical 9:16", "script": "O yaaron, aaj maine ek naya mazedaar game shuru kiya hai!"},
-            {"prompt": "Cute little fluffy baby panda laughing cheerfully, Pixar 3D style, vibrant lighting, vertical 9:16", "script": "Wah bhai, mujhe bhi is game mein shamil kar lo!"}
+            {"prompt": "Adorable fluffy 3D Pixar cartoon cat with big expressive eyes talking happily, vibrant colors, vertical 9:16", "script": "O yaaron, aaj maine ek bohot hi mazedaar machli dekhi!"},
+            {"prompt": "Super cute tiny fluffy yellow baby chick chirping cheerfully, 3D Disney Pixar style, vibrant lighting, vertical 9:16", "script": "Arre kahan hai machli, mujhe bhi dikhao na!"}
         ]}
 
     models_to_try = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash-latest"]
@@ -58,9 +58,9 @@ def generate_story_script():
     format_block = "\n".join(format_lines)
 
     prompt_text = (
-        f"Create a funny, super cute {NUM_SCENES}-scene animated Hindi short story starring ONLY very cute fluffy animals (such as cute cats, "
-        "bunnies, pandas, or little squirrels). ABSOLUTELY NO abstract objects, NO stones, NO strange alien shapes. "
-        "Each scene must feature a cute animal doing funny expressions in a stunning 3D Disney/Pixar style (max 12 words) "
+        f"Create a funny, super cute {NUM_SCENES}-scene animated Hindi short story starring ONLY cute cats and little fluffy yellow chicks. "
+        "ABSOLUTELY NO pandas, NO bears, NO strange animals, ONLY cats and chicks. "
+        "Each scene must feature a cute cat or a baby chick doing funny expressive talks in a stunning 3D Disney/Pixar style (max 12 words) "
         "and 1 pure Hindi dialogue line (roughly 6-8 seconds).\n\n"
         "STRICT FORMAT (no extra text before/after):\n" + format_block
     )
@@ -80,22 +80,22 @@ def generate_story_script():
             if len(video_prompts) >= NUM_SCENES and len(scripts) >= NUM_SCENES:
                 for i in range(NUM_SCENES):
                     clean_script = re.sub(r'\(.*?\)', '', scripts[i]).replace('*', '').replace('"', '').strip()
-                    clean_prompt = video_prompts[i].strip() + ", adorable cute fluffy animal, 3D Pixar style animation, vibrant cinematic lighting, highly detailed, vertical 9:16"
+                    clean_prompt = video_prompts[i].strip() + ", cute fluffy cat or tiny baby chick, 3D Pixar style animation, vibrant cinematic lighting, highly detailed, vertical 9:16"
                     if clean_script and clean_prompt:
                         scenes.append({"prompt": clean_prompt, "script": clean_script})
                 if len(scenes) == NUM_SCENES:
                     return {"scenes": scenes}
         except Exception as e:
-            print(f"Gemini Story Error ({model_name}): {e}")
+            print(f"Gemini Story Error ({model_name}): {e})"
 
     return {"scenes": [
-        {"prompt": "Adorable cute fluffy 3D cartoon cat with big shiny eyes smiling happily, Pixar style, vibrant colors, vertical 9:16", "script": "O yaaron, aaj maine ek naya mazedaar game shuru kiya hai!"},
-        {"prompt": "Cute little fluffy baby panda laughing cheerfully, Pixar 3D style, vibrant lighting, vertical 9:16", "script": "Wah bhai, mujhe bhi is game mein shamil kar lo!"}
+        {"prompt": "Adorable fluffy 3D Pixar cartoon cat with big expressive eyes talking happily, vibrant colors, vertical 9:16", "script": "O yaaron, aaj maine ek bohot hi mazedaar machli dekhi!"},
+        {"prompt": "Super cute tiny fluffy yellow baby chick chirping cheerfully, 3D Disney Pixar style, vibrant lighting, vertical 9:16", "script": "Arre kahan hai machli, mujhe bhi dikhao na!"}
     ]}
 
 
 def generate_animated_clip_pollinations(prompt_text, audio_duration, idx):
-    """Generates a 3D cute animal image and applies advanced organic body movement and head tilting via FFmpeg."""
+    """Generates a cat/chick image and applies mouth-area volume deformation lipsync + head tilt via FFmpeg."""
     enhanced_prompt = f"{prompt_text}, ultra-detailed cute character, vibrant colors, 8k resolution, cinematic lighting"
     img_prompt = requests.utils.quote(enhanced_prompt)
     img_url = f"https://image.pollinations.ai/prompt/{img_prompt}?width=1080&height=1920&nologo=true"
@@ -114,15 +114,24 @@ def generate_animated_clip_pollinations(prompt_text, audio_duration, idx):
     fps = 25
     frames = int(audio_duration * fps)
     
-    # Advanced filter combining smooth sinusoidal head rotation and organic zoom-pan
+    # Precise mouth-area deformation filter: targets the lower-middle face region (mouth) 
+    # and opens/closes it dynamically based on audio rhythm and time wave.
+    mouth_geq = (
+        "geq="
+        "r='r(X,Y+if(between(X,378,702)*between(Y,1056,1382), sin(T*22)*8, 0))':"
+        "g='g(X,Y+if(between(X,378,702)*between(Y,1056,1382), sin(T*22)*8, 0))':"
+        "b='b(X,Y+if(between(X,378,702)*between(Y,1056,1382), sin(T*22)*8, 0))'"
+    )
+
     zoom_cmd = [
         "ffmpeg",
         "-loop", "1",
         "-i", img_file,
         "-vf",
         (
-            f"scale=1200:2140,"
-            f"rotate='0.02*sin(2*PI*t/2.5)':ow=1080:oh=1920:c=none,"
+            f"scale=1080:1920,"
+            f"rotate='0.02*sin(2*PI*t/2.2)':ow=1080:oh=1920:c=none,"
+            f"{mouth_geq},"
             f"zoompan=z='min(zoom+0.0008,1.15)':d={frames}:s=1080x1920:fps={fps}"
         ),
         "-t", f"{audio_duration:.2f}",
@@ -135,7 +144,7 @@ def generate_animated_clip_pollinations(prompt_text, audio_duration, idx):
     try:
         subprocess.run(zoom_cmd, check=True, capture_output=True, text=True)
     except subprocess.CalledProcessError as e:
-        print(f"ffmpeg advanced motion failed: {e.stderr}")
+        print(f"ffmpeg lipsync motion failed: {e.stderr}")
         fallback_cmd = [
             "ffmpeg", "-loop", "1", "-i", img_file,
             "-vf", f"scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,zoompan=z='min(zoom+0.001,1.2)':d={frames}:s=1080x1920:fps={fps}",
@@ -219,7 +228,7 @@ def merge_clips(clip_files, final_output="final_short.mp4"):
 
 
 if __name__ == "__main__":
-    print("=== Strict 3D Cute Animal Short Bot Started ===")
+    print("=== Strict Cat & Chick Short Bot Started ===")
     story = generate_story_script()
     scenes = story["scenes"]
     final_clips = []
