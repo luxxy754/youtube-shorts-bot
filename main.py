@@ -46,6 +46,50 @@ def generate_cat_prompts():
     ]
     return "Cute Cat Adventures", prompts
 
+HF_INFERENCE_MODEL = os.getenv("HF_INFERENCE_MODEL", "damo-vilab/text-to-video-ms-1.7b")
+
+def generate_animated_clip_inference_api(prompt_text, idx):
+    """Generates a real (low-res) AI video clip using HF's official Inference API.
+    More reliable than community Gradio Spaces, which frequently get paused/sleep."""
+    if not HF_TOKENS:
+        print("No HF tokens available for Inference API attempt.")
+        return None
+
+    api_url = f"https://api-inference.huggingface.co/models/{HF_INFERENCE_MODEL}"
+
+    for token_idx, token in enumerate(HF_TOKENS):
+        headers = {"Authorization": f"Bearer {token}"}
+        try:
+            print(f"Trying HF Inference API ('{HF_INFERENCE_MODEL}') Token #{token_idx + 1} for: {prompt_text[:40]}...")
+            resp = requests.post(api_url, headers=headers, json={"inputs": prompt_text}, timeout=120)
+
+            # Model may need to "warm up" on first call - HF returns 503 with an estimated_time.
+            if resp.status_code == 503:
+                try:
+                    wait_s = min(float(resp.json().get("estimated_time", 20)), 40)
+                except Exception:
+                    wait_s = 20
+                print(f"  -> model is loading, waiting {wait_s:.0f}s then retrying once...")
+                time.sleep(wait_s)
+                resp = requests.post(api_url, headers=headers, json={"inputs": prompt_text}, timeout=120)
+
+            content_type = resp.headers.get("content-type", "")
+            print(f"  -> status={resp.status_code} content-type={content_type} size={len(resp.content)}")
+
+            if resp.status_code == 200 and len(resp.content) > 5000:
+                output_file = f"scene_{idx}_hf.mp4"
+                with open(output_file, "wb") as f:
+                    f.write(resp.content)
+                print(f"Successfully generated video clip {idx} via HF Inference API.")
+                return output_file
+            else:
+                print(f"  -> Inference API did not return a usable video: {resp.text[:300]}")
+
+        except Exception as e:
+            print(f"  -> HF Inference API attempt failed: {e}")
+
+    return None
+
 def generate_animated_clip_hf(prompt_text, idx):
     """Generates a real AI video clip using Hugging Face Free Spaces using correct fn_index."""
     if not GRADIO_AVAILABLE:
@@ -315,13 +359,13 @@ def upload_to_youtube(video_path, title, description, tags=None):
 def main():
     title, scene_prompts = generate_cat_prompts()
 
-    if not HF_SPACE.strip():
-        print("HF_VIDEO_SPACES not set - skipping AI video generation, using fallback images only.")
+    if not HF_TOKENS:
+        print("No HF tokens set - skipping AI video generation attempts, using fallback images only.")
 
     video_clips = []
     for idx, prompt in enumerate(scene_prompts[:NUM_SCENES]):
-        clip = None
-        if HF_SPACE.strip():
+        clip = generate_animated_clip_inference_api(prompt, idx)
+        if not clip and HF_SPACE.strip():
             clip = generate_animated_clip_hf(prompt, idx)
         if not clip:
             clip = create_fallback_video(prompt, idx)
