@@ -1,5 +1,6 @@
 import os
 import sys
+import json
 import time
 import requests
 import subprocess
@@ -28,6 +29,7 @@ HF_TOKENS = [
 HF_TOKENS = [t for t in HF_TOKENS if t.strip()]
 HF_SPACE = os.getenv("HF_VIDEO_SPACES", "Wan-AI/Wan2.1")
 NUM_SCENES = int(os.getenv("NUM_SCENES", "4"))
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
 
 YT_CLIENT_ID = os.getenv("YT_CLIENT_ID", "")
 YT_CLIENT_SECRET = os.getenv("YT_CLIENT_SECRET", "")
@@ -37,14 +39,68 @@ YT_PRIVACY_STATUS = os.getenv("YT_PRIVACY_STATUS", "public")
 print("YouTube Shorts Visual Bot Initialized (No Voiceover).")
 
 def generate_cat_prompts():
-    """Generates funny/cool cat 3D animation prompts similar to popular reels."""
-    prompts = [
+    """Generates funny/cool cat 3D animation prompts similar to popular reels.
+    Tries Gemini first for fresh, varied ideas each run; falls back to a fixed
+    hardcoded list if GEMINI_API_KEY is missing or the call fails (never breaks the run)."""
+    fallback_title = "Cute Cat Adventures"
+    fallback_prompts = [
         "A cute fat orange cat wearing a gold chain walking with a little duck, 3D Pixar style, cinematic lighting",
         "A cool fat orange cat wearing sunglasses riding a small motorcycle with a duck, funny, vibrant colors",
         "A happy fat orange cat wearing a chef hat cooking fried chicken in a kitchen pan, humorous 3D animation",
         "A fat orange cat wearing cool sunglasses dancing energetically with funny expressions, vibrant 3D style"
     ]
-    return "Cute Cat Adventures", prompts
+
+    if not GEMINI_API_KEY:
+        print("No GEMINI_API_KEY set - using fixed hardcoded cat prompts.")
+        return fallback_title, fallback_prompts
+
+    api_url = (
+        f"https://generativelanguage.googleapis.com/v1beta/models/"
+        f"{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
+    )
+    instruction = (
+        f"Generate ideas for a {NUM_SCENES}-scene YouTube Shorts video about a funny, cute, "
+        "fat orange 3D-Pixar-style cat. Reply ONLY with valid JSON, no markdown, no code fences, "
+        "in this exact shape: "
+        '{"title": "short catchy title", "prompts": ["scene 1 prompt", "scene 2 prompt", ...]}. '
+        f"Give exactly {NUM_SCENES} prompts. Each prompt must be a single vivid sentence describing "
+        "the cat's action, outfit, and setting, suitable for an AI image/video generator, "
+        "3D Pixar style, funny and vibrant, similar in spirit to popular cat reels."
+    )
+    body = {"contents": [{"parts": [{"text": instruction}]}]}
+
+    try:
+        print(f"Asking Gemini ('{GEMINI_MODEL}') for fresh scene prompts...")
+        resp = requests.post(api_url, json=body, timeout=30)
+
+        if resp.status_code != 200:
+            print(f"  -> Gemini request failed: status={resp.status_code} body={resp.text[:300]}")
+            return fallback_title, fallback_prompts
+
+        data = resp.json()
+        text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
+
+        # Gemini sometimes wraps JSON in ```json ... ``` fences even when told not to.
+        if text.startswith("```"):
+            text = text.strip("`")
+            if text.lower().startswith("json"):
+                text = text[4:].strip()
+
+        parsed = json.loads(text)
+        title = str(parsed.get("title") or fallback_title).strip()
+        prompts = [str(p).strip() for p in parsed.get("prompts", []) if str(p).strip()]
+
+        if len(prompts) < NUM_SCENES:
+            print(f"  -> Gemini returned only {len(prompts)} usable prompts, expected {NUM_SCENES}. "
+                  f"Using fixed hardcoded cat prompts instead.")
+            return fallback_title, fallback_prompts
+
+        print(f"Gemini generated title '{title}' with {len(prompts)} scene prompts.")
+        return title, prompts[:NUM_SCENES]
+
+    except Exception as e:
+        print(f"  -> Gemini prompt generation failed: {e}. Using fixed hardcoded cat prompts.")
+        return fallback_title, fallback_prompts
 
 HF_INFERENCE_MODEL = os.getenv("HF_INFERENCE_MODEL", "damo-vilab/text-to-video-ms-1.7b")
 
