@@ -33,7 +33,7 @@ def generate_cat_prompts():
     return "Cute Cat Adventures", prompts
 
 def generate_animated_clip_hf(prompt_text, idx):
-    """Generates a real AI video clip using Hugging Face Free Spaces."""
+    """Generates a real AI video clip using Hugging Face Free Spaces without hardcoded api_name."""
     if not GRADIO_AVAILABLE:
         print("Gradio client not available.")
         return None
@@ -49,9 +49,10 @@ def generate_animated_clip_hf(prompt_text, idx):
                     os.environ["HF_TOKEN"] = token
                 
                 client = Client(space_id)
+                
+                # Bina api_name ke call karne se Gradio default primary function utha leta hai
                 result = client.predict(
-                    prompt=prompt_text,
-                    api_name="/generate"
+                    prompt=prompt_text
                 )
                 
                 if result:
