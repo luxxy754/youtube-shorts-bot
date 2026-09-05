@@ -3,15 +3,20 @@ import sys
 import time
 import requests
 import subprocess
-from google.oauth2.credentials import Credentials
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaFileUpload
 
 try:
     from gradio_client import Client
     GRADIO_AVAILABLE = True
 except ImportError:
     GRADIO_AVAILABLE = False
+
+try:
+    from google.oauth2.credentials import Credentials
+    from googleapiclient.discovery import build
+    from googleapiclient.http import MediaFileUpload
+    YOUTUBE_AVAILABLE = True
+except ImportError:
+    YOUTUBE_AVAILABLE = False
 
 # ==================== CONFIGURATION ====================
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
@@ -24,12 +29,12 @@ HF_TOKENS = [t for t in HF_TOKENS if t.strip()]
 HF_SPACE = os.getenv("HF_VIDEO_SPACES", "Wan-AI/Wan2.1")
 NUM_SCENES = int(os.getenv("NUM_SCENES", "4"))
 
-# YouTube Credentials
 YT_CLIENT_ID = os.getenv("YT_CLIENT_ID", "")
 YT_CLIENT_SECRET = os.getenv("YT_CLIENT_SECRET", "")
 YT_REFRESH_TOKEN = os.getenv("YT_REFRESH_TOKEN", "")
+YT_PRIVACY_STATUS = os.getenv("YT_PRIVACY_STATUS", "public")
 
-print("YouTube Shorts Visual Bot Initialized.")
+print("YouTube Shorts Visual Bot Initialized (No Voiceover).")
 
 def generate_cat_prompts():
     """Generates funny/cool cat 3D animation prompts similar to popular reels."""
@@ -39,7 +44,7 @@ def generate_cat_prompts():
         "A happy fat orange cat wearing a chef hat cooking fried chicken in a kitchen pan, humorous 3D animation",
         "A fat orange cat wearing cool sunglasses dancing energetically with funny expressions, vibrant 3D style"
     ]
-    return "Cute Cat Adventures #Shorts", prompts
+    return "Cute Cat Adventures", prompts
 
 def generate_animated_clip_hf(prompt_text, idx):
     """Generates a real AI video clip using Hugging Face Free Spaces using correct fn_index."""
@@ -53,36 +58,90 @@ def generate_animated_clip_hf(prompt_text, idx):
         for space_id in HF_SPACE.split(","):
             space_id = space_id.strip()
             try:
-                print(f"Trying HF Space '{space_id}' using Token #{token_idx + 1}...")
+                print(f"Trying HF Space '{space_id}' using Token #{token_idx + 1} for prompt: {prompt_text[:30]}...")
                 if token:
                     os.environ["HF_TOKEN"] = token
                 
                 client = Client(space_id)
-                result = client.predict(prompt=prompt_text, fn_index=0)
-                
-                if result:
-                    video_path = result[0] if isinstance(result, (list, tuple)) else result
-                    if video_path and os.path.exists(str(video_path)):
-                        output_file = f"scene_{idx}_hf.mp4"
-                        os.rename(str(video_path), output_file)
-                        print(f"Successfully generated video clip {idx} via HF.")
-                        return output_file
+
+                # Instead of guessing api_name/fn_index, ask the Space what it actually exposes.
+                try:
+                    api_info = client.view_api(print_info=False, return_format="dict")
+                except Exception as api_err:
+                    print(f"  -> could not read API spec: {api_err}")
+                    api_info = {}
+
+                def _extract_video_path(res):
+                    """Return a usable file path from a predict() result, or None."""
+                    candidates = res if isinstance(res, (list, tuple)) else [res]
+                    for c in candidates:
+                        # Gradio file outputs are often dicts like {'video': path} or {'path': path}
+                        if isinstance(c, dict):
+                            c = c.get("video") or c.get("path") or c.get("name")
+                        if c and isinstance(c, str) and os.path.exists(c):
+                            return c
+                    return None
+
+                def _try_endpoint(call_kwargs, label):
+                    try:
+                        print(f"  -> trying {label}")
+                        res = client.predict(prompt_text, **call_kwargs)
+                        preview = str(res)[:200]
+                        print(f"     result type={type(res).__name__} value={preview}")
+                        vp = _extract_video_path(res)
+                        if vp:
+                            return vp
+                        print(f"     -> {label} did not return a usable video file, trying next endpoint")
+                    except Exception as inner_e:
+                        print(f"  -> {label} failed: {inner_e}")
+                    return None
+
+                video_path = None
+
+                # 1) Try every named endpoint the Space actually has.
+                named_endpoints = api_info.get("named_endpoints", {}) or {}
+                for ep_name, ep_spec in named_endpoints.items():
+                    param_names = [
+                        p.get("label") or p.get("parameter_name") or "?"
+                        for p in (ep_spec.get("parameters") or [])
+                    ]
+                    print(f"  -> named endpoint {ep_name} expects params: {param_names}")
+                    video_path = _try_endpoint({"api_name": ep_name}, f"named endpoint {ep_name}")
+                    if video_path:
+                        break
+
+                # 2) If nothing worked, try every unnamed endpoint (fn_index) it has.
+                if not video_path:
+                    unnamed_endpoints = api_info.get("unnamed_endpoints", {}) or {}
+                    for fn_idx_str in unnamed_endpoints:
+                        fn_idx = int(fn_idx_str)
+                        video_path = _try_endpoint({"fn_index": fn_idx}, f"fn_index {fn_idx}")
+                        if video_path:
+                            break
+
+                if video_path:
+                    output_file = f"scene_{idx}_hf.mp4"
+                    os.rename(str(video_path), output_file)
+                    print(f"Successfully generated video clip {idx} via HF.")
+                    return output_file
             except Exception as e:
-                print(f"HF Space {space_id} failed: {e}")
+                print(f"HF Space {space_id} with Token #{token_idx + 1} failed: {e}")
                 continue
                 
     print(f"Warning: HF failed for scene {idx}. Using fallback zoom-in effect.")
     return None
 
 def create_fallback_video(prompt_text, idx):
-    """Creates a basic zoom-in video using FFmpeg if HF fails."""
+    """Creates a basic zoom-in video using FFmpeg with safe connection handling."""
     output_file = f"scene_{idx}_fallback.mp4"
     img_path = f"scene_{idx}.jpg"
+    
     img_url = f"https://image.pollinations.ai/prompt/{requests.utils.quote(prompt_text)}?width=1080&height=1920&nologo=true"
     
     downloaded = False
-    for attempt in range(3):
+    for attempt in range(3): # 3 retry attempts
         try:
+            print(f"Downloading fallback image for scene {idx} (Attempt {attempt+1})...")
             headers = {'User-Agent': 'Mozilla/5.0'}
             response = requests.get(img_url, headers=headers, timeout=30)
             if response.status_code == 200:
@@ -90,10 +149,13 @@ def create_fallback_video(prompt_text, idx):
                     handler.write(response.content)
                 downloaded = True
                 break
-        except Exception:
+        except Exception as e:
+            print(f"Download attempt {attempt+1} failed: {e}")
             time.sleep(2)
             
+    # Agar download fail ho jaye toh solid color/blank frame create kar lo taake script crash na ho
     if not downloaded or not os.path.exists(img_path):
+        print(f"Creating emergency solid color frame for scene {idx}...")
         subprocess.run(["ffmpeg", "-y", "-f", "lavfi", "-i", "color=c=orange:s=1080:1920", "-vframes", "1", img_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
     cmd = [
@@ -104,52 +166,63 @@ def create_fallback_video(prompt_text, idx):
     subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     return output_file
 
-def upload_to_youtube(video_path, title):
-    """Uploads the generated short video to YouTube using OAuth2 tokens."""
-    if not YT_CLIENT_ID or not YT_CLIENT_SECRET or not YT_REFRESH_TOKEN:
-        print("YouTube credentials missing in secrets! Skipping upload.")
-        return
+def upload_to_youtube(video_path, title, description, tags=None):
+    """Uploads the generated Short to YouTube using the stored refresh token."""
+    if not YOUTUBE_AVAILABLE:
+        print("google-api-python-client not installed - skipping YouTube upload.")
+        return None
 
-    print("Authenticating with YouTube API...")
-    creds = Credentials(
-        None,
-        refresh_token=YT_REFRESH_TOKEN,
-        client_id=YT_CLIENT_ID,
-        client_secret=YT_CLIENT_SECRET,
-        token_uri="https://oauth2.googleapis.com/token"
-    )
-    
-    youtube = build("youtube", "v3", credentials=creds)
-    
-    body = {
-        "snippet": {
-            "title": f"{title} 🐱 #Shorts",
-            "description": "Funny and cute cat adventures! Don't forget to subscribe for daily shorts. #cats #shorts #animation",
-            "tags": ["shorts", "funny cats", "animation", "cute cat"],
-            "categoryId": "24"
-        },
-        "status": {
-            "privacyStatus": "public",
-            "selfDeclaredMadeForKids": False
+    if not (YT_CLIENT_ID and YT_CLIENT_SECRET and YT_REFRESH_TOKEN):
+        print("YouTube credentials (YT_CLIENT_ID/YT_CLIENT_SECRET/YT_REFRESH_TOKEN) not set - skipping upload.")
+        return None
+
+    if not os.path.exists(video_path):
+        print(f"Cannot upload: {video_path} not found.")
+        return None
+
+    try:
+        creds = Credentials(
+            token=None,
+            refresh_token=YT_REFRESH_TOKEN,
+            client_id=YT_CLIENT_ID,
+            client_secret=YT_CLIENT_SECRET,
+            token_uri="https://oauth2.googleapis.com/token",
+            scopes=["https://www.googleapis.com/auth/youtube.upload"],
+        )
+
+        youtube = build("youtube", "v3", credentials=creds)
+
+        body = {
+            "snippet": {
+                "title": title[:100],
+                "description": description,
+                "tags": tags or [],
+                "categoryId": "22",  # People & Blogs; fine for general Shorts content
+            },
+            "status": {
+                "privacyStatus": YT_PRIVACY_STATUS,
+                "selfDeclaredMadeForKids": False,
+            },
         }
-    }
-    
-    media = MediaFileUpload(video_path, chunksize=-1, resumable=True)
-    
-    print("Uploading video to YouTube...")
-    request = youtube.videos().insert(
-        part="snippet,status",
-        body=body,
-        media_body=media
-    )
-    
-    response = None
-    while response is None:
-        status, response = request.next_chunk()
-        if status:
-            print(f"Uploaded {int(status.progress() * 100)}%")
-            
-    print(f"Successfully uploaded! Video ID: {response.get('id')}")
+
+        media = MediaFileUpload(video_path, chunksize=-1, resumable=True, mimetype="video/mp4")
+        request = youtube.videos().insert(part="snippet,status", body=body, media_body=media)
+
+        print(f"Uploading '{title}' to YouTube...")
+        response = None
+        while response is None:
+            status, response = request.next_chunk()
+            if status:
+                print(f"  Upload progress: {int(status.progress() * 100)}%")
+
+        video_id = response.get("id")
+        print(f"Successfully uploaded to YouTube! Video ID: {video_id}")
+        print(f"Watch it here: https://youtube.com/shorts/{video_id}")
+        return video_id
+
+    except Exception as e:
+        print(f"YouTube upload failed: {e}")
+        return None
 
 def main():
     title, scene_prompts = generate_cat_prompts()
@@ -169,11 +242,15 @@ def main():
     print("Merging video clips into final short...")
     subprocess.run(["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", "clips.txt", "-c", "copy", final_video], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     
-    if os.path.exists(final_video):
-        print(f"Short video generated successfully: {final_video}")
-        upload_to_youtube(final_video, title)
-    else:
-        print("Error: Final video generation failed.")
+    print(f"Success! Short video generated: {final_video}")
+
+    video_title = f"{title} #Shorts"
+    video_description = (
+        f"{title} - daily cute cat short! \n\n#Shorts #cats #cute #funny #animation"
+    )
+    video_tags = ["cats", "shorts", "funny", "cute", "animals", "3d animation"]
+
+    upload_to_youtube(final_video, video_title, video_description, video_tags)
 
 if __name__ == "__main__":
     main()
