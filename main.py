@@ -27,13 +27,13 @@ def generate_cat_prompts():
     prompts = [
         "A cute fat orange cat wearing a gold chain walking with a little duck, 3D Pixar style, cinematic lighting",
         "A cool fat orange cat wearing sunglasses riding a small motorcycle with a duck, funny, vibrant colors",
-        "A happy fat orange cat wearing a chef hat cooking fried chicken in a kitchen pan, humorous 3D animation",
+        "A happy fat orange cat wearing chef hat cooking fried chicken in a kitchen pan, humorous 3D animation",
         "A fat orange cat wearing cool sunglasses dancing energetically with funny expressions, vibrant 3D style"
     ]
     return "Cute Cat Adventures", prompts
 
 def generate_animated_clip_hf(prompt_text, idx):
-    """Generates a real AI video clip using Hugging Face Free Spaces without hardcoded api_name."""
+    """Generates a real AI video clip using Hugging Face Free Spaces with API inspection."""
     if not GRADIO_AVAILABLE:
         print("Gradio client not available.")
         return None
@@ -44,15 +44,22 @@ def generate_animated_clip_hf(prompt_text, idx):
         for space_id in HF_SPACE.split(","):
             space_id = space_id.strip()
             try:
-                print(f"Trying HF Space '{space_id}' using Token #{token_idx + 1} for prompt: {prompt_text[:30]}...")
+                print(f"Trying HF Space '{space_id}' using Token #{token_idx + 1}...")
                 if token:
                     os.environ["HF_TOKEN"] = token
                 
                 client = Client(space_id)
                 
-                # Bina api_name ke call karne se Gradio default primary function utha leta hai
+                # Yeh line logs mein space ke saare available functions print kar degi
+                try:
+                    client.view_api()
+                except Exception:
+                    pass
+                
+                # Pehla try default/empty api_name ya index 0 se karenge
                 result = client.predict(
-                    prompt=prompt_text
+                    prompt=prompt_text,
+                    api_name=0 # Index 0 try karega jo aksar main generation function hota hai
                 )
                 
                 if result:
