@@ -58,39 +58,59 @@ def generate_animated_clip_hf(prompt_text, idx):
                     print(f"  -> could not read API spec: {api_err}")
                     api_info = {}
 
-                result = None
+                def _extract_video_path(res):
+                    """Return a usable file path from a predict() result, or None."""
+                    candidates = res if isinstance(res, (list, tuple)) else [res]
+                    for c in candidates:
+                        # Gradio file outputs are often dicts like {'video': path} or {'path': path}
+                        if isinstance(c, dict):
+                            c = c.get("video") or c.get("path") or c.get("name")
+                        if c and isinstance(c, str) and os.path.exists(c):
+                            return c
+                    return None
+
+                def _try_endpoint(call_kwargs, label):
+                    try:
+                        print(f"  -> trying {label}")
+                        res = client.predict(prompt_text, **call_kwargs)
+                        preview = str(res)[:200]
+                        print(f"     result type={type(res).__name__} value={preview}")
+                        vp = _extract_video_path(res)
+                        if vp:
+                            return vp
+                        print(f"     -> {label} did not return a usable video file, trying next endpoint")
+                    except Exception as inner_e:
+                        print(f"  -> {label} failed: {inner_e}")
+                    return None
+
+                video_path = None
 
                 # 1) Try every named endpoint the Space actually has.
                 named_endpoints = api_info.get("named_endpoints", {}) or {}
-                for ep_name in named_endpoints:
-                    try:
-                        print(f"  -> trying named endpoint {ep_name}")
-                        result = client.predict(prompt_text, api_name=ep_name)
-                        if result:
-                            break
-                    except Exception as inner_e:
-                        print(f"  -> named endpoint {ep_name} failed: {inner_e}")
+                for ep_name, ep_spec in named_endpoints.items():
+                    param_names = [
+                        p.get("label") or p.get("parameter_name") or "?"
+                        for p in (ep_spec.get("parameters") or [])
+                    ]
+                    print(f"  -> named endpoint {ep_name} expects params: {param_names}")
+                    video_path = _try_endpoint({"api_name": ep_name}, f"named endpoint {ep_name}")
+                    if video_path:
+                        break
 
-                # 2) If no named endpoint worked, try every unnamed endpoint (fn_index) it has.
-                if not result:
+                # 2) If nothing worked, try every unnamed endpoint (fn_index) it has.
+                if not video_path:
                     unnamed_endpoints = api_info.get("unnamed_endpoints", {}) or {}
                     for fn_idx_str in unnamed_endpoints:
-                        try:
-                            fn_idx = int(fn_idx_str)
-                            print(f"  -> trying fn_index {fn_idx}")
-                            result = client.predict(prompt_text, fn_index=fn_idx)
-                            if result:
-                                break
-                        except Exception as inner_e:
-                            print(f"  -> fn_index {fn_idx_str} failed: {inner_e}")
+                        fn_idx = int(fn_idx_str)
+                        video_path = _try_endpoint({"fn_index": fn_idx}, f"fn_index {fn_idx}")
+                        if video_path:
+                            break
 
-                if result:
-                    video_path = result[0] if isinstance(result, (list, tuple)) else result
-                    if video_path and os.path.exists(str(video_path)):
-                        output_file = f"scene_{idx}_hf.mp4"
-                        os.rename(str(video_path), output_file)
-                        print(f"Successfully generated video clip {idx} via HF.")
-                        return output_file
+                if video_path:
+                    output_file = f"scene_{idx}_hf.mp4"
+                    os.rename(str(video_path), output_file)
+                    print(f"Successfully generated video clip {idx} via HF.")
+                    return output_file
             except Exception as e:
                 print(f"HF Space {space_id} with Token #{token_idx + 1} failed: {e}")
                 continue
