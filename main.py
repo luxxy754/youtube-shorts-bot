@@ -6,12 +6,6 @@ import requests
 import subprocess
 
 try:
-    from gradio_client import Client
-    GRADIO_AVAILABLE = True
-except ImportError:
-    GRADIO_AVAILABLE = False
-
-try:
     from google.oauth2.credentials import Credentials
     from googleapiclient.discovery import build
     from googleapiclient.http import MediaFileUpload
@@ -21,37 +15,22 @@ except ImportError:
 
 # ==================== CONFIGURATION ====================
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-HF_TOKENS = [
-    os.getenv("HF_TOKEN", ""),
-    os.getenv("HF_TOKEN_2", ""),
-    os.getenv("HF_TOKEN_3", ""),
-]
-HF_TOKENS = [t for t in HF_TOKENS if t.strip()]
-
-# Multiple candidate free Spaces, tried in order for every scene. Comma-separated so
-# more can be added via the HF_VIDEO_SPACES secret/env without touching code.
-# Most are unmaintained/asleep at any given time - trying several genuinely-video
-# (not just image) Spaces per scene meaningfully raises the odds one is awake.
-HF_SPACE = os.getenv(
-    "HF_VIDEO_SPACES",
-    "Wan-AI/Wan2.1,zai-org/CogVideoX-5B-Space,zai-org/CogVideoX-2B-Space"
-)
-NUM_SCENES = int(os.getenv("NUM_SCENES", "4"))
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+NUM_SCENES = int(os.getenv("NUM_SCENES", "4"))
 
-# Minimum gap between two HF calls (Inference API or Spaces), in seconds. Keeps us
-# under per-token/per-IP rate limits when we're hammering 3 tokens x several Spaces
-# x 4 scenes in one run, instead of burning through the quota in a few seconds.
-HF_CALL_DELAY_SECONDS = float(os.getenv("HF_CALL_DELAY_SECONDS", "4"))
+# Pollinations.ai free video generation (real motion, not just zoom/pan).
+# Sign up for a free account (no credit card) at https://enter.pollinations.ai
+# to get a secret key (sk_...), then set it as the POLLINATIONS_API_KEY secret.
+# Free accounts get a small daily "Pollen" credit refill - "wan-fast" is used by
+# default because it's the cheapest real-motion model, so the free daily balance
+# stretches across more scenes/runs before it runs out for the day.
+POLLINATIONS_API_KEY = os.getenv("POLLINATIONS_API_KEY", "")
+POLLINATIONS_VIDEO_MODEL = os.getenv("POLLINATIONS_VIDEO_MODEL", "wan-fast")
+POLLINATIONS_VIDEO_DURATION = os.getenv("POLLINATIONS_VIDEO_DURATION", "5")
 
-
-def _rotate(items, n):
-    """Rotate a list by n so the same token/Space isn't always tried first for
-    every scene - spreads load evenly across all HF_TOKENS over a run."""
-    if not items:
-        return items
-    n = n % len(items)
-    return items[n:] + items[:n]
+# Minimum gap between two Pollinations calls, in seconds - keeps us under rate
+# limits when generating several scenes back-to-back in one run.
+POLLINATIONS_CALL_DELAY_SECONDS = float(os.getenv("POLLINATIONS_CALL_DELAY_SECONDS", "3"))
 
 YT_CLIENT_ID = os.getenv("YT_CLIENT_ID", "")
 YT_CLIENT_SECRET = os.getenv("YT_CLIENT_SECRET", "")
@@ -124,168 +103,52 @@ def generate_cat_prompts():
         print(f"  -> Gemini prompt generation failed: {e}. Using fixed hardcoded cat prompts.")
         return fallback_title, fallback_prompts
 
-HF_INFERENCE_MODEL = os.getenv("HF_INFERENCE_MODEL", "damo-vilab/text-to-video-ms-1.7b")
-
-def generate_animated_clip_inference_api(prompt_text, idx):
-    """Generates a real (low-res) AI video clip using HF's official Inference API.
-    More reliable than community Gradio Spaces, which frequently get paused/sleep."""
-    if not HF_TOKENS:
-        print("No HF tokens available for Inference API attempt.")
+def generate_animated_clip_pollinations(prompt_text, idx):
+    """Generates a REAL motion AI video clip using Pollinations.ai's free /video
+    endpoint (Wan by default). This is an actively maintained live API - not a
+    community demo that can be asleep - but it's still free-tier and rate/credit
+    limited, so failures here are expected sometimes and always fall back safely."""
+    if not POLLINATIONS_API_KEY:
+        print("No POLLINATIONS_API_KEY set - skipping real video generation for this scene.")
         return None
 
-    api_url = f"https://api-inference.huggingface.co/models/{HF_INFERENCE_MODEL}"
+    video_url = (
+        f"https://gen.pollinations.ai/video/{requests.utils.quote(prompt_text)}"
+        f"?model={POLLINATIONS_VIDEO_MODEL}&width=1080&height=1920"
+        f"&aspectRatio=9:16&duration={POLLINATIONS_VIDEO_DURATION}"
+    )
+    headers = {"Authorization": f"Bearer {POLLINATIONS_API_KEY}"}
 
-    # Rotate which token starts, per scene, so all 3 tokens share the load across
-    # a run instead of Token #1 always taking every scene's first attempt.
-    tokens_this_scene = _rotate(HF_TOKENS, idx)
+    try:
+        print(f"Trying Pollinations video ('{POLLINATIONS_VIDEO_MODEL}') for: {prompt_text[:40]}...")
+        resp = requests.get(video_url, headers=headers, timeout=180)
 
-    for token_idx, token in enumerate(tokens_this_scene):
-        headers = {"Authorization": f"Bearer {token}"}
-        try:
-            print(f"Trying HF Inference API ('{HF_INFERENCE_MODEL}') Token #{token_idx + 1} for: {prompt_text[:40]}...")
-            resp = requests.post(api_url, headers=headers, json={"inputs": prompt_text}, timeout=120)
+        if resp.status_code == 402:
+            print("  -> Pollinations Pollen balance is exhausted for now (402 Payment Required). "
+                  "Falling back to the static-image clip for this scene.")
+            return None
 
-            # Model may need to "warm up" on first call - HF returns 503 with an estimated_time.
-            if resp.status_code == 503:
-                try:
-                    wait_s = min(float(resp.json().get("estimated_time", 20)), 40)
-                except Exception:
-                    wait_s = 20
-                print(f"  -> model is loading, waiting {wait_s:.0f}s then retrying once...")
-                time.sleep(wait_s)
-                resp = requests.post(api_url, headers=headers, json={"inputs": prompt_text}, timeout=120)
+        if resp.status_code == 429:
+            retry_after = float(resp.headers.get("Retry-After", POLLINATIONS_CALL_DELAY_SECONDS * 3))
+            print(f"  -> rate-limited (429), waiting {retry_after:.0f}s then retrying once...")
+            time.sleep(retry_after)
+            resp = requests.get(video_url, headers=headers, timeout=180)
 
-            content_type = resp.headers.get("content-type", "")
-            print(f"  -> status={resp.status_code} content-type={content_type} size={len(resp.content)}")
+        content_type = resp.headers.get("content-type", "")
+        print(f"  -> status={resp.status_code} content-type={content_type} size={len(resp.content)}")
 
-            if resp.status_code == 200 and len(resp.content) > 5000:
-                output_file = f"scene_{idx}_hf.mp4"
-                with open(output_file, "wb") as f:
-                    f.write(resp.content)
-                print(f"Successfully generated video clip {idx} via HF Inference API.")
-                return output_file
+        if resp.status_code == 200 and "video" in content_type and len(resp.content) > 5000:
+            output_file = f"scene_{idx}_pollinations.mp4"
+            with open(output_file, "wb") as f:
+                f.write(resp.content)
+            print(f"Successfully generated REAL motion video clip {idx} via Pollinations.")
+            return output_file
 
-            if resp.status_code == 429:
-                # Rate-limited on this token - respect Retry-After if given, then
-                # give up on this token for this scene and move to the next one.
-                retry_after = float(resp.headers.get("Retry-After", HF_CALL_DELAY_SECONDS))
-                print(f"  -> rate-limited (429) on this token, waiting {retry_after:.0f}s before trying next token...")
-                time.sleep(retry_after)
-                continue
+        print(f"  -> Pollinations video did not return a usable file: {resp.text[:300]}")
 
-            print(f"  -> Inference API did not return a usable video: {resp.text[:300]}")
+    except Exception as e:
+        print(f"  -> Pollinations video attempt failed: {e}")
 
-        except Exception as e:
-            print(f"  -> HF Inference API attempt failed: {e}")
-
-        # Small gap between attempts so we don't hammer HF back-to-back across tokens.
-        time.sleep(HF_CALL_DELAY_SECONDS)
-
-    return None
-
-def generate_animated_clip_hf(prompt_text, idx):
-    """Generates a real AI video clip using Hugging Face Free Spaces using correct fn_index.
-    Tries every configured Space, and rotates both the token and the Space order per
-    scene so a run's load (and any rate-limit risk) is spread across all HF_TOKENS
-    instead of always hitting Token #1 / the first Space hardest."""
-    if not GRADIO_AVAILABLE:
-        print("Gradio client not available.")
-        return None
-
-    all_spaces = [s.strip() for s in HF_SPACE.split(",") if s.strip()]
-    tokens_to_try = _rotate(HF_TOKENS, idx) if HF_TOKENS else [""]
-    spaces_to_try = _rotate(all_spaces, idx)
-
-    for token_idx, token in enumerate(tokens_to_try):
-        rate_limited_on_this_token = False
-
-        for space_id in spaces_to_try:
-            if rate_limited_on_this_token:
-                # This token just got rate-limited - trying more Spaces with it
-                # right now will likely just fail again, so save the calls for
-                # the next token instead.
-                break
-            try:
-                print(f"Trying HF Space '{space_id}' using Token #{token_idx + 1} for prompt: {prompt_text[:30]}...")
-                if token:
-                    os.environ["HF_TOKEN"] = token
-                
-                client = Client(space_id)
-
-                # Instead of guessing api_name/fn_index, ask the Space what it actually exposes.
-                try:
-                    api_info = client.view_api(print_info=False, return_format="dict")
-                except Exception as api_err:
-                    print(f"  -> could not read API spec: {api_err}")
-                    api_info = {}
-
-                def _extract_video_path(res):
-                    """Return a usable file path from a predict() result, or None."""
-                    candidates = res if isinstance(res, (list, tuple)) else [res]
-                    for c in candidates:
-                        # Gradio file outputs are often dicts like {'video': path} or {'path': path}
-                        if isinstance(c, dict):
-                            c = c.get("video") or c.get("path") or c.get("name")
-                        if c and isinstance(c, str) and os.path.exists(c):
-                            return c
-                    return None
-
-                def _try_endpoint(call_kwargs, label):
-                    try:
-                        print(f"  -> trying {label}")
-                        res = client.predict(prompt_text, **call_kwargs)
-                        preview = str(res)[:200]
-                        print(f"     result type={type(res).__name__} value={preview}")
-                        vp = _extract_video_path(res)
-                        if vp:
-                            return vp
-                        print(f"     -> {label} did not return a usable video file, trying next endpoint")
-                    except Exception as inner_e:
-                        print(f"  -> {label} failed: {inner_e}")
-                    return None
-
-                video_path = None
-
-                # 1) Try every named endpoint the Space actually has.
-                named_endpoints = api_info.get("named_endpoints", {}) or {}
-                for ep_name, ep_spec in named_endpoints.items():
-                    param_names = [
-                        p.get("label") or p.get("parameter_name") or "?"
-                        for p in (ep_spec.get("parameters") or [])
-                    ]
-                    print(f"  -> named endpoint {ep_name} expects params: {param_names}")
-                    video_path = _try_endpoint({"api_name": ep_name}, f"named endpoint {ep_name}")
-                    if video_path:
-                        break
-
-                # 2) If nothing worked, try every unnamed endpoint (fn_index) it has.
-                if not video_path:
-                    unnamed_endpoints = api_info.get("unnamed_endpoints", {}) or {}
-                    for fn_idx_str in unnamed_endpoints:
-                        fn_idx = int(fn_idx_str)
-                        video_path = _try_endpoint({"fn_index": fn_idx}, f"fn_index {fn_idx}")
-                        if video_path:
-                            break
-
-                if video_path:
-                    output_file = f"scene_{idx}_hf.mp4"
-                    os.rename(str(video_path), output_file)
-                    print(f"Successfully generated video clip {idx} via HF.")
-                    return output_file
-            except Exception as e:
-                err_text = str(e).lower()
-                if "429" in err_text or "rate limit" in err_text or "too many requests" in err_text:
-                    print(f"  -> Token #{token_idx + 1} looks rate-limited on '{space_id}': {e}. "
-                          f"Skipping remaining Spaces for this token.")
-                    rate_limited_on_this_token = True
-                    time.sleep(HF_CALL_DELAY_SECONDS * 3)
-                else:
-                    print(f"HF Space {space_id} with Token #{token_idx + 1} failed: {e}")
-
-            # Small gap between Space attempts so we don't hammer HF back-to-back.
-            time.sleep(HF_CALL_DELAY_SECONDS)
-
-    print(f"Warning: HF failed for scene {idx}. Using fallback zoom-in effect.")
     return None
 
 def create_fallback_video(prompt_text, idx):
@@ -472,20 +335,20 @@ def upload_to_youtube(video_path, title, description, tags=None):
 def main():
     title, scene_prompts = generate_cat_prompts()
 
-    if not HF_TOKENS:
-        print("No HF tokens set - skipping AI video generation attempts, using fallback images only.")
+    if not POLLINATIONS_API_KEY:
+        print("No POLLINATIONS_API_KEY set - skipping real video generation, using fallback images only.")
 
     video_clips = []
     for idx, prompt in enumerate(scene_prompts[:NUM_SCENES]):
-        clip = generate_animated_clip_inference_api(prompt, idx)
-        if not clip and HF_SPACE.strip():
-            clip = generate_animated_clip_hf(prompt, idx)
+        clip = generate_animated_clip_pollinations(prompt, idx)
         if not clip:
             clip = create_fallback_video(prompt, idx)
         if clip and os.path.exists(clip):
             video_clips.append(clip)
         else:
             print(f"Warning: scene {idx} produced no usable clip at all - skipping it.")
+        # Small gap between scenes so we don't hammer Pollinations back-to-back.
+        time.sleep(POLLINATIONS_CALL_DELAY_SECONDS)
 
     if not video_clips:
         print("Fatal: no video clips were produced for any scene. Aborting.")
