@@ -1,37 +1,41 @@
-name: Daily Auto YouTube Shorts Bot
+name: Build and Upload YouTube Shorts
 
 on:
   schedule:
-    # Runs twice a day at peak hours (UTC time adjusted for kids peak time: 10:00 UTC & 14:00 UTC)
-    - cron: '0 10,14 * * *'
-  workflow_dispatch: # Allows manual run anytime from GitHub Actions tab
+    - cron: '0 6,18 * * *' # Din mein 2 baar (2 shorts ke liye)
+  workflow_dispatch:
 
 jobs:
-  build-and-upload:
+  build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v4
         with:
           python-version: '3.10'
 
-      - name: Install Dependencies
+      - name: Install dependencies
         run: |
-          sudo apt-get update && sudo apt-get install -y ffmpeg
-          pip install --upgrade pip
-          pip install requests google-genai gtts
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
       - name: Run YouTube Shorts Bot
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_TOKEN_2: ${{ secrets.HF_TOKEN_2 }}
+          HF_TOKEN_3: ${{ secrets.HF_TOKEN_3 }}
+          HF_VIDEO_SPACES: "Wan-AI/Wan2.1"
           ELEVEN_KEY_1: ${{ secrets.ELEVEN_KEY_1 }}
+          ELEVEN_KEY_2: ${{ secrets.ELEVEN_KEY_2 }}
+          ELEVEN_KEY_3: ${{ secrets.ELEVEN_KEY_3 }}
           YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
-          YT_PRIVACY_STATUS: "public" # Automatically public upload
+          YT_PRIVACY_STATUS: "public"
           NUM_SCENES: "5"
         run: |
           python main.py
