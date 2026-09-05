@@ -1,9 +1,7 @@
 import os
 import sys
-import time
 import requests
 import subprocess
-from gtts import gTTS
 
 try:
     from gradio_client import Client
@@ -20,23 +18,22 @@ HF_TOKENS = [
 ]
 HF_TOKENS = [t for t in HF_TOKENS if t.strip()]
 HF_SPACE = os.getenv("HF_VIDEO_SPACES", "Wan-AI/Wan2.1")
-NUM_SCENES = int(os.getenv("NUM_SCENES", "3"))
+NUM_SCENES = int(os.getenv("NUM_SCENES", "4"))
 
-print("YouTube Shorts Bot with Multi-HF Token Support Initialized.")
+print("YouTube Shorts Visual Bot Initialized (No Voiceover).")
 
-def generate_ai_script():
-    """Generates an engaging topic and scene prompts using Gemini API."""
-    print("Generating script and prompts using Gemini...")
-    # Fallback default script agar Gemini key na ho ya error aaye
-    scenes = [
-        "A cinematic hyper-realistic shot of a futuristic neon city flying cars in the rain, 4k",
-        "A mystical glowing portal opening in a deep dark enchanted forest, magical particles",
-        "An astronaut standing on a distant alien planet watching twin suns set, breathtaking view"
+def generate_cat_prompts():
+    """Generates funny/cool cat 3D animation prompts similar to popular reels."""
+    prompts = [
+        "A cute fat orange cat wearing a gold chain walking with a little duck, 3D Pixar style, cinematic lighting",
+        "A cool fat orange cat wearing sunglasses riding a small motorcycle with a duck, funny, vibrant colors",
+        "A happy fat orange cat wearing a chef hat cooking fried chicken in a kitchen pan, humorous 3D animation",
+        "A fat orange cat wearing cool sunglasses dancing energetically with funny expressions, vibrant 3D style"
     ]
-    return "Mind-blowing AI Facts You Didn't Know", scenes
+    return "Cute Cat Adventures", prompts
 
 def generate_animated_clip_hf(prompt_text, idx):
-    """Generates a real AI video clip using Hugging Face Free Spaces with token rotation."""
+    """Generates a real AI video clip using Hugging Face Free Spaces."""
     if not GRADIO_AVAILABLE:
         print("Gradio client not available.")
         return None
@@ -48,31 +45,27 @@ def generate_animated_clip_hf(prompt_text, idx):
             space_id = space_id.strip()
             try:
                 print(f"Trying HF Space '{space_id}' using Token #{token_idx + 1} for prompt: {prompt_text[:30]}...")
-                kwargs = {}
                 if token:
-                    kwargs["hf_token"] = token
+                    os.environ["HF_TOKEN"] = token
                 
-                client = Client(space_id, **kwargs)
-                
-                # Predicting video from Space API
+                client = Client(space_id)
                 result = client.predict(
                     prompt=prompt_text,
                     api_name="/generate"
                 )
                 
                 if result:
-                    # Gradio client sometimes returns a tuple or string path
                     video_path = result[0] if isinstance(result, (list, tuple)) else result
                     if video_path and os.path.exists(str(video_path)):
                         output_file = f"scene_{idx}_hf.mp4"
                         os.rename(str(video_path), output_file)
-                        print(f"Successfully generated video clip for scene {idx} using HF.")
+                        print(f"Successfully generated video clip {idx} via HF.")
                         return output_file
             except Exception as e:
                 print(f"HF Space {space_id} with Token #{token_idx + 1} failed: {e}")
                 continue
                 
-    print(f"Warning: Could not generate AI video for scene {idx} via HF. Using fallback stock video/image effect.")
+    print(f"Warning: HF failed for scene {idx}. Using fallback zoom-in effect.")
     return None
 
 def create_fallback_video(prompt_text, idx):
@@ -86,7 +79,6 @@ def create_fallback_video(prompt_text, idx):
     with open(img_path, "wb") as handler:
         handler.write(img_data)
         
-    # FFmpeg zoom-in effect
     cmd = [
         "ffmpeg", "-y", "-loop", "1", "-i", img_path,
         "-t", "5", "-vf", "scale=2000:3556,zoompan=z='min(zoom+0.0015,1.5)':d=125:s=1080:1920",
@@ -95,16 +87,8 @@ def create_fallback_video(prompt_text, idx):
     subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     return output_file
 
-def generate_voiceover(text):
-    """Generates audio voiceover using gTTS."""
-    print("Generating voiceover...")
-    tts = gTTS(text=text, lang='en', slow=False)
-    audio_path = "voiceover.mp3"
-    tts.save(audio_path)
-    return audio_path
-
 def main():
-    title, scene_prompts = generate_ai_script()
+    title, scene_prompts = generate_cat_prompts()
     
     video_clips = []
     for idx, prompt in enumerate(scene_prompts[:NUM_SCENES]):
@@ -113,16 +97,15 @@ def main():
             clip = create_fallback_video(prompt, idx)
         video_clips.append(clip)
         
-    # Combine clips list for ffmpeg
     with open("clips.txt", "w") as f:
         for clip in video_clips:
             f.write(f"file '{clip}'\n")
             
     final_video = "final_output.mp4"
-    print("Merging video clips...")
+    print("Merging video clips into final short...")
     subprocess.run(["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", "clips.txt", "-c", "copy", final_video], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     
-    print("Process completed successfully! Video ready for upload.")
+    print(f"Success! Short video generated: {final_video}")
 
 if __name__ == "__main__":
     main()
