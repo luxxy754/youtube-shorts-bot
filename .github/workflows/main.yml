@@ -1,38 +1,46 @@
-name: AI Video Generation Workflow
+name: Build and Upload YouTube Shorts
 
 on:
-  workflow_dispatch:
   schedule:
-    # Rozana 2 dafa run hoga (Trending timings: 12:30 PM aur 6:30 PM PKT)
-    - cron: '30 7 * * *'   
-    - cron: '30 13 * * *'  
+    # 07:00 UTC = 12:00 PM PKT (lunch-break scroll time)
+    # 15:00 UTC = 08:00 PM PKT (evening peak viewing time)
+    - cron: '0 7 * * *'
+    - cron: '0 15 * * *'
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.10'
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install requests google-auth google-auth-oauthlib google-api-python-client gradio-client
+      - name: Install System Dependencies (FFmpeg)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
 
-    - name: Run Python Script
-      env:
-        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        HF_TOKEN_2: ${{ secrets.HF_TOKEN_2 }}
-        HF_TOKEN_3: ${{ secrets.HF_TOKEN_3 }}
-        YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
-        YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
-        YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
-      run: |
-        python main.py
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run YouTube Shorts Bot
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_TOKEN_2: ${{ secrets.HF_TOKEN_2 }}
+          HF_TOKEN_3: ${{ secrets.HF_TOKEN_3 }}
+          HF_VIDEO_SPACES: "Wan-AI/Wan2.1"
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+          YT_PRIVACY_STATUS: "public"
+          NUM_SCENES: "4"
+        run: |
+          python main.py
