@@ -27,9 +27,31 @@ HF_TOKENS = [
     os.getenv("HF_TOKEN_3", ""),
 ]
 HF_TOKENS = [t for t in HF_TOKENS if t.strip()]
-HF_SPACE = os.getenv("HF_VIDEO_SPACES", "Wan-AI/Wan2.1")
+
+# Multiple candidate free Spaces, tried in order for every scene. Comma-separated so
+# more can be added via the HF_VIDEO_SPACES secret/env without touching code.
+# Most are unmaintained/asleep at any given time - trying several genuinely-video
+# (not just image) Spaces per scene meaningfully raises the odds one is awake.
+HF_SPACE = os.getenv(
+    "HF_VIDEO_SPACES",
+    "Wan-AI/Wan2.1,zai-org/CogVideoX-5B-Space,zai-org/CogVideoX-2B-Space"
+)
 NUM_SCENES = int(os.getenv("NUM_SCENES", "4"))
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+
+# Minimum gap between two HF calls (Inference API or Spaces), in seconds. Keeps us
+# under per-token/per-IP rate limits when we're hammering 3 tokens x several Spaces
+# x 4 scenes in one run, instead of burning through the quota in a few seconds.
+HF_CALL_DELAY_SECONDS = float(os.getenv("HF_CALL_DELAY_SECONDS", "4"))
+
+
+def _rotate(items, n):
+    """Rotate a list by n so the same token/Space isn't always tried first for
+    every scene - spreads load evenly across all HF_TOKENS over a run."""
+    if not items:
+        return items
+    n = n % len(items)
+    return items[n:] + items[:n]
 
 YT_CLIENT_ID = os.getenv("YT_CLIENT_ID", "")
 YT_CLIENT_SECRET = os.getenv("YT_CLIENT_SECRET", "")
@@ -113,7 +135,11 @@ def generate_animated_clip_inference_api(prompt_text, idx):
 
     api_url = f"https://api-inference.huggingface.co/models/{HF_INFERENCE_MODEL}"
 
-    for token_idx, token in enumerate(HF_TOKENS):
+    # Rotate which token starts, per scene, so all 3 tokens share the load across
+    # a run instead of Token #1 always taking every scene's first attempt.
+    tokens_this_scene = _rotate(HF_TOKENS, idx)
+
+    for token_idx, token in enumerate(tokens_this_scene):
         headers = {"Authorization": f"Bearer {token}"}
         try:
             print(f"Trying HF Inference API ('{HF_INFERENCE_MODEL}') Token #{token_idx + 1} for: {prompt_text[:40]}...")
@@ -138,25 +164,47 @@ def generate_animated_clip_inference_api(prompt_text, idx):
                     f.write(resp.content)
                 print(f"Successfully generated video clip {idx} via HF Inference API.")
                 return output_file
-            else:
-                print(f"  -> Inference API did not return a usable video: {resp.text[:300]}")
+
+            if resp.status_code == 429:
+                # Rate-limited on this token - respect Retry-After if given, then
+                # give up on this token for this scene and move to the next one.
+                retry_after = float(resp.headers.get("Retry-After", HF_CALL_DELAY_SECONDS))
+                print(f"  -> rate-limited (429) on this token, waiting {retry_after:.0f}s before trying next token...")
+                time.sleep(retry_after)
+                continue
+
+            print(f"  -> Inference API did not return a usable video: {resp.text[:300]}")
 
         except Exception as e:
             print(f"  -> HF Inference API attempt failed: {e}")
 
+        # Small gap between attempts so we don't hammer HF back-to-back across tokens.
+        time.sleep(HF_CALL_DELAY_SECONDS)
+
     return None
 
 def generate_animated_clip_hf(prompt_text, idx):
-    """Generates a real AI video clip using Hugging Face Free Spaces using correct fn_index."""
+    """Generates a real AI video clip using Hugging Face Free Spaces using correct fn_index.
+    Tries every configured Space, and rotates both the token and the Space order per
+    scene so a run's load (and any rate-limit risk) is spread across all HF_TOKENS
+    instead of always hitting Token #1 / the first Space hardest."""
     if not GRADIO_AVAILABLE:
         print("Gradio client not available.")
         return None
 
-    tokens_to_try = HF_TOKENS if HF_TOKENS else [""]
-    
+    all_spaces = [s.strip() for s in HF_SPACE.split(",") if s.strip()]
+    tokens_to_try = _rotate(HF_TOKENS, idx) if HF_TOKENS else [""]
+    spaces_to_try = _rotate(all_spaces, idx)
+
     for token_idx, token in enumerate(tokens_to_try):
-        for space_id in HF_SPACE.split(","):
-            space_id = space_id.strip()
+        rate_limited_on_this_token = False
+
+        for space_id in spaces_to_try:
+            if rate_limited_on_this_token:
+                # This token just got rate-limited - trying more Spaces with it
+                # right now will likely just fail again, so save the calls for
+                # the next token instead.
+                break
             try:
                 print(f"Trying HF Space '{space_id}' using Token #{token_idx + 1} for prompt: {prompt_text[:30]}...")
                 if token:
@@ -225,9 +273,18 @@ def generate_animated_clip_hf(prompt_text, idx):
                     print(f"Successfully generated video clip {idx} via HF.")
                     return output_file
             except Exception as e:
-                print(f"HF Space {space_id} with Token #{token_idx + 1} failed: {e}")
-                continue
-                
+                err_text = str(e).lower()
+                if "429" in err_text or "rate limit" in err_text or "too many requests" in err_text:
+                    print(f"  -> Token #{token_idx + 1} looks rate-limited on '{space_id}': {e}. "
+                          f"Skipping remaining Spaces for this token.")
+                    rate_limited_on_this_token = True
+                    time.sleep(HF_CALL_DELAY_SECONDS * 3)
+                else:
+                    print(f"HF Space {space_id} with Token #{token_idx + 1} failed: {e}")
+
+            # Small gap between Space attempts so we don't hammer HF back-to-back.
+            time.sleep(HF_CALL_DELAY_SECONDS)
+
     print(f"Warning: HF failed for scene {idx}. Using fallback zoom-in effect.")
     return None
 
