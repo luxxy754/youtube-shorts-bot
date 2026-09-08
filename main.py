@@ -358,8 +358,8 @@ def upload_to_youtube(video_path, title, description, tags=None):
         creds = Credentials(
             token=None, refresh_token=YT_REFRESH_TOKEN,
             client_id=YT_CLIENT_ID, client_secret=YT_CLIENT_SECRET,
-            token_uri="[https://oauth2.googleapis.com/token](https://oauth2.googleapis.com/token)",
-            scopes=["[https://www.googleapis.com/auth/youtube.upload](https://www.googleapis.com/auth/youtube.upload)"],
+            token_uri="https://oauth2.googleapis.com/token",
+            scopes=["https://www.googleapis.com/auth/youtube.upload"],
         )
         youtube = build("youtube", "v3", credentials=creds)
         body = {
