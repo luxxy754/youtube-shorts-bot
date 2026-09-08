@@ -73,6 +73,16 @@ YT_CLIENT_SECRET = os.getenv("YT_CLIENT_SECRET", "")
 YT_REFRESH_TOKEN = os.getenv("YT_REFRESH_TOKEN", "")
 YT_PRIVACY_STATUS = os.getenv("YT_PRIVACY_STATUS", "public")
 
+# --- Caption Configuration (Groq Whisper - free, fast speech-to-text) ---
+# Whisper sirf TIMING (word timestamps) ke liye use hota hai - jo text ON-SCREEN
+# dikhega wo hamesha humara apna original Hinglish script hota hai, Whisper ka
+# apna transcription output nahi (taake Roman spelling exactly wahi rahe jo
+# humne khud generate ki thi, na ke Whisper ki Devanagari/alag spelling).
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+GROQ_STT_MODEL = os.getenv("GROQ_STT_MODEL", "whisper-large-v3")
+ENABLE_CAPTIONS = os.getenv("ENABLE_CAPTIONS", "true").lower() == "true"
+CAPTION_WORDS_PER_CHUNK = int(os.getenv("CAPTION_WORDS_PER_CHUNK", "3"))
+
 CHARACTER_IMAGE = "character.jpg"
 
 print("AI Influencer Bot Initialized with Edge-TTS.")
@@ -344,6 +354,167 @@ def finalize_video(raw_video_path):
     return final_path
 
 
+def transcribe_with_groq(audio_path):
+    """Groq ki free Whisper API se audio transcribe karta hai aur word-level
+    timestamps maangta hai (sirf timing chahiye, actual recognized text use nahi
+    karenge - display text hamesha humara original script hoga)."""
+    if not GROQ_API_KEY:
+        print("No GROQ_API_KEY set - skipping caption transcription.")
+        return None
+
+    url = "https://api.groq.com/openai/v1/audio/transcriptions"
+    try:
+        with open(audio_path, "rb") as f:
+            files = {"file": (os.path.basename(audio_path), f, "audio/mpeg")}
+            data = {
+                "model": GROQ_STT_MODEL,
+                "response_format": "verbose_json",
+                "timestamp_granularities[]": "word",
+            }
+            headers = {"Authorization": f"Bearer {GROQ_API_KEY}"}
+            resp = requests.post(url, headers=headers, files=files, data=data, timeout=120)
+
+        if resp.status_code != 200:
+            print(f"Groq transcription failed: {resp.status_code} {resp.text[:300]}")
+            return None
+
+        result = resp.json()
+        words = result.get("words") or []
+        if not words:
+            for seg in (result.get("segments") or []):
+                words.extend(seg.get("words", []))
+
+        if not words:
+            print("Groq response had no word-level timestamps.")
+            return None
+
+        print(f"Groq transcription succeeded - got {len(words)} word timestamps.")
+        return words
+    except Exception as e:
+        print(f"Groq transcription request failed: {e}")
+        return None
+
+
+def build_caption_chunks(script_text, word_timings, words_per_chunk=3):
+    """Humare original Hinglish script ke words ko Groq se mile timestamps ke
+    saath align karta hai (index-proportional mapping, kyunke Whisper kabhi
+    kabhi words ko thoda alag tarah se split/join karta hai), phir chhote
+    chunks (2-3 words) mein group karta hai taake Shorts-style captions banein."""
+    script_words = script_text.split()
+    n = len(script_words)
+    m = len(word_timings)
+    if n == 0 or m == 0:
+        return []
+
+    aligned = []
+    for i, w in enumerate(script_words):
+        idx = i if m == n else (round(i * (m - 1) / (n - 1)) if n > 1 else 0)
+        idx = max(0, min(idx, m - 1))
+        try:
+            start = float(word_timings[idx].get("start", 0.0))
+            end = float(word_timings[idx].get("end", start + 0.3))
+        except (TypeError, ValueError):
+            start, end = 0.0, 0.3
+        aligned.append((w, start, end))
+
+    chunks = []
+    for i in range(0, len(aligned), words_per_chunk):
+        group = aligned[i:i + words_per_chunk]
+        text = " ".join(w for w, _, _ in group)
+        start = group[0][1]
+        end = max(group[-1][2], start + 0.4)
+        chunks.append((text, start, end))
+    return chunks
+
+
+def _format_ass_time(seconds):
+    """Seconds ko ASS subtitle format (H:MM:SS.cc) mein convert karta hai."""
+    total_cs = max(0, int(round(seconds * 100)))
+    h, rem = divmod(total_cs, 360000)
+    m, rem = divmod(rem, 6000)
+    s, cs = divmod(rem, 100)
+    return f"{h}:{m:02d}:{s:02d}.{cs:02d}"
+
+
+def generate_ass_captions(chunks, output_path="captions.ass"):
+    """Bold, centered, white-on-black-outline captions - typical Shorts/Reels
+    caption style - ek .ass file mein likhta hai jo ffmpeg burn kar sake."""
+    header = (
+        "[Script Info]\n"
+        "ScriptType: v4.00+\n"
+        "PlayResX: 1080\n"
+        "PlayResY: 1920\n"
+        "ScaledBorderAndShadow: yes\n\n"
+        "[V4+ Styles]\n"
+        "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, "
+        "BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, "
+        "BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n"
+        "Style: Caption,Arial Black,78,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,"
+        "-1,0,0,0,100,100,0,0,1,5,0,2,60,60,260,1\n\n"
+        "[Events]\n"
+        "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
+    )
+    lines = [header]
+    for text, start, end in chunks:
+        safe_text = text.replace("{", "(").replace("}", ")").replace("\n", " ")
+        lines.append(
+            f"Dialogue: 0,{_format_ass_time(start)},{_format_ass_time(end)},"
+            f"Caption,,0,0,0,,{safe_text}\n"
+        )
+
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.writelines(lines)
+    return output_path
+
+
+def burn_captions(video_path, ass_path):
+    """Caption file ko video ke andar hardcode (burn-in) karta hai ffmpeg ke
+    libass filter se. Fail hone par original video (bina caption) return karta
+    hai taake pipeline kabhi na ruke."""
+    output_path = "final_short_captioned.mp4"
+    # ffmpeg filter graph mein colon/backslash escape karne padte hain
+    escaped_path = ass_path.replace("\\", "/").replace(":", "\\:")
+    cmd = [
+        "ffmpeg", "-y", "-i", video_path,
+        "-vf", f"ass={escaped_path}",
+        "-c:v", "libx264", "-c:a", "copy",
+        output_path,
+    ]
+    result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if result.returncode != 0 or not os.path.exists(output_path):
+        tail = result.stderr.decode("utf-8", errors="ignore")[-1500:]
+        print(f"Caption burn-in failed, using video without captions:\n{tail}")
+        return video_path
+    print("Captions burned into video successfully!")
+    return output_path
+
+
+def generate_captioned_video(video_path, audio_path, script_text):
+    """End-to-end caption pipeline: Groq Whisper se timing -> humare original
+    script text ke saath align -> .ass file -> ffmpeg burn-in. Kisi bhi step
+    par fail ho to original (bina caption) video hi return kar deta hai."""
+    if not ENABLE_CAPTIONS:
+        print("Captions disabled via ENABLE_CAPTIONS - skipping.")
+        return video_path
+    if not GROQ_API_KEY:
+        print("GROQ_API_KEY not set in secrets - skipping captions.")
+        return video_path
+
+    print("Transcribing audio via Groq Whisper for caption timing...")
+    word_timings = transcribe_with_groq(audio_path)
+    if not word_timings:
+        print("Could not get word timings - skipping captions.")
+        return video_path
+
+    chunks = build_caption_chunks(script_text, word_timings, words_per_chunk=CAPTION_WORDS_PER_CHUNK)
+    if not chunks:
+        print("No caption chunks built - skipping captions.")
+        return video_path
+
+    ass_path = generate_ass_captions(chunks)
+    return burn_captions(video_path, ass_path)
+
+
 def upload_to_youtube(video_path, title, description, tags=None):
     """YouTube auto-upload function."""
     if not YOUTUBE_AVAILABLE:
@@ -409,6 +580,8 @@ def main():
         sys.exit(1)
 
     final_video = finalize_video(raw_video)
+
+    final_video = generate_captioned_video(final_video, audio_path, script)
 
     video_description = f"{title}\n\n#Shorts #AIInfluencer #Trending #Hinglish"
     upload_to_youtube(final_video, f"{title} #Shorts", video_description)
