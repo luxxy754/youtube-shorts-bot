@@ -47,14 +47,19 @@ ELEVEN_VOICE_ID = os.getenv("ELEVEN_VOICE_ID", "21m00Tcm4TlvDq8ikWAM")
 # is added to "My Voices" on all 3 accounts, to switch back on without touching code.
 USE_ELEVENLABS = os.getenv("USE_ELEVENLABS", "false").strip().lower() == "true"
 
-# gTTS tuning - trying to get closer to a fast, energetic, "cute girl" Hinglish voice
-# out of Google's free TTS: co.in hosting, slight pitch lift, faster pace, and much
-# shorter gaps between sentences (gTTS's default inter-sentence pauses feel dead/slow).
+# gTTS tuning - trying to get closer to a natural, lightly energetic, "cute girl"
+# Hinglish voice out of Google's free TTS: co.in hosting, a touch of pitch lift, a
+# touch of pace, and a moderate cap on inter-sentence gaps (gTTS's default pauses
+# feel dead/slow, but squeezing them too hard makes the speech sound like a rushed,
+# unnatural wall of words). NOTE: an earlier version used speed=1.12, pitch=1.045
+# and a 120ms gap cap - combined, that made the voice sound unrealistically fast.
+# These values are intentionally more conservative; tune slowly via env vars if
+# you still want more/less pace, one change at a time.
 GTTS_LANG = os.getenv("GTTS_LANG", "hi")
 GTTS_TLD = os.getenv("GTTS_TLD", "co.in")
-GTTS_SPEED = float(os.getenv("GTTS_SPEED", "1.12"))       # 1.0 = normal pace
-GTTS_PITCH = float(os.getenv("GTTS_PITCH", "1.045"))      # 1.0 = no pitch change
-GTTS_MAX_GAP_MS = int(os.getenv("GTTS_MAX_GAP_MS", "120"))  # cap on inter-sentence silence
+GTTS_SPEED = float(os.getenv("GTTS_SPEED", "1.04"))       # 1.0 = normal pace
+GTTS_PITCH = float(os.getenv("GTTS_PITCH", "1.015"))      # 1.0 = no pitch change
+GTTS_MAX_GAP_MS = int(os.getenv("GTTS_MAX_GAP_MS", "220"))  # cap on inter-sentence silence
 
 HF_KEYS = [
     os.getenv("HF_TOKEN", ""),
@@ -74,7 +79,13 @@ LIPSYNC_TIMEOUT_SECONDS = int(os.getenv("LIPSYNC_TIMEOUT_SECONDS", "420"))
 # slower per run) but guaranteed to actually attempt lipsync every time.
 WAV2LIP_ENGINE_DIR = "wav2lip_engine"
 WAV2LIP_ENGINE_REPO = os.getenv("WAV2LIP_ENGINE_REPO", "camenduru/Wav2Lip")
-WAV2LIP_SELFHOSTED_CHECKPOINT = os.getenv("WAV2LIP_SELFHOSTED_CHECKPOINT", "wav2lip.pth")  # or wav2lip_gan.pth
+# IMPORTANT: "checkpoints/wav2lip.pth" in this HF repo is a broken/corrupted upload -
+# it's only ~167KB (a real checkpoint is well over 100MB), so torch.load on it either
+# crashes or produces garbage, and every self-hosted run was silently failing and
+# falling through to the static-image fallback (no lipsync at all). "wav2lip_gan.pth"
+# in the same repo is a valid, full-size (~436MB) checkpoint, so that's now the
+# default - it also tends to give sharper mouth shapes than the plain model anyway.
+WAV2LIP_SELFHOSTED_CHECKPOINT = os.getenv("WAV2LIP_SELFHOSTED_CHECKPOINT", "wav2lip_gan.pth")
 WAV2LIP_INFERENCE_TIMEOUT = int(os.getenv("WAV2LIP_INFERENCE_TIMEOUT", "900"))
 
 YT_CLIENT_ID = os.getenv("YT_CLIENT_ID", "")
