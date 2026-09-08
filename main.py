@@ -48,17 +48,20 @@ ELEVEN_VOICE_ID = os.getenv("ELEVEN_VOICE_ID", "21m00Tcm4TlvDq8ikWAM")
 USE_ELEVENLABS = os.getenv("USE_ELEVENLABS", "false").strip().lower() == "true"
 
 # gTTS tuning - trying to get a natural, normal-paced Hinglish voice out of
-# Google's free TTS: co.in hosting, no speed/pitch bump (both left at 1.0, i.e.
-# untouched), and a moderate cap on inter-sentence gaps (gTTS's default pauses
-# feel dead/slow, but squeezing them too hard makes the speech sound like a rushed,
-# unnatural wall of words / like it's reading). NOTE: earlier versions used
-# speed=1.12/pitch=1.045 and then speed=1.04/pitch=1.015 - both still made the
-# voice sound too fast/sped-up. Keep speed and pitch at 1.0 for a normal human
-# pace; only the gap cap should give it a light, natural breath between
-# sentences. Tune slowly via env vars if needed, one change at a time.
+# Google's free TTS. Turns out even gTTS's own "normal" (slow=False) pace speaks
+# noticeably fast for this use case, so speed is now pulled DOWN below 1.0 via
+# ffmpeg's atempo (pitch is left at 1.0 / untouched, so atempo only changes pace,
+# not pitch - no chipmunk/slow-mo voice artifact). A moderate cap on
+# inter-sentence gaps keeps a light, natural breath between sentences without
+# a dead/awkward pause (gTTS's raw pauses) or sounding like a rushed wall of
+# words / like it's reading (gaps squeezed too hard). NOTE: earlier defaults
+# tried were speed=1.12/pitch=1.045, then speed=1.04/pitch=1.015, then
+# speed=1.0/pitch=1.0 (gTTS's raw pace) - all still came out too fast per
+# feedback, hence the current sub-1.0 speed. Tune slowly via env vars if
+# needed, one change at a time.
 GTTS_LANG = os.getenv("GTTS_LANG", "hi")
 GTTS_TLD = os.getenv("GTTS_TLD", "co.in")
-GTTS_SPEED = float(os.getenv("GTTS_SPEED", "1.0"))        # 1.0 = normal pace (was 1.04 - too fast)
+GTTS_SPEED = float(os.getenv("GTTS_SPEED", "0.9"))        # 1.0 = gTTS's own pace, which itself runs fast - 0.9 slows it toward a normal human pace
 GTTS_PITCH = float(os.getenv("GTTS_PITCH", "1.0"))        # 1.0 = no pitch change (was 1.015 - added to the fast/rushed feel)
 GTTS_MAX_GAP_MS = int(os.getenv("GTTS_MAX_GAP_MS", "220"))  # cap on inter-sentence silence
 
