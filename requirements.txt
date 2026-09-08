@@ -4,6 +4,7 @@ gradio_client
 google-auth
 google-api-python-client
 gTTS
+pydub
 huggingface_hub
 
 # ---- Self-hosted Wav2Lip (CPU) deps ----
