@@ -1,8 +1,10 @@
-import os
-import sys
+import asyncio
+import edge_tts
 import json
+import os
 import requests
 import subprocess
+import sys
 
 try:
     from google.oauth2.credentials import Credentials
@@ -33,37 +35,11 @@ except ImportError:
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
-ELEVEN_KEYS = [
-    os.getenv("ELEVEN_KEY_1", ""),
-    os.getenv("ELEVEN_KEY_2", ""),
-    os.getenv("ELEVEN_KEY_3", ""),
-]
-# Default is ElevenLabs' "Rachel" voice, which free accounts can no longer call via
-# the API. Set the ELEVEN_VOICE_ID secret to your own voice's ID (see README) -
-# "Monika Sogam" is a good pick: a natural Indian-English/Hindi accented voice.
-ELEVEN_VOICE_ID = os.getenv("ELEVEN_VOICE_ID", "21m00Tcm4TlvDq8ikWAM")
-# Off by default for now - ElevenLabs' free-tier voice-library restriction made this
-# more hassle than it's worth for now. Set USE_ELEVENLABS=true once a proper voice
-# is added to "My Voices" on all 3 accounts, to switch back on without touching code.
-USE_ELEVENLABS = os.getenv("USE_ELEVENLABS", "false").strip().lower() == "true"
-
-# gTTS tuning - trying to get a natural, normal-paced Hinglish voice out of
-# Google's free TTS. Turns out even gTTS's own "normal" (slow=False) pace speaks
-# noticeably fast for this use case, so speed is now pulled DOWN below 1.0 via
-# ffmpeg's atempo (pitch is left at 1.0 / untouched, so atempo only changes pace,
-# not pitch - no chipmunk/slow-mo voice artifact). A moderate cap on
-# inter-sentence gaps keeps a light, natural breath between sentences without
-# a dead/awkward pause (gTTS's raw pauses) or sounding like a rushed wall of
-# words / like it's reading (gaps squeezed too hard). NOTE: earlier defaults
-# tried were speed=1.12/pitch=1.045, then speed=1.04/pitch=1.015, then
-# speed=1.0/pitch=1.0 (gTTS's raw pace) - all still came out too fast per
-# feedback, hence the current sub-1.0 speed. Tune slowly via env vars if
-# needed, one change at a time.
-GTTS_LANG = os.getenv("GTTS_LANG", "hi")
-GTTS_TLD = os.getenv("GTTS_TLD", "co.in")
-GTTS_SPEED = float(os.getenv("GTTS_SPEED", "0.9"))        # 1.0 = gTTS's own pace, which itself runs fast - 0.9 slows it toward a normal human pace
-GTTS_PITCH = float(os.getenv("GTTS_PITCH", "1.0"))        # 1.0 = no pitch change (was 1.015 - added to the fast/rushed feel)
-GTTS_MAX_GAP_MS = int(os.getenv("GTTS_MAX_GAP_MS", "220"))  # cap on inter-sentence silence
+# --- TTS Configuration (Updated for natural tone, speed, and pitch) ---
+VOICE = os.getenv("EDGE_TTS_VOICE", "en-US-AriaNeural")  # Natural-sounding female voice
+RATE = os.getenv("EDGE_TTS_RATE", "-5%")                 # Slightly slows down speech speed
+PITCH = os.getenv("EDGE_TTS_PITCH", "-4Hz")              # Lowers pitch to remove thin, robotic sharpness
+OUTPUT_AUDIO_FILE = "voiceover.mp3"
 
 HF_KEYS = [
     os.getenv("HF_TOKEN", ""),
@@ -99,7 +75,7 @@ YT_PRIVACY_STATUS = os.getenv("YT_PRIVACY_STATUS", "public")
 
 CHARACTER_IMAGE = "character.jpg"
 
-print("AI Influencer Bot Initialized.")
+print("AI Influencer Bot Initialized with Edge-TTS.")
 
 
 def generate_influencer_script():
@@ -162,111 +138,26 @@ def generate_influencer_script():
         return fallback_title, fallback_script
 
 
-def _tighten_sentence_gaps(raw_audio_path, max_gap_ms=GTTS_MAX_GAP_MS):
-    """gTTS lambe scripts ko sentence-by-sentence multiple chunks mein bana ke jodta
-    hai, jisse har sentence ke baad ek dead/awkward pause aa jata hai. Ye function
-    un pauses ko dhoondh ke chhota (max_gap_ms tak) kar deta hai taake voice zyada
-    energetic aur flowing lage."""
-    try:
-        from pydub import AudioSegment
-        from pydub.silence import detect_silence
-    except ImportError:
-        print("pydub not installed - skipping gap-tightening step.")
-        return raw_audio_path
-
-    audio = AudioSegment.from_file(raw_audio_path)
-    silence_thresh = audio.dBFS - 16
-    silent_ranges = detect_silence(audio, min_silence_len=180, silence_thresh=silence_thresh)
-    if not silent_ranges:
-        return raw_audio_path
-
-    tightened = AudioSegment.empty()
-    prev_end = 0
-    for start, end in silent_ranges:
-        tightened += audio[prev_end:start]
-        gap = end - start
-        tightened += audio[start:start + min(gap, max_gap_ms)]
-        prev_end = end
-    tightened += audio[prev_end:]
-
-    tightened_path = "voiceover_tightened.wav"
-    tightened.export(tightened_path, format="wav")
-    return tightened_path
-
-
-def _apply_speed_and_pitch(input_path, speed=GTTS_SPEED, pitch=GTTS_PITCH):
-    """FFmpeg se speed thodi tez aur pitch thodi upar karta hai (asetrate+atempo
-    trick) taake voice zyada young/energetic/cute lage, bina audio ko chipmunk-jaisa
-    bane. Final output hamesha voiceover.mp3 hai."""
-    out_path = "voiceover.mp3"
-    combined_tempo = max(0.5, min(2.0, speed / pitch))  # stay inside ffmpeg's atempo range
-    filter_chain = f"asetrate=44100*{pitch},aresample=44100,atempo={combined_tempo}"
-    cmd = ["ffmpeg", "-y", "-i", input_path, "-filter:a", filter_chain, "-ar", "44100", out_path]
-
-    result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    if result.returncode != 0 or not os.path.exists(out_path):
-        print(f"Speed/pitch tuning failed, falling back to plain conversion: {result.stderr.decode('utf-8', errors='ignore')}")
-        subprocess.run(["ffmpeg", "-y", "-i", input_path, out_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    return out_path
+async def _generate_edge_tts_async(script_text, output_path):
+    """Asynchronous helper to generate audio using edge-tts."""
+    communicate = edge_tts.Communicate(script_text, VOICE, rate=RATE, pitch=PITCH)
+    await communicate.save(output_path)
 
 
 def generate_voiceover(script_text):
-    """Voiceover banata hai. ElevenLabs (agar USE_ELEVENLABS=true aur keys/voice set
-    hon) try karta hai, warna seedha tuned gTTS use karta hai."""
-    audio_path = "voiceover.mp3"
-    active_keys = [k for k in ELEVEN_KEYS if k.strip()]
-
-    success = False
-    if USE_ELEVENLABS and active_keys:
-        url = f"https://api.elevenlabs.io/v1/text-to-speech/{ELEVEN_VOICE_ID}"
-        headers = {
-            "Accept": "audio/mpeg",
-            "Content-Type": "application/json",
-        }
-        payload = {
-            "text": script_text,
-            "model_id": "eleven_multilingual_v2",
-            "voice_settings": {
-                "stability": 0.5,
-                "similarity_boost": 0.75,
-            },
-        }
-
-        for idx, key in enumerate(active_keys):
-            headers["xi-api-key"] = key
-            try:
-                print(f"Trying ElevenLabs API with key index {idx + 1}...")
-                response = requests.post(url, json=payload, headers=headers, timeout=60)
-                if response.status_code == 200:
-                    with open(audio_path, "wb") as f:
-                        f.write(response.content)
-                    print("Successfully generated voiceover using ElevenLabs!")
-                    success = True
-                    break
-                else:
-                    print(f"ElevenLabs key {idx + 1} failed with status {response.status_code}: {response.text}")
-            except Exception as e:
-                print(f"ElevenLabs request error with key {idx + 1}: {e}")
-    elif not USE_ELEVENLABS:
-        print("ElevenLabs disabled (USE_ELEVENLABS=false) - going straight to gTTS.")
-    else:
-        print("No ELEVEN_KEY_* found in environment - skipping ElevenLabs.")
-
-    if not success:
-        print(f"Generating voiceover with gTTS (lang={GTTS_LANG}, tld={GTTS_TLD}, speed={GTTS_SPEED}, pitch={GTTS_PITCH})...")
-        try:
-            from gtts import gTTS
-            raw_path = "voiceover_raw.mp3"
-            tts = gTTS(text=script_text, lang=GTTS_LANG, tld=GTTS_TLD, slow=False)
-            tts.save(raw_path)
-            tightened_path = _tighten_sentence_gaps(raw_path)
-            audio_path = _apply_speed_and_pitch(tightened_path)
-            success = os.path.exists(audio_path)
-        except Exception as e:
-            print(f"gTTS generation failed: {e}")
+    """Edge-TTS ka use karke natural sounding voiceover banata hai with configured speed and pitch."""
+    print(f"Generating voiceover with Edge-TTS (voice={VOICE}, rate={RATE}, pitch={PITCH})...")
+    try:
+        asyncio.run(_generate_edge_tts_async(script_text, OUTPUT_AUDIO_FILE))
+        if os.path.exists(OUTPUT_AUDIO_FILE):
+            print("Successfully generated voiceover using Edge-TTS!")
+            return OUTPUT_AUDIO_FILE
+        else:
+            print("Edge-TTS failed to produce the audio file.")
             return None
-
-    return audio_path if success else None
+    except Exception as e:
+        print(f"Edge-TTS generation failed: {e}")
+        return None
 
 
 def generate_lipsync_video(character_image, audio_path):
@@ -307,13 +198,13 @@ def generate_lipsync_video(character_image, audio_path):
                 job = client.submit(
                     handle_file(character_image),  # face image
                     handle_file(audio_path),        # driving audio
-                    LIPSYNC_CHECKPOINT,              # "wav2lip" or "wav2lip_gan"
-                    False,                            # no_smooth
-                    1,                                 # resize_factor
-                    0,                                  # pad_top
-                    10,                                  # pad_bottom
-                    0,                                    # pad_left
-                    0,                                     # pad_right
+                    LIPSYNC_CHECKPOINT,             # "wav2lip" or "wav2lip_gan"
+                    False,                          # no_smooth
+                    1,                              # resize_factor
+                    0,                              # pad_top
+                    10,                             # pad_bottom
+                    0,                              # pad_left
+                    0,                              # pad_right
                     api_name="/generate",
                 )
                 result = job.result(timeout=LIPSYNC_TIMEOUT_SECONDS)
@@ -467,8 +358,8 @@ def upload_to_youtube(video_path, title, description, tags=None):
         creds = Credentials(
             token=None, refresh_token=YT_REFRESH_TOKEN,
             client_id=YT_CLIENT_ID, client_secret=YT_CLIENT_SECRET,
-            token_uri="https://oauth2.googleapis.com/token",
-            scopes=["https://www.googleapis.com/auth/youtube.upload"],
+            token_uri="[https://oauth2.googleapis.com/token](https://oauth2.googleapis.com/token)",
+            scopes=["[https://www.googleapis.com/auth/youtube.upload](https://www.googleapis.com/auth/youtube.upload)"],
         )
         youtube = build("youtube", "v3", credentials=creds)
         body = {
