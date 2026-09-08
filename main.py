@@ -1,7 +1,6 @@
 import os
 import sys
 import json
-import time
 import requests
 import subprocess
 
@@ -16,44 +15,40 @@ except ImportError:
 # ==================== CONFIGURATION ====================
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
-NUM_SCENES = int(os.getenv("NUM_SCENES", "1")) # Influencer ke liye single scene ya continuous clip behtar hai
-
-POLLINATIONS_API_KEY = os.getenv("POLLINATIONS_API_KEY", "")
-POLLINATIONS_VIDEO_MODEL = os.getenv("POLLINATIONS_VIDEO_MODEL", "wan-fast")
-POLLINATIONS_VIDEO_DURATION = os.getenv("POLLINATIONS_VIDEO_DURATION", "10")
 
 YT_CLIENT_ID = os.getenv("YT_CLIENT_ID", "")
 YT_CLIENT_SECRET = os.getenv("YT_CLIENT_SECRET", "")
 YT_REFRESH_TOKEN = os.getenv("YT_REFRESH_TOKEN", "")
 YT_PRIVACY_STATUS = os.getenv("YT_PRIVACY_STATUS", "public")
 
-print("AI Influencer YouTube Shorts Bot Initialized.")
+CHARACTER_IMAGE = "character.jpg"
 
-def generate_influencer_content():
-    """Gemini se aajkal ke trending topics par Hinglish script aur visual prompt generate karwata hai."""
+print("Fixed Character AI Influencer Bot Initialized.")
+
+def generate_influencer_script():
+    """Gemini se aajkal ke trending topics par Hinglish script generate karwata hai."""
     fallback_title = "Aaj Ki Viral Baat!"
-    fallback_script = "Dosto, kya aapko pata hai aajkal AI ki duniya mein kya chal raha hai? Har koi bas apni digital life ko upgrade karne mein laga hai!"
-    fallback_prompt = "A beautiful slim Russian-style AI influencer woman sitting on a cozy modern sofa in a stylish room, holding a studio microphone, talking to the camera with expressive friendly face, 3D Pixar cinematic lighting, 9:16 aspect ratio"
+    fallback_script = "Dosto, kya aapko pata hai aajkal technology ki duniya mein kya naya chal raha hai? Har koi bas apni digital life ko smart banane mein laga hai!"
 
     if not GEMINI_API_KEY:
-        print("No GEMINI_API_KEY set - using fallback script and prompt.")
-        return fallback_title, fallback_script, fallback_prompt
+        print("No GEMINI_API_KEY set - using fallback script.")
+        return fallback_title, fallback_script
 
     api_url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
     
     instruction = (
         "Generate a trending short script for an AI influencer YouTube Short in Hinglish (Hindi/Urdu mixed naturally with cool English words). "
-        "Also generate a visual prompt for her appearance: a slim Russian-style beautiful lady sitting on a sofa with a studio microphone. "
+        "Keep it under 40 words, engaging and conversational. "
         "Reply ONLY with valid JSON, no markdown, no code fences, in this exact shape: "
-        '{"title": "catchy title", "script": "Hinglish voiceover script under 40 words", "prompt": "visual prompt for the video generator"}'
+        '{"title": "catchy title", "script": "Hinglish voiceover script"}'
     )
     body = {"contents": [{"parts": [{"text": instruction}]}]}
 
     try:
-        print("Asking Gemini for trending influencer script and visuals...")
+        print("Asking Gemini for trending influencer script...")
         resp = requests.post(api_url, json=body, timeout=30)
         if resp.status_code != 200:
-            return fallback_title, fallback_script, fallback_prompt
+            return fallback_title, fallback_script
 
         data = resp.json()
         text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
@@ -65,15 +60,14 @@ def generate_influencer_content():
         parsed = json.loads(text)
         return (
             str(parsed.get("title") or fallback_title).strip(),
-            str(parsed.get("script") or fallback_script).strip(),
-            str(parsed.get("prompt") or fallback_prompt).strip()
+            str(parsed.get("script") or fallback_script).strip()
         )
     except Exception as e:
         print(f"Gemini error: {e}. Using fallbacks.")
-        return fallback_title, fallback_script, fallback_prompt
+        return fallback_title, fallback_script
 
 def generate_voiceover(script_text):
-    """Free gTTS ya ElevenLabs se Hinglish voiceover banata hai."""
+    """gTTS se Hinglish voiceover banata hai."""
     audio_path = "voiceover.mp3"
     try:
         from gtts import gTTS
@@ -85,47 +79,33 @@ def generate_voiceover(script_text):
         print(f"Voiceover generation failed: {e}")
         return None
 
-def create_influencer_video(prompt_text, audio_path):
-    """Pollinations ya FFmpeg fallback se video banakar audio ke sath merge karta hai."""
+def create_static_influencer_video(audio_path):
+    """Fixed character image par bina movement ke audio merge karke video banata hai."""
     video_file = "scene_video.mp4"
-    img_path = "influencer.jpg"
     
-    img_url = f"[https://image.pollinations.ai/prompt/](https://image.pollinations.ai/prompt/){requests.utils.quote(prompt_text)}?width=1080&height=1920&nologo=true"
-    
-    try:
-        print("Downloading influencer base image...")
-        headers = {'User-Agent': 'Mozilla/5.0'}
-        resp = requests.get(img_url, headers=headers, timeout=30)
-        if resp.status_code == 200:
-            with open(img_path, "wb") as f:
-                f.write(resp.content)
-    except Exception as e:
-        print(f"Image download failed: {e}")
+    if not os.path.exists(CHARACTER_IMAGE):
+        print(f"Error: {CHARACTER_IMAGE} not found in repository! Please fix the filename.")
+        return None
 
-    if not os.path.exists(img_path):
-        # Emergency solid color frame agar download fail ho jaye
-        subprocess.run(["ffmpeg", "-y", "-f", "lavfi", "-i", "color=c=purple:s=1080:1920", "-vframes", "1", img_path])
-
-    # FFmpeg zoompan effect to make it dynamic
-    camera_move = "zoompan=z='min(zoom+0.0015,1.3)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=150:s=1080x1920"
-    
+    # Bina kisi zoom, pan ya movement ke static image ko audio ke sath combine karna
     cmd = [
-        "ffmpeg", "-y", "-loop", "1", "-i", img_path,
+        "ffmpeg", "-y", "-loop", "1", "-i", CHARACTER_IMAGE,
         "-i", audio_path,
-        "-vf", f"scale=2160:3840:force_original_aspect_ratio=increase,crop=2160:3840,{camera_move}",
-        "-c:v", "libx264", "-pix_fmt", "yuv420p",
-        "-c:a", "aac", "-shortest", video_file
+        "-vf", "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,format=yuv420p",
+        "-c:v", "libx264", "-tune", "stillimage",
+        "-c:a", "aac", "-b:a", "192k",
+        "-shortest", video_file
     ]
     
     result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if result.returncode != 0 or not os.path.exists(video_file):
-        print("Error creating final video.")
+        print(f"FFmpeg error: {result.stderr.decode('utf-8')}")
         return None
 
     return video_file
 
 def upload_to_youtube(video_path, title, description, tags=None):
-    """Aapka purana YouTube auto-upload function (issay change nahi kiya gaya)."""
+    """YouTube auto-upload function."""
     if not YOUTUBE_AVAILABLE or not (YT_CLIENT_ID and YT_CLIENT_SECRET and YT_REFRESH_TOKEN):
         print("YouTube credentials missing - skipping upload.")
         return None
@@ -142,7 +122,7 @@ def upload_to_youtube(video_path, title, description, tags=None):
             "snippet": {
                 "title": title[:100],
                 "description": description,
-                "tags": tags or ["AI", "Shorts", "Influencer"],
+                "tags": tags or ["AI", "Shorts", "Influencer", "Hinglish"],
                 "categoryId": "22",
             },
             "status": {
@@ -165,7 +145,7 @@ def upload_to_youtube(video_path, title, description, tags=None):
         return None
 
 def main():
-    title, script, prompt = generate_influencer_content()
+    title, script = generate_influencer_script()
     print(f"Title: {title}")
     print(f"Script: {script}")
 
@@ -173,7 +153,7 @@ def main():
     if not audio_path:
         sys.exit(1)
 
-    final_video = create_influencer_video(prompt, audio_path)
+    final_video = create_static_influencer_video(audio_path)
     if not final_video:
         sys.exit(1)
 
