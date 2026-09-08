@@ -1,5 +1,18 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
 requests
 gradio_client
 google-auth
 google-api-python-client
 gTTS
+huggingface_hub
+
+# ---- Self-hosted Wav2Lip (CPU) deps ----
+# Wav2Lip's original code calls librosa's mel-filter with old-style positional
+# args, which newer librosa (0.10+) rejects - pinning avoids needing to patch code.
+torch==2.2.2+cpu
+torchvision==0.17.2+cpu
+numpy==1.23.5
+librosa==0.9.2
+numba==0.56.4
+opencv-python
+tqdm
