@@ -11,7 +11,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 40
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -20,6 +20,7 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
+          cache: 'pip'
 
       - name: Install System Dependencies (FFmpeg)
         run: |
@@ -31,12 +32,23 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      # Wav2Lip engine + checkpoints are ~1GB and rarely change, so cache them
+      # across runs - first run downloads, every run after restores from cache
+      # instead of re-downloading twice a day.
+      - name: Cache self-hosted Wav2Lip engine
+        id: wav2lip-cache
+        uses: actions/cache@v4
+        with:
+          path: wav2lip_engine
+          key: wav2lip-engine-camenduru-v1
+
       - name: Run YouTube Shorts Bot
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           ELEVEN_KEY_1: ${{ secrets.ELEVEN_KEY_1 }}
           ELEVEN_KEY_2: ${{ secrets.ELEVEN_KEY_2 }}
           ELEVEN_KEY_3: ${{ secrets.ELEVEN_KEY_3 }}
+          ELEVEN_VOICE_ID: ${{ secrets.ELEVEN_VOICE_ID }}
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           HF_TOKEN_2: ${{ secrets.HF_TOKEN_2 }}
           HF_TOKEN_3: ${{ secrets.HF_TOKEN_3 }}
@@ -55,4 +67,5 @@ jobs:
           path: |
             final_short.mp4
             scene_video.mp4
+            lipsync_selfhosted.mp4
           if-no-files-found: ignore
