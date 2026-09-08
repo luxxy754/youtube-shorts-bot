@@ -16,13 +16,11 @@ except ImportError:
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
-# ElevenLabs Keys rotation logic (Aapke secrets se keys uthayega)
 ELEVEN_KEYS = [
     os.getenv("ELEVEN_KEY_1", ""),
     os.getenv("ELEVEN_KEY_2", ""),
     os.getenv("ELEVEN_KEY_3", "")
 ]
-# Ek popular expressive female voice ID (Rachel ya Bella)
 ELEVEN_VOICE_ID = "21m00Tcm4TlvDq8ikWAM" 
 
 YT_CLIENT_ID = os.getenv("YT_CLIENT_ID", "")
@@ -55,8 +53,10 @@ def generate_influencer_script():
 
     try:
         print("Asking Gemini for trending influencer script...")
-        resp = requests.post(api_url, json=body, timeout=30)
+        # Timeout ko 60 seconds kar diya hai taake timeout error na aaye
+        resp = requests.post(api_url, json=body, timeout=60)
         if resp.status_code != 200:
+            print(f"Gemini API returned status code {resp.status_code}: {resp.text}")
             return fallback_title, fallback_script
 
         data = resp.json()
@@ -76,10 +76,8 @@ def generate_influencer_script():
         return fallback_title, fallback_script
 
 def generate_voiceover(script_text):
-    """ElevenLabs Free Tier API use karke ultra-realistic female voice banata hai, with gTTS fallback."""
+    """ElevenLabs Free Tier API use karke voice banata hai, with gTTS fallback."""
     audio_path = "voiceover.mp3"
-    
-    # Available keys filter karein
     active_keys = [k for k in ELEVEN_KEYS if k.strip()]
     
     success = False
@@ -98,7 +96,6 @@ def generate_voiceover(script_text):
             }
         }
 
-        # Keys rotate karke try karein agar koi limit cross ho gayi ho
         for idx, key in enumerate(active_keys):
             headers["xi-api-key"] = key
             try:
@@ -115,7 +112,6 @@ def generate_voiceover(script_text):
             except Exception as e:
                 print(f"ElevenLabs request error with key {idx + 1}: {e}")
 
-    # Agar ElevenLabs fail ho jaye ya keys na hon, toh gTTS use karenge (Free fallback)
     if not success:
         print("Falling back to gTTS for voiceover generation...")
         try:
@@ -155,8 +151,12 @@ def create_static_influencer_video(audio_path):
 
 def upload_to_youtube(video_path, title, description, tags=None):
     """YouTube auto-upload function."""
-    if not YOUTUBE_AVAILABLE or not (YT_CLIENT_ID and YT_CLIENT_SECRET and YT_REFRESH_TOKEN):
-        print("YouTube credentials missing - skipping upload.")
+    if not YOUTUBE_AVAILABLE:
+        print("YouTube libraries not available.")
+        return None
+
+    if not (YT_CLIENT_ID and YT_CLIENT_SECRET and YT_REFRESH_TOKEN):
+        print("YouTube credentials missing in GitHub Secrets! Please check YT_CLIENT_ID, YT_CLIENT_SECRET, and YT_REFRESH_TOKEN.")
         return None
 
     try:
@@ -190,7 +190,7 @@ def upload_to_youtube(video_path, title, description, tags=None):
         print(f"Successfully uploaded to YouTube! Video ID: {video_id}")
         return video_id
     except Exception as e:
-        print(f"YouTube upload failed: {e}")
+        print(f"YouTube upload failed completely: {e}")
         return None
 
 def main():
