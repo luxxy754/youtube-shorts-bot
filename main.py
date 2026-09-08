@@ -47,18 +47,19 @@ ELEVEN_VOICE_ID = os.getenv("ELEVEN_VOICE_ID", "21m00Tcm4TlvDq8ikWAM")
 # is added to "My Voices" on all 3 accounts, to switch back on without touching code.
 USE_ELEVENLABS = os.getenv("USE_ELEVENLABS", "false").strip().lower() == "true"
 
-# gTTS tuning - trying to get closer to a natural, lightly energetic, "cute girl"
-# Hinglish voice out of Google's free TTS: co.in hosting, a touch of pitch lift, a
-# touch of pace, and a moderate cap on inter-sentence gaps (gTTS's default pauses
+# gTTS tuning - trying to get a natural, normal-paced Hinglish voice out of
+# Google's free TTS: co.in hosting, no speed/pitch bump (both left at 1.0, i.e.
+# untouched), and a moderate cap on inter-sentence gaps (gTTS's default pauses
 # feel dead/slow, but squeezing them too hard makes the speech sound like a rushed,
-# unnatural wall of words). NOTE: an earlier version used speed=1.12, pitch=1.045
-# and a 120ms gap cap - combined, that made the voice sound unrealistically fast.
-# These values are intentionally more conservative; tune slowly via env vars if
-# you still want more/less pace, one change at a time.
+# unnatural wall of words / like it's reading). NOTE: earlier versions used
+# speed=1.12/pitch=1.045 and then speed=1.04/pitch=1.015 - both still made the
+# voice sound too fast/sped-up. Keep speed and pitch at 1.0 for a normal human
+# pace; only the gap cap should give it a light, natural breath between
+# sentences. Tune slowly via env vars if needed, one change at a time.
 GTTS_LANG = os.getenv("GTTS_LANG", "hi")
 GTTS_TLD = os.getenv("GTTS_TLD", "co.in")
-GTTS_SPEED = float(os.getenv("GTTS_SPEED", "1.04"))       # 1.0 = normal pace
-GTTS_PITCH = float(os.getenv("GTTS_PITCH", "1.015"))      # 1.0 = no pitch change
+GTTS_SPEED = float(os.getenv("GTTS_SPEED", "1.0"))        # 1.0 = normal pace (was 1.04 - too fast)
+GTTS_PITCH = float(os.getenv("GTTS_PITCH", "1.0"))        # 1.0 = no pitch change (was 1.015 - added to the fast/rushed feel)
 GTTS_MAX_GAP_MS = int(os.getenv("GTTS_MAX_GAP_MS", "220"))  # cap on inter-sentence silence
 
 HF_KEYS = [
