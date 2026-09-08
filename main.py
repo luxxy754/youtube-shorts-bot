@@ -16,6 +16,15 @@ except ImportError:
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
+# ElevenLabs Keys rotation logic (Aapke secrets se keys uthayega)
+ELEVEN_KEYS = [
+    os.getenv("ELEVEN_KEY_1", ""),
+    os.getenv("ELEVEN_KEY_2", ""),
+    os.getenv("ELEVEN_KEY_3", "")
+]
+# Ek popular expressive female voice ID (Rachel ya Bella)
+ELEVEN_VOICE_ID = "21m00Tcm4TlvDq8ikWAM" 
+
 YT_CLIENT_ID = os.getenv("YT_CLIENT_ID", "")
 YT_CLIENT_SECRET = os.getenv("YT_CLIENT_SECRET", "")
 YT_REFRESH_TOKEN = os.getenv("YT_REFRESH_TOKEN", "")
@@ -23,7 +32,7 @@ YT_PRIVACY_STATUS = os.getenv("YT_PRIVACY_STATUS", "public")
 
 CHARACTER_IMAGE = "character.jpg"
 
-print("Fixed Character AI Influencer Bot Initialized.")
+print("ElevenLabs AI Influencer Bot Initialized.")
 
 def generate_influencer_script():
     """Gemini se aajkal ke trending topics par Hinglish script generate karwata hai."""
@@ -38,7 +47,7 @@ def generate_influencer_script():
     
     instruction = (
         "Generate a trending short script for an AI influencer YouTube Short in Hinglish (Hindi/Urdu mixed naturally with cool English words). "
-        "Keep it under 40 words, engaging and conversational. "
+        "Keep it under 35 words (short and crisp for free tier voice generation), engaging and conversational. "
         "Reply ONLY with valid JSON, no markdown, no code fences, in this exact shape: "
         '{"title": "catchy title", "script": "Hinglish voiceover script"}'
     )
@@ -67,27 +76,67 @@ def generate_influencer_script():
         return fallback_title, fallback_script
 
 def generate_voiceover(script_text):
-    """gTTS se Hinglish voiceover banata hai."""
+    """ElevenLabs Free Tier API use karke ultra-realistic female voice banata hai, with gTTS fallback."""
     audio_path = "voiceover.mp3"
-    try:
-        from gtts import gTTS
-        print("Generating voiceover using gTTS (Hindi/Urdu)...")
-        tts = gTTS(text=script_text, lang='hi', slow=False)
-        tts.save(audio_path)
-        return audio_path
-    except Exception as e:
-        print(f"Voiceover generation failed: {e}")
-        return None
+    
+    # Available keys filter karein
+    active_keys = [k for k in ELEVEN_KEYS if k.strip()]
+    
+    success = False
+    if active_keys:
+        url = f"[https://api.elevenlabs.io/v1/text-to-speech/](https://api.elevenlabs.io/v1/text-to-speech/){ELEVEN_VOICE_ID}"
+        headers = {
+            "Accept": "audio/mpeg",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "text": script_text,
+            "model_id": "eleven_multilingual_v2",
+            "voice_settings": {
+                "stability": 0.5,
+                "similarity_boost": 0.75
+            }
+        }
+
+        # Keys rotate karke try karein agar koi limit cross ho gayi ho
+        for idx, key in enumerate(active_keys):
+            headers["xi-api-key"] = key
+            try:
+                print(f"Trying ElevenLabs API with key index {idx + 1}...")
+                response = requests.post(url, json=payload, headers=headers, timeout=30)
+                if response.status_code == 200:
+                    with open(audio_path, "wb") as f:
+                        f.write(response.content)
+                    print("Successfully generated voiceover using ElevenLabs!")
+                    success = True
+                    break
+                else:
+                    print(f"ElevenLabs key {idx + 1} failed with status {response.status_code}: {response.text}")
+            except Exception as e:
+                print(f"ElevenLabs request error with key {idx + 1}: {e}")
+
+    # Agar ElevenLabs fail ho jaye ya keys na hon, toh gTTS use karenge (Free fallback)
+    if not success:
+        print("Falling back to gTTS for voiceover generation...")
+        try:
+            from gtts import gTTS
+            tts = gTTS(text=script_text, lang='hi', slow=False)
+            tts.save(audio_path)
+            success = True
+        except Exception as e:
+            print(f"gTTS fallback also failed: {e}")
+            return None
+
+    return audio_path if success else None
 
 def create_static_influencer_video(audio_path):
     """Fixed character image par bina movement ke audio merge karke video banata hai."""
     video_file = "scene_video.mp4"
     
     if not os.path.exists(CHARACTER_IMAGE):
-        print(f"Error: {CHARACTER_IMAGE} not found in repository! Please fix the filename.")
+        print(f"Error: {CHARACTER_IMAGE} not found in repository!")
         return None
 
-    # Bina kisi zoom, pan ya movement ke static image ko audio ke sath combine karna
     cmd = [
         "ffmpeg", "-y", "-loop", "1", "-i", CHARACTER_IMAGE,
         "-i", audio_path,
