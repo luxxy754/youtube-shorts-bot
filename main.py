@@ -23,6 +23,12 @@ try:
 except ImportError:
     GRADIO_AVAILABLE = False
 
+try:
+    from huggingface_hub import snapshot_download
+    HF_HUB_AVAILABLE = True
+except ImportError:
+    HF_HUB_AVAILABLE = False
+
 # ==================== CONFIGURATION ====================
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
@@ -32,7 +38,10 @@ ELEVEN_KEYS = [
     os.getenv("ELEVEN_KEY_2", ""),
     os.getenv("ELEVEN_KEY_3", ""),
 ]
-ELEVEN_VOICE_ID = "21m00Tcm4TlvDq8ikWAM"
+# Default is ElevenLabs' "Rachel" voice, which free accounts can no longer call via
+# the API. Set the ELEVEN_VOICE_ID secret to your own voice's ID (see README) -
+# "Monika Sogam" is a good pick: a natural Indian-English/Hindi accented voice.
+ELEVEN_VOICE_ID = os.getenv("ELEVEN_VOICE_ID", "21m00Tcm4TlvDq8ikWAM")
 
 HF_KEYS = [
     os.getenv("HF_TOKEN", ""),
@@ -46,6 +55,14 @@ DEFAULT_LIPSYNC_SPACES = "manavisrani07/gradio-lipsync-wav2lip,Artificial-superi
 LIPSYNC_SPACES = [s.strip() for s in os.getenv("LIPSYNC_SPACES", DEFAULT_LIPSYNC_SPACES).split(",") if s.strip()]
 LIPSYNC_CHECKPOINT = os.getenv("LIPSYNC_CHECKPOINT", "wav2lip")  # or "wav2lip_gan" (slower, sharper mouth)
 LIPSYNC_TIMEOUT_SECONDS = int(os.getenv("LIPSYNC_TIMEOUT_SECONDS", "420"))
+
+# Self-hosted Wav2Lip fallback: runs directly on the Actions runner (CPU), so it
+# never depends on a third-party Space being online. Heavier (bigger download,
+# slower per run) but guaranteed to actually attempt lipsync every time.
+WAV2LIP_ENGINE_DIR = "wav2lip_engine"
+WAV2LIP_ENGINE_REPO = os.getenv("WAV2LIP_ENGINE_REPO", "camenduru/Wav2Lip")
+WAV2LIP_SELFHOSTED_CHECKPOINT = os.getenv("WAV2LIP_SELFHOSTED_CHECKPOINT", "wav2lip.pth")  # or wav2lip_gan.pth
+WAV2LIP_INFERENCE_TIMEOUT = int(os.getenv("WAV2LIP_INFERENCE_TIMEOUT", "900"))
 
 YT_CLIENT_ID = os.getenv("YT_CLIENT_ID", "")
 YT_CLIENT_SECRET = os.getenv("YT_CLIENT_SECRET", "")
@@ -77,11 +94,17 @@ def generate_influencer_script():
     api_url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
 
     instruction = (
-        "Generate a trending script for an AI influencer YouTube Short in Hinglish (Hindi/Urdu mixed "
-        "naturally with cool English words). The script will be read aloud and MUST take roughly "
-        "30-40 seconds to speak at a normal conversational pace - that means about 90 to 130 words, "
-        "not shorter. Make it engaging, punchy and conversational, with a hook in the first line and "
-        "a light call-to-action at the end (like asking to comment or follow). "
+        "Generate a trending script for an AI influencer YouTube Short. Write it in natural spoken "
+        "Hindi/Urdu (Hinglish), written in Roman/Latin script, with a light, natural mix of common "
+        "English words the way young Indian/Pakistani speakers actually talk - not a heavy or forced "
+        "mix. This script will be read aloud by a text-to-speech voice, so: use standard, common "
+        "Hinglish spellings for Hindi/Urdu words (the kind people normally type on WhatsApp/Instagram), "
+        "keep English words spelled correctly in normal English spelling (do not phonetically mangle "
+        "them), avoid rare/invented words, and avoid tongue-twisters or awkward consonant clusters that "
+        "are hard for a TTS engine to pronounce cleanly. Keep sentences short and natural. "
+        "The script MUST take roughly 30-40 seconds to speak at a normal conversational pace - that "
+        "means about 90 to 130 words, not shorter. Make it engaging and punchy, with a hook in the "
+        "first line and a light call-to-action at the end (like asking to comment or follow). "
         "Reply ONLY with valid JSON, no markdown, no code fences, in this exact shape: "
         '{"title": "catchy title", "script": "Hinglish voiceover script"}'
     )
@@ -173,14 +196,31 @@ def generate_lipsync_video(character_image, audio_path):
         print("gradio_client not installed - skipping lipsync step.")
         return None
 
-    tokens = [t for t in HF_KEYS if t.strip()] or [None]
+    def make_client(space, token):
+        """These Spaces are public, so token is optional (only helps avoid shared
+        rate limits). Different gradio_client versions use different keyword names
+        for it (hf_token vs token), so try both, then fall back to no token at all
+        rather than crashing the whole run over a library version mismatch."""
+        if not token:
+            return GradioClient(space)
+        try:
+            return GradioClient(space, hf_token=token)
+        except TypeError:
+            try:
+                return GradioClient(space, token=token)
+            except TypeError:
+                print("This gradio_client version doesn't accept a token kwarg - continuing without one.")
+                return GradioClient(space)
+
+    tokens = [t for t in HF_KEYS if t.strip()]
+    attempts = tokens + [None]  # always keep a no-token attempt as a last resort
 
     for space in LIPSYNC_SPACES:
-        for token_idx, token in enumerate(tokens):
+        for token_idx, token in enumerate(attempts):
             try:
-                label = f"{space} (token {token_idx + 1})" if token else space
+                label = f"{space} (token {token_idx + 1})" if token else f"{space} (no token)"
                 print(f"Trying lipsync via Hugging Face Space: {label} ...")
-                client = GradioClient(space, hf_token=token) if token else GradioClient(space)
+                client = make_client(space, token)
 
                 job = client.submit(
                     handle_file(character_image),  # face image
@@ -213,8 +253,78 @@ def generate_lipsync_video(character_image, audio_path):
                 print(f"Lipsync attempt failed on {space}: {e}")
                 continue
 
-    print("All lipsync attempts failed - will fall back to a static (non-lipsynced) video.")
+    print("Free Hugging Face Space attempts failed - will try self-hosted lipsync next.")
     return None
+
+
+def ensure_wav2lip_engine():
+    """Wav2Lip code + checkpoints (~1GB) ko ek hi baar download karta hai (agli baar
+    actions/cache se turant mil jayega). camenduru/Wav2Lip HF repo mein poora ready-
+    to-run Wav2Lip already sahi folder structure mein bundled hai (code, s3fd face
+    detector, checkpoints) - isliye alag alag jagah se cheezein jodne ki zaroorat
+    nahi padti."""
+    inference_script = os.path.join(WAV2LIP_ENGINE_DIR, "inference.py")
+    if os.path.exists(inference_script):
+        return WAV2LIP_ENGINE_DIR
+
+    if not HF_HUB_AVAILABLE:
+        print("huggingface_hub not installed - can't download self-hosted Wav2Lip engine.")
+        return None
+
+    try:
+        print(f"Downloading self-hosted Wav2Lip engine from {WAV2LIP_ENGINE_REPO} (one-time, ~1GB)...")
+        snapshot_download(repo_id=WAV2LIP_ENGINE_REPO, local_dir=WAV2LIP_ENGINE_DIR)
+        if os.path.exists(inference_script):
+            return WAV2LIP_ENGINE_DIR
+        print("Download finished but inference.py not found - engine layout unexpected.")
+        return None
+    except Exception as e:
+        print(f"Failed to download self-hosted Wav2Lip engine: {e}")
+        return None
+
+
+def generate_lipsync_video_selfhosted(character_image, audio_path):
+    """Wav2Lip ko seedha Actions runner (CPU) par chalata hai - koi third-party
+    Space/API par depend nahi karta, isliye sabse reliable option hai. Dheema hai
+    (CPU par kuch minute lag sakte hain) par lipsync guarantee karta hai."""
+    engine_dir = ensure_wav2lip_engine()
+    if not engine_dir:
+        return None
+
+    checkpoint_path = os.path.join(engine_dir, "checkpoints", WAV2LIP_SELFHOSTED_CHECKPOINT)
+    if not os.path.exists(checkpoint_path):
+        print(f"Self-hosted checkpoint not found at {checkpoint_path} - skipping.")
+        return None
+
+    out_path = os.path.abspath("lipsync_selfhosted.mp4")
+    cmd = [
+        sys.executable, "inference.py",
+        "--checkpoint_path", os.path.join("checkpoints", WAV2LIP_SELFHOSTED_CHECKPOINT),
+        "--face", os.path.abspath(character_image),
+        "--audio", os.path.abspath(audio_path),
+        "--outfile", out_path,
+        "--pads", "0", "20", "0", "0",
+        "--resize_factor", "1",
+    ]
+
+    try:
+        print("Running self-hosted Wav2Lip inference (can take a few minutes on CPU)...")
+        result = subprocess.run(
+            cmd, cwd=engine_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            timeout=WAV2LIP_INFERENCE_TIMEOUT,
+        )
+        if result.returncode != 0 or not os.path.exists(out_path):
+            tail = result.stderr.decode("utf-8", errors="ignore")[-2500:]
+            print(f"Self-hosted Wav2Lip failed:\n{tail}")
+            return None
+        print("Self-hosted Wav2Lip succeeded.")
+        return out_path
+    except subprocess.TimeoutExpired:
+        print(f"Self-hosted Wav2Lip timed out after {WAV2LIP_INFERENCE_TIMEOUT}s.")
+        return None
+    except Exception as e:
+        print(f"Self-hosted Wav2Lip crashed: {e}")
+        return None
 
 
 def create_static_influencer_video(character_image, audio_path):
@@ -318,6 +428,9 @@ def main():
 
     raw_video = generate_lipsync_video(CHARACTER_IMAGE, audio_path)
     if not raw_video:
+        raw_video = generate_lipsync_video_selfhosted(CHARACTER_IMAGE, audio_path)
+    if not raw_video:
+        print("Lipsync fully unavailable this run - using static image as last resort.")
         raw_video = create_static_influencer_video(CHARACTER_IMAGE, audio_path)
     if not raw_video:
         sys.exit(1)
