@@ -36,7 +36,7 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
 # --- TTS Configuration (Updated for natural tone, speed, and pitch) ---
-VOICE = os.getenv("EDGE_TTS_VOICE", "en-US-AriaNeural")  # Natural-sounding female voice
+VOICE = os.getenv("EDGE_TTS_VOICE", "hi-IN-SwaraNeural")  # Hindi (India) voice — matches Hinglish script accent
 RATE = os.getenv("EDGE_TTS_RATE", "-5%")                 # Slightly slows down speech speed
 PITCH = os.getenv("EDGE_TTS_PITCH", "-4Hz")              # Lowers pitch to remove thin, robotic sharpness
 OUTPUT_AUDIO_FILE = "voiceover.mp3"
