@@ -42,6 +42,19 @@ ELEVEN_KEYS = [
 # the API. Set the ELEVEN_VOICE_ID secret to your own voice's ID (see README) -
 # "Monika Sogam" is a good pick: a natural Indian-English/Hindi accented voice.
 ELEVEN_VOICE_ID = os.getenv("ELEVEN_VOICE_ID", "21m00Tcm4TlvDq8ikWAM")
+# Off by default for now - ElevenLabs' free-tier voice-library restriction made this
+# more hassle than it's worth for now. Set USE_ELEVENLABS=true once a proper voice
+# is added to "My Voices" on all 3 accounts, to switch back on without touching code.
+USE_ELEVENLABS = os.getenv("USE_ELEVENLABS", "false").strip().lower() == "true"
+
+# gTTS tuning - trying to get closer to a fast, energetic, "cute girl" Hinglish voice
+# out of Google's free TTS: co.in hosting, slight pitch lift, faster pace, and much
+# shorter gaps between sentences (gTTS's default inter-sentence pauses feel dead/slow).
+GTTS_LANG = os.getenv("GTTS_LANG", "hi")
+GTTS_TLD = os.getenv("GTTS_TLD", "co.in")
+GTTS_SPEED = float(os.getenv("GTTS_SPEED", "1.12"))       # 1.0 = normal pace
+GTTS_PITCH = float(os.getenv("GTTS_PITCH", "1.045"))      # 1.0 = no pitch change
+GTTS_MAX_GAP_MS = int(os.getenv("GTTS_MAX_GAP_MS", "120"))  # cap on inter-sentence silence
 
 HF_KEYS = [
     os.getenv("HF_TOKEN", ""),
@@ -134,13 +147,62 @@ def generate_influencer_script():
         return fallback_title, fallback_script
 
 
+def _tighten_sentence_gaps(raw_audio_path, max_gap_ms=GTTS_MAX_GAP_MS):
+    """gTTS lambe scripts ko sentence-by-sentence multiple chunks mein bana ke jodta
+    hai, jisse har sentence ke baad ek dead/awkward pause aa jata hai. Ye function
+    un pauses ko dhoondh ke chhota (max_gap_ms tak) kar deta hai taake voice zyada
+    energetic aur flowing lage."""
+    try:
+        from pydub import AudioSegment
+        from pydub.silence import detect_silence
+    except ImportError:
+        print("pydub not installed - skipping gap-tightening step.")
+        return raw_audio_path
+
+    audio = AudioSegment.from_file(raw_audio_path)
+    silence_thresh = audio.dBFS - 16
+    silent_ranges = detect_silence(audio, min_silence_len=180, silence_thresh=silence_thresh)
+    if not silent_ranges:
+        return raw_audio_path
+
+    tightened = AudioSegment.empty()
+    prev_end = 0
+    for start, end in silent_ranges:
+        tightened += audio[prev_end:start]
+        gap = end - start
+        tightened += audio[start:start + min(gap, max_gap_ms)]
+        prev_end = end
+    tightened += audio[prev_end:]
+
+    tightened_path = "voiceover_tightened.wav"
+    tightened.export(tightened_path, format="wav")
+    return tightened_path
+
+
+def _apply_speed_and_pitch(input_path, speed=GTTS_SPEED, pitch=GTTS_PITCH):
+    """FFmpeg se speed thodi tez aur pitch thodi upar karta hai (asetrate+atempo
+    trick) taake voice zyada young/energetic/cute lage, bina audio ko chipmunk-jaisa
+    bane. Final output hamesha voiceover.mp3 hai."""
+    out_path = "voiceover.mp3"
+    combined_tempo = max(0.5, min(2.0, speed / pitch))  # stay inside ffmpeg's atempo range
+    filter_chain = f"asetrate=44100*{pitch},aresample=44100,atempo={combined_tempo}"
+    cmd = ["ffmpeg", "-y", "-i", input_path, "-filter:a", filter_chain, "-ar", "44100", out_path]
+
+    result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if result.returncode != 0 or not os.path.exists(out_path):
+        print(f"Speed/pitch tuning failed, falling back to plain conversion: {result.stderr.decode('utf-8', errors='ignore')}")
+        subprocess.run(["ffmpeg", "-y", "-i", input_path, out_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    return out_path
+
+
 def generate_voiceover(script_text):
-    """ElevenLabs Free Tier API use karke voice banata hai, with gTTS fallback."""
+    """Voiceover banata hai. ElevenLabs (agar USE_ELEVENLABS=true aur keys/voice set
+    hon) try karta hai, warna seedha tuned gTTS use karta hai."""
     audio_path = "voiceover.mp3"
     active_keys = [k for k in ELEVEN_KEYS if k.strip()]
 
     success = False
-    if active_keys:
+    if USE_ELEVENLABS and active_keys:
         url = f"https://api.elevenlabs.io/v1/text-to-speech/{ELEVEN_VOICE_ID}"
         headers = {
             "Accept": "audio/mpeg",
@@ -170,18 +232,23 @@ def generate_voiceover(script_text):
                     print(f"ElevenLabs key {idx + 1} failed with status {response.status_code}: {response.text}")
             except Exception as e:
                 print(f"ElevenLabs request error with key {idx + 1}: {e}")
+    elif not USE_ELEVENLABS:
+        print("ElevenLabs disabled (USE_ELEVENLABS=false) - going straight to gTTS.")
     else:
         print("No ELEVEN_KEY_* found in environment - skipping ElevenLabs.")
 
     if not success:
-        print("Falling back to gTTS for voiceover generation...")
+        print(f"Generating voiceover with gTTS (lang={GTTS_LANG}, tld={GTTS_TLD}, speed={GTTS_SPEED}, pitch={GTTS_PITCH})...")
         try:
             from gtts import gTTS
-            tts = gTTS(text=script_text, lang="hi", slow=False)
-            tts.save(audio_path)
-            success = True
+            raw_path = "voiceover_raw.mp3"
+            tts = gTTS(text=script_text, lang=GTTS_LANG, tld=GTTS_TLD, slow=False)
+            tts.save(raw_path)
+            tightened_path = _tighten_sentence_gaps(raw_path)
+            audio_path = _apply_speed_and_pitch(tightened_path)
+            success = os.path.exists(audio_path)
         except Exception as e:
-            print(f"gTTS fallback also failed: {e}")
+            print(f"gTTS generation failed: {e}")
             return None
 
     return audio_path if success else None
