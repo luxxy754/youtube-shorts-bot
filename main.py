@@ -4,6 +4,8 @@ import json
 import os
 import requests
 import sys
+import time
+import traceback
 
 try:
     from google.oauth2.credentials import Credentials
@@ -180,7 +182,9 @@ def generate_lipsync_video(character_image, audio_path):
                     print(f"Lipsync video generated successfully via {space}")
                     return out_path
             except Exception as e:
-                print(f"Lipsync attempt failed on {space}: {e}")
+                print(f"Lipsync attempt failed on {space} (token {token_idx + 1}): {e}")
+                traceback.print_exc()
+                time.sleep(5)  # chhota sa gap, taake Space ko cool-down / queue clear karne ka mauka mile
                 continue
 
     print("All Hugging Face Space attempts for lipsync failed.")
@@ -257,15 +261,22 @@ def main():
         return
 
     video_output = generate_lipsync_video(CHARACTER_IMAGE, audio_file)
-    if video_output and os.path.exists(video_output):
+    lipsync_succeeded = bool(video_output and os.path.exists(video_output))
+
+    if lipsync_succeeded:
         import shutil
         shutil.copy(video_output, OUTPUT_VIDEO_PATH)
         print(f"Final video ready at: {OUTPUT_VIDEO_PATH}")
     else:
-        print("Lipsync failed, creating a fallback video using FFmpeg...")
+        # Pehle yahan seedha ek silent black video ban ke YouTube pe upload ho jata tha.
+        # Ab hum wo broken video YouTube pe post NHI karenge - sirf local debug ke liye bana rahe hain.
+        print("Lipsync failed on all Spaces. Saving a local placeholder for debugging (NOT uploading it)...")
         os.system(f'ffmpeg -y -f lavfi -i color=c=black:s=1080x1920:d=15 -c:v libx264 {OUTPUT_VIDEO_PATH}')
+        print("Critical Error: Real lipsync video nahi ban saka, isliye YouTube upload skip kiya ja raha hai.")
+        print("Tip: GitHub Actions logs mein 'Lipsync attempt failed on ...' lines dekhein for exact reason.")
+        return
 
-    # Step 4: Upload to YouTube
+    # Step 4: Upload to YouTube (sirf tab jab asal lipsync video ban chuka ho)
     upload_to_youtube(OUTPUT_VIDEO_PATH, title)
 
 
