@@ -64,6 +64,14 @@ LIPSYNC_ROUND_WAIT_SECONDS = int(os.getenv("LIPSYNC_ROUND_WAIT_SECONDS", "45"))
 CHARACTER_IMAGE = "character.jpg"
 OUTPUT_VIDEO_PATH = "output/short_video.mp4"
 
+# --- YouTube upload configuration ---
+YT_PRIVACY_STATUS = os.getenv("YT_PRIVACY_STATUS", "public").strip().lower()
+if YT_PRIVACY_STATUS not in {"public", "private", "unlisted"}:
+    print(f"Invalid YT_PRIVACY_STATUS={YT_PRIVACY_STATUS!r}; using public.")
+    YT_PRIVACY_STATUS = "public"
+YT_UPLOAD_RETRIES = int(os.getenv("YT_UPLOAD_RETRIES", "4"))
+YT_UPLOAD_TIMEOUT = int(os.getenv("YT_UPLOAD_TIMEOUT", "300"))
+
 print("AI Influencer Bot Initialized with Edge-TTS.")
 
 
@@ -366,54 +374,191 @@ def generate_lipsync_video(character_image, audio_path):
 
 
 def upload_to_youtube(video_path, title):
+    """Upload the finished video to YouTube and fail loudly on OAuth/API errors."""
     if not YOUTUBE_AVAILABLE:
-        print("YouTube libraries not available - skipping upload.")
-        return
+        raise RuntimeError(
+            "YouTube libraries are not installed. "
+            "google-auth and google-api-python-client are required."
+        )
 
-    client_id = os.getenv("YT_CLIENT_ID", "")
-    client_secret = os.getenv("YT_CLIENT_SECRET", "")
-    refresh_token = os.getenv("YT_REFRESH_TOKEN", "")
+    client_id = os.getenv("YT_CLIENT_ID", "").strip()
+    client_secret = os.getenv("YT_CLIENT_SECRET", "").strip()
+    refresh_token = os.getenv("YT_REFRESH_TOKEN", "").strip()
 
-    if not client_id or not client_secret or not refresh_token:
-        print("YouTube credentials missing - skipping upload.")
-        return
+    missing = []
+    if not client_id:
+        missing.append("YT_CLIENT_ID")
+    if not client_secret:
+        missing.append("YT_CLIENT_SECRET")
+    if not refresh_token:
+        missing.append("YT_REFRESH_TOKEN")
+    if missing:
+        raise RuntimeError(
+            "Missing GitHub Actions secret(s): " + ", ".join(missing)
+        )
+
+    if not os.path.isfile(video_path):
+        raise FileNotFoundError(f"Video file not found: {video_path}")
+
+    file_size = os.path.getsize(video_path)
+    if file_size < 10_000:
+        raise RuntimeError(
+            f"Video file is suspiciously small ({file_size} bytes): {video_path}"
+        )
+
+    print("=== YouTube OAuth preflight ===")
+    print(f"Video: {video_path} ({file_size:,} bytes)")
+    print(f"Requested privacy: {YT_PRIVACY_STATUS}")
+
+    # google-auth refreshes the short-lived access token automatically.
+    # Explicit refresh here makes OAuth problems fail before the upload starts.
+    from google.auth.transport.requests import Request
+    from googleapiclient.errors import HttpError
+
+    creds = Credentials(
+        token=None,
+        refresh_token=refresh_token,
+        token_uri="https://oauth2.googleapis.com/token",
+        client_id=client_id,
+        client_secret=client_secret,
+        scopes=["https://www.googleapis.com/auth/youtube.upload"],
+    )
 
     try:
-        print("Uploading video to YouTube Shorts...")
-        creds = Credentials(
-            None,
-            refresh_token=refresh_token,
-            token_uri="https://oauth2.googleapis.com/token",
-            client_id=client_id,
-            client_secret=client_secret,
+        creds.refresh(Request())
+        if not creds.valid or not creds.token:
+            raise RuntimeError("Google returned an invalid access token after refresh.")
+        print("OAuth token refresh: OK")
+    except Exception as e:
+        raise RuntimeError(
+            "YouTube OAuth token refresh failed. "
+            "YT_CLIENT_ID, YT_CLIENT_SECRET and YT_REFRESH_TOKEN must belong "
+            "to the same OAuth client, and the refresh token must have YouTube "
+            "upload permission. Original error: " + str(e)
+        ) from e
+
+    try:
+        youtube = build(
+            "youtube",
+            "v3",
+            credentials=creds,
+            cache_discovery=False,
         )
-        youtube = build("youtube", "v3", credentials=creds)
+
+        # Verify which YouTube channel this OAuth token actually belongs to.
+        channel_response = youtube.channels().list(
+            part="snippet",
+            mine=True
+        ).execute()
+        channels = channel_response.get("items", [])
+        if not channels:
+            raise RuntimeError(
+                "OAuth worked, but Google returned no YouTube channel for this account."
+            )
+
+        channel = channels[0]
+        channel_title = channel.get("snippet", {}).get("title", "Unknown channel")
+        channel_id = channel.get("id", "unknown")
+        print(f"YouTube channel: {channel_title} (ID: {channel_id})")
+
+        clean_title = str(title or "AI Short").strip()
+        # YouTube titles have a 100-character limit.
+        clean_title = clean_title[:100]
 
         body = {
             "snippet": {
-                "title": title,
-                "description": "Generated automatically via AI Pipeline #Shorts",
-                "tags": ["AI", "Shorts", "Tech"],
-                "categoryId": "28"
+                "title": clean_title,
+                "description": (
+                    "Generated automatically by the AI Shorts pipeline.\n\n"
+                    "#Shorts #AI"
+                ),
+                "tags": ["AI", "Shorts", "Trending"],
+                "categoryId": "22",
             },
             "status": {
-                "privacyStatus": "public",
-                "selfDeclaredMadeForKids": False
-            }
+                "privacyStatus": YT_PRIVACY_STATUS,
+                "selfDeclaredMadeForKids": False,
+            },
         }
 
-        media = MediaFileUpload(video_path, chunksize=-1, resumable=True)
-        request = youtube.videos().insert(part="snippet,status", body=body, media_body=media)
+        media = MediaFileUpload(
+            video_path,
+            mimetype="video/mp4",
+            chunksize=8 * 1024 * 1024,
+            resumable=True,
+        )
+
+        print("Starting YouTube upload...")
+        request = youtube.videos().insert(
+            part="snippet,status",
+            body=body,
+            media_body=media,
+        )
+
         response = None
-        while response is None:
-            status, response = request.next_chunk()
-            if status:
-                print(f"Uploaded {int(status.progress() * 100)}%.")
+        last_error = None
 
-        print(f"Video uploaded successfully! ID: {response.get('id')}")
+        for attempt in range(1, YT_UPLOAD_RETRIES + 1):
+            try:
+                print(f"Upload attempt {attempt}/{YT_UPLOAD_RETRIES}...")
+                while response is None:
+                    status, response = request.next_chunk()
+                    if status:
+                        print(
+                            f"Upload progress: "
+                            f"{int(status.progress() * 100)}%"
+                        )
+                break
+            except HttpError as e:
+                last_error = e
+                status_code = getattr(e.resp, "status", None)
+                if status_code not in {500, 502, 503, 504} or attempt == YT_UPLOAD_RETRIES:
+                    raise
+                wait = min(60, 2 ** attempt)
+                print(
+                    f"Temporary YouTube error HTTP {status_code}. "
+                    f"Retrying in {wait}s..."
+                )
+                time.sleep(wait)
+
+        if not response:
+            raise RuntimeError(f"YouTube upload did not return a response: {last_error}")
+
+        video_id = response.get("id")
+        if not video_id:
+            raise RuntimeError(f"YouTube upload returned no video ID: {response}")
+
+        print(f"Upload complete! Video ID: {video_id}")
+
+        # Read the uploaded resource back so the Actions log tells us whether
+        # YouTube accepted it as uploaded/processed and what privacy was applied.
+        verify = youtube.videos().list(
+            part="status,processingDetails",
+            id=video_id,
+        ).execute()
+        uploaded_items = verify.get("items", [])
+        if uploaded_items:
+            status = uploaded_items[0].get("status", {})
+            print(f"YouTube uploadStatus: {status.get('uploadStatus')}")
+            print(f"YouTube privacyStatus: {status.get('privacyStatus')}")
+            if status.get("failureReason"):
+                print(f"YouTube failureReason: {status.get('failureReason')}")
+            if status.get("rejectionReason"):
+                print(f"YouTube rejectionReason: {status.get('rejectionReason')}")
+
+        print(f"https://www.youtube.com/watch?v={video_id}")
+        return video_id
+
     except Exception as e:
-        print(f"YouTube upload failed: {e}")
-
+        print("========== YOUTUBE UPLOAD ERROR ==========")
+        print(type(e).__name__ + ": " + str(e))
+        if hasattr(e, "content"):
+            try:
+                print("YouTube API response:", e.content.decode("utf-8", errors="replace"))
+            except Exception:
+                print("YouTube API response:", e.content)
+        print("===========================================")
+        raise
 
 def main():
     os.makedirs("output", exist_ok=True)
@@ -451,7 +596,12 @@ def main():
         return
 
     # Step 4: Upload to YouTube (sirf tab jab asal lipsync video ban chuka ho)
-    upload_to_youtube(OUTPUT_VIDEO_PATH, title)
+    try:
+        upload_to_youtube(OUTPUT_VIDEO_PATH, title)
+    except Exception as e:
+        print(f"CRITICAL: YouTube upload failed: {e}")
+        # Exit non-zero so GitHub Actions clearly shows the run as failed.
+        raise
 
 
 if __name__ == "__main__":
