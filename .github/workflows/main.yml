@@ -4,62 +4,45 @@ on:
   schedule:
     - cron: '0 0 * * *'
   workflow_dispatch:
-    inputs:
-      content_category:
-        description: 'Select Content Type'
-        required: true
-        default: 'ai_vs_human'
-        type: choice
-        options:
-          - ai_vs_human
-          - day_in_life_ai
-          - quick_ai_hacks
 
 jobs:
   build-and-generate:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout Code Repository
         uses: actions/checkout@v4
 
-      - name: Set up Python Environment
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
           cache: 'pip'
 
-      - name: Install System Dependencies & FFmpeg
+      - name: Install FFmpeg
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg espeak
+          sudo apt-get install -y ffmpeg
 
       - name: Install Python Dependencies
         run: |
           python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install -r requirements.txt
 
-      - name: Run Main AI Influencer Script
+      - name: Run AI Influencer Bot
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
-          HF_TOKEN_2: ${{ secrets.HF_TOKEN_2 }}
-          HF_TOKEN_3: ${{ secrets.HF_TOKEN_3 }}
-
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
+          EDGE_TTS_VOICE: hi-IN-SwaraNeural
+          EDGE_TTS_RATE: +2%
+          EDGE_TTS_PITCH: +1Hz
           YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
-
-          # Set a GitHub Actions Variable named YT_PRIVACY_STATUS to
-          # public/private/unlisted. If it is missing, the script uses public.
-          YT_PRIVACY_STATUS: ${{ vars.YT_PRIVACY_STATUS || 'public' }}
-
-          LIPSYNC_TIMEOUT_SECONDS: '420'
-          LIPSYNC_RETRY_ROUNDS: '3'
-          LIPSYNC_ROUND_WAIT_SECONDS: '45'
-          YT_UPLOAD_RETRIES: '4'
-          YT_UPLOAD_TIMEOUT: '300'
+          YT_PRIVACY_STATUS: ${{ vars.YT_PRIVACY_STATUS }}
+          ENABLE_LIPSYNC: ${{ vars.ENABLE_LIPSYNC }}
+          LIPSYNC_SPACES: ${{ vars.LIPSYNC_SPACES }}
         run: |
           python main.py
 
@@ -68,7 +51,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: generated-short
-          path: |
-            output/short_video.mp4
-            voiceover.mp3
+          path: output/short_video.mp4
           if-no-files-found: ignore
+          retention-days: 3
