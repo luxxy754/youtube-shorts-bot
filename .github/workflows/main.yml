@@ -37,6 +37,16 @@ jobs:
       - name: Download Wav2Lip Engine
         run: |
           git clone --depth 1 https://github.com/Rudrabha/Wav2Lip.git third_party/Wav2Lip
+
+          # Wav2Lip's audio.py calls librosa.filters.mel() with positional
+          # arguments (sr, n_fft), which librosa>=0.10 no longer accepts
+          # (sr/n_fft became keyword-only). Patch it so it works with the
+          # librosa version installed above, instead of downgrading librosa.
+          sed -i \
+            's/librosa\.filters\.mel(hp\.sample_rate, hp\.n_fft, n_mels=hp\.num_mels,/librosa.filters.mel(sr=hp.sample_rate, n_fft=hp.n_fft, n_mels=hp.num_mels,/' \
+            third_party/Wav2Lip/audio.py
+          grep -n "librosa.filters.mel" third_party/Wav2Lip/audio.py
+
           mkdir -p models third_party/Wav2Lip/face_detection/detection/sfd
           curl -L --fail --retry 3 --retry-delay 2 \
             https://huggingface.co/rippertnt/wav2lip/resolve/main/wav2lip_gan.pth?download=true \
