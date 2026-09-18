@@ -37,9 +37,12 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
 # --- TTS Configuration ---
+# hi-IN-SwaraNeural ek natural, expressive female voice hai jo Hindi/Urdu + English
+# mix ko achay se handle karti hai. Rate/pitch ko neutral rakha hai (-5%/-4Hz pehle
+# usse thoda slow/flat + "ruk ruk kar" wala effect aata tha).
 VOICE = os.getenv("EDGE_TTS_VOICE", "hi-IN-SwaraNeural")
-RATE = os.getenv("EDGE_TTS_RATE", "-5%")
-PITCH = os.getenv("EDGE_TTS_PITCH", "-4Hz")
+RATE = os.getenv("EDGE_TTS_RATE", "+2%")
+PITCH = os.getenv("EDGE_TTS_PITCH", "+1Hz")
 OUTPUT_AUDIO_FILE = "voiceover.mp3"
 
 HF_KEYS = [
@@ -52,6 +55,11 @@ DEFAULT_LIPSYNC_SPACES = "manavisrani07/gradio-lipsync-wav2lip,Artificial-superi
 LIPSYNC_SPACES = [s.strip() for s in os.getenv("LIPSYNC_SPACES", DEFAULT_LIPSYNC_SPACES).split(",") if s.strip()]
 LIPSYNC_CHECKPOINT = os.getenv("LIPSYNC_CHECKPOINT", "wav2lip")  
 LIPSYNC_TIMEOUT_SECONDS = int(os.getenv("LIPSYNC_TIMEOUT_SECONDS", "420"))
+# Public HF Spaces baar baar sleep/pause ho jati hain. Agar pehle round mein sab
+# fail ho jayein, to thoda wait karke poori list dobara try karo (kuch der mein
+# wapas online aa sakti hain).
+LIPSYNC_RETRY_ROUNDS = int(os.getenv("LIPSYNC_RETRY_ROUNDS", "3"))
+LIPSYNC_ROUND_WAIT_SECONDS = int(os.getenv("LIPSYNC_ROUND_WAIT_SECONDS", "45"))
 
 CHARACTER_IMAGE = "character.jpg"
 OUTPUT_VIDEO_PATH = "output/short_video.mp4"
@@ -62,11 +70,12 @@ print("AI Influencer Bot Initialized with Edge-TTS.")
 def generate_influencer_script():
     fallback_title = "Aaj Ki Viral Baat! #Shorts"
     fallback_script = (
-        "Dosto, kya aapko pata hai aajkal technology ki duniya mein kya naya chal raha hai? "
-        "AI itni tez raftar se aage badh rahi hai ke har hafte ek naya breakthrough saamne aata hai. "
-        "Chaho social media ho, chaho education ya business, har jagah smart tools cheezein aasan bana rahe hain. "
-        "Bas thoda curious raho aur naye trends ko explore karte raho, kyunke jo aaj seekhoge wahi kal kaam aayega. "
-        "Mujhe comment mein batao aapko kaunsa AI tool sabse zyada pasand hai!"
+        "Guys, ek cheez batao aajkal AI itni fast chal rahi hai na ke sach mein mazaa aa raha hai. "
+        "Matlab jahan dekho wahan koi na koi naya tool aa raha hai jo life easy bana raha hai, "
+        "chahe wo study ho, business ho ya bas apna daily kaam. Best part ye hai ke ye sab "
+        "seekhna itna mushkil bhi nahi, bas thoda curious rehna padta hai aur try karte rehna padta hai. "
+        "Toh next time jab koi naya AI trend dekho, turant try kar lena, pata nahi wahi tumhara "
+        "favourite tool ban jaye. Comment mein batana tumhara favourite AI tool kaunsa hai!"
     )
 
     if not GEMINI_API_KEY:
@@ -76,10 +85,27 @@ def generate_influencer_script():
     api_url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
 
     instruction = (
-        "Generate a trending script for an AI influencer YouTube Short. Write it in natural spoken "
-        "Hindi/Urdu (Hinglish), written in Roman/Latin script, with a light, natural mix of common "
-        "English words the way young speakers actually talk. Keep sentences short and natural. "
-        "The script MUST take roughly 30-40 seconds to speak — about 90 to 130 words. "
+        "Generate a trending script for an AI influencer YouTube Short. "
+        "Write it EXACTLY the way a young, casual Pakistani/Indian social media influencer girl "
+        "talks on camera - natural spoken Hindi/Urdu mixed with the common, everyday English words "
+        "such speakers naturally drop in (things like 'guys', 'literally', 'trust me', 'basically', "
+        "'so', 'obviously', 'honestly', 'content', 'vibe' - use a few of these naturally, don't force all of them). "
+        "Write it in Roman/Latin script only. "
+        "\n\nCRITICAL STYLE RULES:\n"
+        "1. It must sound like ONE continuous, flowing spoken thought - like she is talking to a friend, "
+        "not reading a list of facts. Use natural spoken connectors (jaise 'toh', 'matlab', 'basically', "
+        "'na', 'yaar', 'honestly') to link ideas smoothly.\n"
+        "2. Avoid choppy, robotic, list-like sentences. Do NOT write it as separate isolated facts stitched "
+        "together - it should flow like real conversation with varying sentence length (mix short punchy "
+        "lines with a couple of slightly longer flowing ones).\n"
+        "3. Use ONLY simple, everyday Hindi/Urdu words that a common person uses in daily speech. "
+        "Do NOT use difficult, literary, or formal Hindi words (avoid words like 'raftaar', 'vigyan', "
+        "'antarrashtriya') or difficult/classical Urdu words (avoid words like 'ehtemam', 'muntazir', "
+        "'tabdeeli' wagera). Keep vocabulary as simple as normal daily conversation.\n"
+        "4. Minimize commas and avoid unnecessary punctuation that creates unnatural pauses - write it "
+        "so it can be read aloud smoothly in one breathable flow, not word-by-word.\n"
+        "5. Keep sentences short-to-medium, natural spoken length - not textbook-formal.\n"
+        "The script MUST take roughly 30-40 seconds to speak - about 90 to 130 words. "
         "Reply ONLY with valid JSON, no markdown, no code fences, in this exact shape: "
         '{"title": "catchy title", "script": "Hinglish voiceover script"}'
     )
@@ -114,7 +140,20 @@ async def _generate_edge_tts_async(script_text, output_path):
     await communicate.save(output_path)
 
 
+def _clean_script_for_speech(text):
+    """Symbols/emojis/extra punctuation hata do jo TTS ko choppy ya ajeeb bana dete hain."""
+    import re
+    text = re.sub(r"#\w+", "", text)              # hashtags
+    text = re.sub(r"[*_~`]", "", text)             # markdown symbols
+    text = re.sub(r"[\U0001F300-\U0001FAFF]", "", text)  # emojis
+    text = re.sub(r"\.{2,}", ".", text)            # "..." -> "."
+    text = re.sub(r",\s*,", ",", text)             # double commas
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+
+
 def generate_voiceover(script_text):
+    script_text = _clean_script_for_speech(script_text)
     print(f"Generating voiceover with Edge-TTS (voice={VOICE})...")
     try:
         asyncio.run(_generate_edge_tts_async(script_text, OUTPUT_AUDIO_FILE))
@@ -148,46 +187,57 @@ def generate_lipsync_video(character_image, audio_path):
     tokens = [t for t in HF_KEYS if t.strip()]
     attempts = tokens + [None]
 
-    for space in LIPSYNC_SPACES:
-        for token_idx, token in enumerate(attempts):
-            try:
-                label = f"{space} (token {token_idx + 1})" if token else f"{space} (no token)"
-                print(f"Trying lipsync via Hugging Face Space: {label} ...")
-                client = make_client(space, token)
+    for round_num in range(1, LIPSYNC_RETRY_ROUNDS + 1):
+        print(f"--- Lipsync attempt round {round_num}/{LIPSYNC_RETRY_ROUNDS} ---")
+        for space in LIPSYNC_SPACES:
+            for token_idx, token in enumerate(attempts):
+                try:
+                    label = f"{space} (token {token_idx + 1})" if token else f"{space} (no token)"
+                    print(f"Trying lipsync via Hugging Face Space: {label} ...")
+                    client = make_client(space, token)
 
-                job = client.submit(
-                    handle_file(character_image),
-                    handle_file(audio_path),
-                    LIPSYNC_CHECKPOINT,
-                    False,
-                    1,
-                    0,
-                    10,
-                    0,
-                    0,
-                    api_name="/generate",
-                )
-                result = job.result(timeout=LIPSYNC_TIMEOUT_SECONDS)
+                    job = client.submit(
+                        handle_file(character_image),
+                        handle_file(audio_path),
+                        LIPSYNC_CHECKPOINT,
+                        False,
+                        1,
+                        0,
+                        10,
+                        0,
+                        0,
+                        api_name="/generate",
+                    )
+                    result = job.result(timeout=LIPSYNC_TIMEOUT_SECONDS)
 
-                out_path = None
-                if isinstance(result, str):
-                    out_path = result
-                elif isinstance(result, dict):
-                    out_path = result.get("video") or result.get("path") or result.get("name")
-                elif isinstance(result, (list, tuple)) and result:
-                    first = result[0]
-                    out_path = first.get("video") if isinstance(first, dict) else first
+                    out_path = None
+                    if isinstance(result, str):
+                        out_path = result
+                    elif isinstance(result, dict):
+                        out_path = result.get("video") or result.get("path") or result.get("name")
+                    elif isinstance(result, (list, tuple)) and result:
+                        first = result[0]
+                        out_path = first.get("video") if isinstance(first, dict) else first
 
-                if out_path and os.path.exists(out_path):
-                    print(f"Lipsync video generated successfully via {space}")
-                    return out_path
-            except Exception as e:
-                print(f"Lipsync attempt failed on {space} (token {token_idx + 1}): {e}")
-                traceback.print_exc()
-                time.sleep(5)  # chhota sa gap, taake Space ko cool-down / queue clear karne ka mauka mile
-                continue
+                    if out_path and os.path.exists(out_path):
+                        print(f"Lipsync video generated successfully via {space}")
+                        return out_path
+                except Exception as e:
+                    err_text = str(e)
+                    if "PAUSED" in err_text or "invalid state" in err_text:
+                        print(f"Space {space} is currently PAUSED/asleep - owner needs to restart it. Skipping to next option.")
+                    else:
+                        print(f"Lipsync attempt failed on {space} (token {token_idx + 1}): {e}")
+                        traceback.print_exc()
+                    time.sleep(3)
+                    continue
 
-    print("All Hugging Face Space attempts for lipsync failed.")
+        if round_num < LIPSYNC_RETRY_ROUNDS:
+            print(f"All spaces failed this round. Waiting {LIPSYNC_ROUND_WAIT_SECONDS}s before retrying "
+                  f"(Spaces sometimes wake back up)...")
+            time.sleep(LIPSYNC_ROUND_WAIT_SECONDS)
+
+    print("All Hugging Face Space attempts for lipsync failed after all retry rounds.")
     return None
 
 
