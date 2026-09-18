@@ -1,14 +1,21 @@
 import asyncio
-import edge_tts
 import json
 import os
-import requests
+import re
+import shutil
+import subprocess
 import sys
 import time
-import traceback
+from pathlib import Path
 
+import edge_tts
+import requests
+
+# Optional dependencies are imported lazily where possible so the bot can still
+# create a video when a remote lipsync service is unavailable.
 try:
     from google.oauth2.credentials import Credentials
+    from google.auth.transport.requests import Request
     from googleapiclient.discovery import build
     from googleapiclient.http import MediaFileUpload
     YOUTUBE_AVAILABLE = True
@@ -16,406 +23,309 @@ except ImportError:
     YOUTUBE_AVAILABLE = False
 
 try:
-    from gradio_client import Client as GradioClient
-    try:
-        from gradio_client import handle_file
-    except ImportError:
-        def handle_file(path):
-            return path
+    from gradio_client import Client as GradioClient, handle_file
     GRADIO_AVAILABLE = True
 except ImportError:
+    GradioClient = None
     GRADIO_AVAILABLE = False
 
-try:
-    from huggingface_hub import snapshot_download
-    HF_HUB_AVAILABLE = True
-except ImportError:
-    HF_HUB_AVAILABLE = False
+# ========================= CONFIG =========================
+ROOT = Path(__file__).resolve().parent
+OUTPUT_DIR = ROOT / "output"
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-# ==================== CONFIGURATION ====================
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip()
 
-# --- TTS Configuration ---
-# hi-IN-SwaraNeural ek natural, expressive female voice hai jo Hindi/Urdu + English
-# mix ko achay se handle karti hai. Rate/pitch ko neutral rakha hai (-5%/-4Hz pehle
-# usse thoda slow/flat + "ruk ruk kar" wala effect aata tha).
 VOICE = os.getenv("EDGE_TTS_VOICE", "hi-IN-SwaraNeural")
 RATE = os.getenv("EDGE_TTS_RATE", "+2%")
 PITCH = os.getenv("EDGE_TTS_PITCH", "+1Hz")
-OUTPUT_AUDIO_FILE = "voiceover.mp3"
 
-HF_KEYS = [
-    os.getenv("HF_TOKEN", ""),
-    os.getenv("HF_TOKEN_2", ""),
-    os.getenv("HF_TOKEN_3", ""),
-]
+CHARACTER_IMAGE = ROOT / "character.jpg"
+OUTPUT_AUDIO_FILE = OUTPUT_DIR / "voiceover.mp3"
+OUTPUT_VIDEO_PATH = OUTPUT_DIR / "short_video.mp4"
 
-DEFAULT_LIPSYNC_SPACES = "manavisrani07/gradio-lipsync-wav2lip,Artificial-superintelligence/gradio-lipsync-wav2lip"
-LIPSYNC_SPACES = [s.strip() for s in os.getenv("LIPSYNC_SPACES", DEFAULT_LIPSYNC_SPACES).split(",") if s.strip()]
-LIPSYNC_CHECKPOINT = os.getenv("LIPSYNC_CHECKPOINT", "wav2lip")  
-LIPSYNC_TIMEOUT_SECONDS = int(os.getenv("LIPSYNC_TIMEOUT_SECONDS", "420"))
-# Public HF Spaces baar baar sleep/pause ho jati hain. Agar pehle round mein sab
-# fail ho jayein, to thoda wait karke poori list dobara try karo (kuch der mein
-# wapas online aa sakti hain).
-LIPSYNC_RETRY_ROUNDS = int(os.getenv("LIPSYNC_RETRY_ROUNDS", "3"))
-LIPSYNC_ROUND_WAIT_SECONDS = int(os.getenv("LIPSYNC_ROUND_WAIT_SECONDS", "45"))
-
-CHARACTER_IMAGE = "character.jpg"
-OUTPUT_VIDEO_PATH = "output/short_video.mp4"
-
-# --- YouTube upload configuration ---
 YT_PRIVACY_STATUS = os.getenv("YT_PRIVACY_STATUS", "public").strip().lower()
 if YT_PRIVACY_STATUS not in {"public", "private", "unlisted"}:
-    print(f"Invalid YT_PRIVACY_STATUS={YT_PRIVACY_STATUS!r}; using public.")
     YT_PRIVACY_STATUS = "public"
-YT_UPLOAD_RETRIES = int(os.getenv("YT_UPLOAD_RETRIES", "4"))
-YT_UPLOAD_TIMEOUT = int(os.getenv("YT_UPLOAD_TIMEOUT", "300"))
 
-print("AI Influencer Bot Initialized with Edge-TTS.")
+# IMPORTANT: no broken public Space is hard-coded anymore.
+# If you have a working Gradio Wav2Lip Space, set LIPSYNC_SPACES as a comma-separated
+# GitHub variable/secret. If it fails, the bot immediately falls back to a normal
+# character-video with the voiceover instead of hanging for many minutes.
+LIPSYNC_SPACES = [
+    s.strip() for s in os.getenv("LIPSYNC_SPACES", "").split(",") if s.strip()
+]
+LIPSYNC_TIMEOUT_SECONDS = int(os.getenv("LIPSYNC_TIMEOUT_SECONDS", "180"))
+ENABLE_LIPSYNC = os.getenv("ENABLE_LIPSYNC", "true").strip().lower() in {"1", "true", "yes", "on"}
+
+print("AI Influencer Bot Initialized.")
+
+
+# ========================= SCRIPT =========================
+def fallback_content():
+    return (
+        "Aajkal AI literally har jagah nazar aa rahi hai. Study se lekar business aur daily work tak "
+        "har cheez ke liye naye tools aa rahe hain. Aur honestly sabse interesting baat ye hai ke inmein "
+        "se bohat se tools use karna bilkul difficult nahi hai. Bas thoda curious raho aur jo naya tool "
+        "dikhe usko try karo. Ho sakta hai jo cheez aaj tum sirf trend samajh rahe ho wahi kal tumhara "
+        "favourite tool ban jaye. Comment mein batao tum abhi kaunsa AI tool sabse zyada use kar rahe ho!"
+    )
+
+
+def clean_json_text(text):
+    text = text.strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```(?:json)?\s*", "", text, flags=re.I)
+        text = re.sub(r"\s*```$", "", text)
+    return text.strip()
 
 
 def generate_influencer_script():
     fallback_title = "Aaj Ki Viral Baat! #Shorts"
-    fallback_script = (
-        "Guys, ek cheez batao aajkal AI itni fast chal rahi hai na ke sach mein mazaa aa raha hai. "
-        "Matlab jahan dekho wahan koi na koi naya tool aa raha hai jo life easy bana raha hai, "
-        "chahe wo study ho, business ho ya bas apna daily kaam. Best part ye hai ke ye sab "
-        "seekhna itna mushkil bhi nahi, bas thoda curious rehna padta hai aur try karte rehna padta hai. "
-        "Toh next time jab koi naya AI trend dekho, turant try kar lena, pata nahi wahi tumhara "
-        "favourite tool ban jaye. Comment mein batana tumhara favourite AI tool kaunsa hai!"
-    )
+    fallback_script = fallback_content()
 
     if not GEMINI_API_KEY:
-        print("No GEMINI_API_KEY set - using fallback script.")
+        print("GEMINI_API_KEY not set. Using fallback content.")
         return fallback_title, fallback_script
 
-    api_url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
+    api_url = (
+        f"https://generativelanguage.googleapis.com/v1beta/models/"
+        f"{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
+    )
 
     instruction = (
-        "Generate a trending script for an AI influencer YouTube Short. "
-        "Write it EXACTLY the way a young, casual Pakistani/Indian social media influencer girl "
-        "talks on camera - natural spoken Hindi/Urdu mixed with the common, everyday English words "
-        "such speakers naturally drop in (things like 'guys', 'literally', 'trust me', 'basically', "
-        "'so', 'obviously', 'honestly', 'content', 'vibe' - use a few of these naturally, don't force all of them). "
-        "Write it in Roman/Latin script only. "
-        "\n\nCRITICAL STYLE RULES:\n"
-        "1. It must sound like ONE continuous, flowing spoken thought - like she is talking to a friend, "
-        "not reading a list of facts. Use natural spoken connectors (jaise 'toh', 'matlab', 'basically', "
-        "'na', 'yaar', 'honestly') to link ideas smoothly.\n"
-        "2. Avoid choppy, robotic, list-like sentences. Do NOT write it as separate isolated facts stitched "
-        "together - it should flow like real conversation with varying sentence length (mix short punchy "
-        "lines with a couple of slightly longer flowing ones).\n"
-        "3. Use ONLY simple, everyday Hindi/Urdu words that a common person uses in daily speech. "
-        "Do NOT use difficult, literary, or formal Hindi words (avoid words like 'raftaar', 'vigyan', "
-        "'antarrashtriya') or difficult/classical Urdu words (avoid words like 'ehtemam', 'muntazir', "
-        "'tabdeeli' wagera). Keep vocabulary as simple as normal daily conversation.\n"
-        "4. Minimize commas and avoid unnecessary punctuation that creates unnatural pauses - write it "
-        "so it can be read aloud smoothly in one breathable flow, not word-by-word.\n"
-        "5. Keep sentences short-to-medium, natural spoken length - not textbook-formal.\n"
-        "The script MUST take roughly 30-40 seconds to speak - about 90 to 130 words. "
-        "Reply ONLY with valid JSON, no markdown, no code fences, in this exact shape: "
-        '{"title": "catchy title", "script": "Hinglish voiceover script"}'
+        "Generate one short AI-trend YouTube Shorts script. "
+        "Use Roman Urdu/Hinglish, casual Pakistani/Indian spoken style, 90-120 words. "
+        "It must be one flowing spoken thought, not a list. Avoid difficult Urdu/Hindi words. "
+        "Return ONLY valid JSON in this exact format: "
+        '{"title":"catchy title","script":"spoken script"}'
     )
+
     body = {"contents": [{"parts": [{"text": instruction}]}]}
 
     try:
-        print("Asking Gemini for trending influencer script...")
-        resp = requests.post(api_url, json=body, timeout=60)
-        if resp.status_code != 200:
-            print(f"Gemini API returned status code {resp.status_code}: {resp.text}")
+        print(f"Asking Gemini ({GEMINI_MODEL}) for a script...")
+        response = requests.post(api_url, json=body, timeout=60)
+
+        if response.status_code == 429:
+            # Quota exhaustion is not a reason to kill the whole pipeline.
+            # The official Gemini docs classify this as a rate/quota error.
+            print("Gemini returned 429 quota/rate limit. Using fallback content immediately.")
             return fallback_title, fallback_script
 
-        data = resp.json()
-        text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
-        if text.startswith("```"):
-            text = text.strip("`")
-            if text.lower().startswith("json"):
-                text = text[4:].strip()
+        if response.status_code != 200:
+            print(f"Gemini returned HTTP {response.status_code}. Using fallback content.")
+            return fallback_title, fallback_script
 
-        parsed = json.loads(text)
-        return (
-            str(parsed.get("title") or fallback_title).strip(),
-            str(parsed.get("script") or fallback_script).strip(),
-        )
-    except Exception as e:
-        print(f"Gemini error: {e}. Using fallbacks.")
+        data = response.json()
+        text = data["candidates"][0]["content"]["parts"][0]["text"]
+        parsed = json.loads(clean_json_text(text))
+
+        title = str(parsed.get("title") or fallback_title).strip()
+        script = str(parsed.get("script") or fallback_script).strip()
+        return title, script
+
+    except Exception as exc:
+        print(f"Gemini failed: {exc}. Using fallback content.")
         return fallback_title, fallback_script
 
 
-async def _generate_edge_tts_async(script_text, output_path):
-    communicate = edge_tts.Communicate(script_text, VOICE, rate=RATE, pitch=PITCH)
-    await communicate.save(output_path)
-
-
-def _clean_script_for_speech(text):
-    """Symbols/emojis/extra punctuation hata do jo TTS ko choppy ya ajeeb bana dete hain."""
-    import re
-    text = re.sub(r"#\w+", "", text)              # hashtags
-    text = re.sub(r"[*_~`]", "", text)             # markdown symbols
-    text = re.sub(r"[\U0001F300-\U0001FAFF]", "", text)  # emojis
-    text = re.sub(r"\.{2,}", ".", text)            # "..." -> "."
-    text = re.sub(r",\s*,", ",", text)             # double commas
+# ========================= TTS =========================
+def clean_script_for_speech(text):
+    text = re.sub(r"#\w+", "", text)
+    text = re.sub(r"[*_~`]", "", text)
+    text = re.sub(r"[\U0001F300-\U0001FAFF]", "", text)
+    text = re.sub(r"\.{2,}", ".", text)
     text = re.sub(r"\s+", " ", text).strip()
     return text
 
 
+async def generate_edge_tts_async(text, output_path):
+    communicate = edge_tts.Communicate(text, VOICE, rate=RATE, pitch=PITCH)
+    await communicate.save(str(output_path))
+
+
 def generate_voiceover(script_text):
-    script_text = _clean_script_for_speech(script_text)
+    script_text = clean_script_for_speech(script_text)
     print(f"Generating voiceover with Edge-TTS (voice={VOICE})...")
     try:
-        asyncio.run(_generate_edge_tts_async(script_text, OUTPUT_AUDIO_FILE))
-        if os.path.exists(OUTPUT_AUDIO_FILE):
-            print("Successfully generated voiceover using Edge-TTS!")
+        asyncio.run(generate_edge_tts_async(script_text, OUTPUT_AUDIO_FILE))
+        if OUTPUT_AUDIO_FILE.exists() and OUTPUT_AUDIO_FILE.stat().st_size > 1000:
+            print("Voiceover generated successfully.")
             return OUTPUT_AUDIO_FILE
-        else:
-            print("Edge-TTS failed to produce the audio file.")
-            return None
-    except Exception as e:
-        print(f"Edge-TTS generation failed: {e}")
-        return None
+    except Exception as exc:
+        print(f"Edge-TTS failed: {exc}")
+    return None
 
 
-BROWSER_UA = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-)
-LIPSYNC_DOWNLOAD_DIR = "output/lipsync_raw"
+# ========================= VIDEO =========================
+def run_command(command, timeout=240):
+    print("Running:", " ".join(map(str, command)))
+    result = subprocess.run(
+        [str(x) for x in command],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        timeout=timeout,
+    )
+    if result.returncode != 0:
+        print(result.stdout[-6000:])
+        raise RuntimeError(f"Command failed with exit code {result.returncode}")
+    return result.stdout
 
 
-def _hf_headers(token=None):
-    headers = {"User-Agent": BROWSER_UA, "Accept": "*/*"}
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
-    return headers
+def make_fallback_video(image_path, audio_path, output_path):
+    """Guaranteed CPU-only video fallback: portrait character + voiceover.
+
+    This intentionally does not fake lip movement. It creates a valid MP4 that can
+    be uploaded when no reliable lipsync service is available.
+    """
+    print("Creating reliable portrait video fallback with FFmpeg...")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # 1080x1920 portrait. The image is scaled to fill the frame without distortion.
+    vf = (
+        "scale=1080:1920:force_original_aspect_ratio=increase,"
+        "crop=1080:1920,setsar=1"
+    )
+
+    command = [
+        "ffmpeg", "-y",
+        "-loop", "1",
+        "-i", image_path,
+        "-i", audio_path,
+        "-vf", vf,
+        "-c:v", "libx264",
+        "-preset", "veryfast",
+        "-crf", "25",
+        "-pix_fmt", "yuv420p",
+        "-c:a", "aac",
+        "-b:a", "128k",
+        "-shortest",
+        "-movflags", "+faststart",
+        output_path,
+    ]
+    run_command(command, timeout=240)
+
+    if not output_path.exists() or output_path.stat().st_size < 10000:
+        raise RuntimeError("FFmpeg did not create a valid video file.")
+
+    print(f"Fallback video ready: {output_path}")
+    return output_path
 
 
-def _space_root_url(space, client=None):
-    """Space ka base URL (client se, warna slug bana kar)."""
-    src = getattr(client, "src", "") or ""
-    if isinstance(src, str) and src.startswith("http"):
-        return src.rstrip("/")
-    slug = space.replace("/", "-").replace("_", "-").replace(".", "-").lower()
-    return f"https://{slug}.hf.space"
-
-
-def _extract_remote_file(result):
-    """Gradio result se (url, server-side path) nikalo - list/dict/str sab handle karta hai."""
+def extract_file_result(result):
+    """Return a local path or remote URL from common Gradio output shapes."""
     node = result
     while isinstance(node, (list, tuple)) and node:
         node = node[0]
 
-    url = None
-    path = None
+    if isinstance(node, str):
+        return node
 
     if isinstance(node, dict):
-        url = node.get("url")
-        path = node.get("path") or node.get("name") or node.get("video")
-        if isinstance(path, dict):
-            url = url or path.get("url")
-            path = path.get("path") or path.get("name")
-    elif isinstance(node, str):
-        if node.startswith("http"):
-            url = node
-        else:
-            path = node
+        # Gradio FileData usually exposes path/url.
+        return node.get("path") or node.get("url") or node.get("name")
 
-    return url, path
-
-
-def _download_lipsync_output(url, remote_path, root, token, dest):
-    """Output video ko khud download karo.
-
-    gradio_client ka apna downloader purane '/file=' route par 403 Forbidden de
-    deta hai (naye Gradio Spaces par route '/gradio_api/file=' hai). Isliye hum
-    khud saare possible routes try karte hain, proper headers + HF token ke saath.
-    """
-    candidates = []
-    if url:
-        candidates.append(url)
-    if remote_path:
-        clean = str(remote_path).lstrip("/")
-        candidates.extend([
-            f"{root}/gradio_api/file={remote_path}",
-            f"{root}/file={remote_path}",
-            f"{root}/gradio_api/file={clean}",
-            f"{root}/file={clean}",
-        ])
-
-    seen = set()
-    ordered = []
-    for c in candidates:
-        if c and c not in seen:
-            seen.add(c)
-            ordered.append(c)
-
-    tokens = [t for t in ([token] + [k for k in HF_KEYS if k.strip()]) if t]
-    tokens.append(None)
-
-    os.makedirs(os.path.dirname(dest) or ".", exist_ok=True)
-
-    for link in ordered:
-        for tok in tokens:
-            try:
-                resp = requests.get(
-                    link,
-                    headers=_hf_headers(tok),
-                    stream=True,
-                    timeout=300,
-                    allow_redirects=True,
-                )
-                if resp.status_code == 200:
-                    with open(dest, "wb") as f:
-                        for chunk in resp.iter_content(chunk_size=1024 * 256):
-                            if chunk:
-                                f.write(chunk)
-                    if os.path.exists(dest) and os.path.getsize(dest) > 10000:
-                        print(f"Lipsync video downloaded ({os.path.getsize(dest)} bytes) from: {link}")
-                        return dest
-                    print(f"Download se khali/chhoti file aayi: {link}")
-                else:
-                    print(f"Download failed [{resp.status_code}] -> {link}")
-            except Exception as e:
-                print(f"Download error on {link}: {e}")
-            time.sleep(2)
+    # Newer client FileData-like objects can expose these attributes.
+    for attr in ("path", "url", "name"):
+        value = getattr(node, attr, None)
+        if value:
+            return value
 
     return None
 
 
-def generate_lipsync_video(character_image, audio_path):
-    if not GRADIO_AVAILABLE:
-        print("gradio_client not installed - skipping lipsync step.")
+def try_lipsync(character_image, audio_path):
+    if not ENABLE_LIPSYNC:
+        print("Lipsync disabled. Using FFmpeg fallback.")
         return None
 
-    def make_client(space, token):
-        """Client banao aur gradio ka auto-download BAND rakho (403 wali jagah)."""
-        kwarg_options = []
-        if token:
-            kwarg_options += [
-                {"hf_token": token, "download_files": False},
-                {"token": token, "download_files": False},
-                {"hf_token": token},
-                {"token": token},
-            ]
-        kwarg_options += [{"download_files": False}, {}]
+    if not GRADIO_AVAILABLE:
+        print("gradio_client is not installed. Using FFmpeg fallback.")
+        return None
 
-        last_error = None
-        for kwargs in kwarg_options:
-            try:
-                return GradioClient(space, **kwargs)
-            except TypeError as e:
-                last_error = e
+    if not LIPSYNC_SPACES:
+        print("No LIPSYNC_SPACES configured. Using FFmpeg fallback.")
+        return None
+
+    for space in LIPSYNC_SPACES:
+        print(f"Trying configured lipsync Space: {space}")
+        try:
+            client = GradioClient(
+                space,
+                download_files=str(OUTPUT_DIR / "gradio_downloads"),
+            )
+
+            # The old project assumed /generate and parameters named face/audio.
+            # We keep that interface because this is what the supplied project used.
+            # If the configured Space exposes a different API, the exception is caught
+            # and we immediately move to the guaranteed fallback.
+            result = client.predict(
+                face=handle_file(str(character_image)),
+                audio=handle_file(str(audio_path)),
+                api_name="/generate",
+            )
+
+            local_or_url = extract_file_result(result)
+            if not local_or_url:
+                print("Lipsync Space returned no file. Trying fallback.")
                 continue
-        raise last_error if last_error else RuntimeError("Gradio client ban hi nahi saka")
 
-    tokens = [t for t in HF_KEYS if t.strip()]
-    attempts = tokens + [None]
+            if str(local_or_url).startswith("http"):
+                # With download_files enabled the current Gradio client normally
+                # materializes output files. If it only returns a URL, download it.
+                target = OUTPUT_DIR / f"lipsync_{int(time.time())}.mp4"
+                response = requests.get(local_or_url, timeout=LIPSYNC_TIMEOUT_SECONDS)
+                response.raise_for_status()
+                target.write_bytes(response.content)
+                local_or_url = target
 
-    for round_num in range(1, LIPSYNC_RETRY_ROUNDS + 1):
-        print(f"--- Lipsync attempt round {round_num}/{LIPSYNC_RETRY_ROUNDS} ---")
-        for space in LIPSYNC_SPACES:
-            for token_idx, token in enumerate(attempts):
-                try:
-                    label = f"{space} (token {token_idx + 1})" if token else f"{space} (no token)"
-                    print(f"Trying lipsync via Hugging Face Space: {label} ...")
-                    client = make_client(space, token)
+            local_path = Path(str(local_or_url))
+            if local_path.exists() and local_path.stat().st_size > 10000:
+                print(f"Lipsync video received: {local_path}")
+                return local_path
 
-                    job = client.submit(
-                        handle_file(character_image),
-                        handle_file(audio_path),
-                        LIPSYNC_CHECKPOINT,
-                        False,
-                        1,
-                        0,
-                        10,
-                        0,
-                        0,
-                        api_name="/generate",
-                    )
-                    result = job.result(timeout=LIPSYNC_TIMEOUT_SECONDS)
+            print("Lipsync result path does not exist locally.")
+        except Exception as exc:
+            print(f"Lipsync Space failed: {exc}")
 
-                    url, remote_path = _extract_remote_file(result)
-
-                    # Agar gradio ne khud hi file local save kar di ho to wahi use karo.
-                    if remote_path and os.path.exists(remote_path):
-                        print(f"Lipsync video generated successfully via {space}")
-                        return remote_path
-
-                    if not url and not remote_path:
-                        print(f"Space ne koi file return nahi ki: {result}")
-                        continue
-
-                    root = _space_root_url(space, client)
-                    dest = os.path.join(LIPSYNC_DOWNLOAD_DIR, f"lipsync_{int(time.time())}.mp4")
-                    downloaded = _download_lipsync_output(url, remote_path, root, token, dest)
-
-                    if downloaded:
-                        print(f"Lipsync video generated successfully via {space}")
-                        return downloaded
-
-                    print("Video to ban gaya tha lekin download nahi ho saka (403/route issue). Agli koshish...")
-                except Exception as e:
-                    err_text = str(e)
-                    if "PAUSED" in err_text or "invalid state" in err_text:
-                        print(f"Space {space} is currently PAUSED/asleep - owner needs to restart it. Skipping to next option.")
-                    else:
-                        print(f"Lipsync attempt failed on {space} (token {token_idx + 1}): {e}")
-                        traceback.print_exc()
-                    time.sleep(3)
-                    continue
-
-        if round_num < LIPSYNC_RETRY_ROUNDS:
-            print(f"All spaces failed this round. Waiting {LIPSYNC_ROUND_WAIT_SECONDS}s before retrying "
-                  f"(Spaces sometimes wake back up)...")
-            time.sleep(LIPSYNC_ROUND_WAIT_SECONDS)
-
-    print("All Hugging Face Space attempts for lipsync failed after all retry rounds.")
+    print("All configured lipsync Spaces failed. Using FFmpeg fallback immediately.")
     return None
 
 
-def upload_to_youtube(video_path, title):
-    """Upload the finished video to YouTube and fail loudly on OAuth/API errors."""
-    if not YOUTUBE_AVAILABLE:
-        raise RuntimeError(
-            "YouTube libraries are not installed. "
-            "google-auth and google-api-python-client are required."
-        )
+def create_video(character_image, audio_path):
+    lipsync_video = try_lipsync(character_image, audio_path)
 
+    if lipsync_video:
+        shutil.copy2(lipsync_video, OUTPUT_VIDEO_PATH)
+    else:
+        make_fallback_video(character_image, audio_path, OUTPUT_VIDEO_PATH)
+
+    return OUTPUT_VIDEO_PATH
+
+
+# ========================= YOUTUBE =========================
+def upload_to_youtube(video_path, title):
     client_id = os.getenv("YT_CLIENT_ID", "").strip()
     client_secret = os.getenv("YT_CLIENT_SECRET", "").strip()
     refresh_token = os.getenv("YT_REFRESH_TOKEN", "").strip()
 
-    missing = []
-    if not client_id:
-        missing.append("YT_CLIENT_ID")
-    if not client_secret:
-        missing.append("YT_CLIENT_SECRET")
-    if not refresh_token:
-        missing.append("YT_REFRESH_TOKEN")
-    if missing:
+    if not YOUTUBE_AVAILABLE:
+        raise RuntimeError("YouTube Python dependencies are not installed.")
+
+    if not client_id or not client_secret or not refresh_token:
         raise RuntimeError(
-            "Missing GitHub Actions secret(s): " + ", ".join(missing)
+            "Missing YT_CLIENT_ID, YT_CLIENT_SECRET, or YT_REFRESH_TOKEN GitHub secret."
         )
 
-    if not os.path.isfile(video_path):
-        raise FileNotFoundError(f"Video file not found: {video_path}")
+    video_path = Path(video_path)
+    if not video_path.exists() or video_path.stat().st_size < 10000:
+        raise RuntimeError(f"Invalid video file: {video_path}")
 
-    file_size = os.path.getsize(video_path)
-    if file_size < 10_000:
-        raise RuntimeError(
-            f"Video file is suspiciously small ({file_size} bytes): {video_path}"
-        )
-
-    print("=== YouTube OAuth preflight ===")
-    print(f"Video: {video_path} ({file_size:,} bytes)")
-    print(f"Requested privacy: {YT_PRIVACY_STATUS}")
-
-    # google-auth refreshes the short-lived access token automatically.
-    # Explicit refresh here makes OAuth problems fail before the upload starts.
-    from google.auth.transport.requests import Request
-    from googleapiclient.errors import HttpError
-
-    creds = Credentials(
+    print("Authenticating with YouTube...")
+    credentials = Credentials(
         token=None,
         refresh_token=refresh_token,
         token_uri="https://oauth2.googleapis.com/token",
@@ -424,185 +334,105 @@ def upload_to_youtube(video_path, title):
         scopes=["https://www.googleapis.com/auth/youtube.upload"],
     )
 
-    try:
-        creds.refresh(Request())
-        if not creds.valid or not creds.token:
-            raise RuntimeError("Google returned an invalid access token after refresh.")
-        print("OAuth token refresh: OK")
-    except Exception as e:
-        raise RuntimeError(
-            "YouTube OAuth token refresh failed. "
-            "YT_CLIENT_ID, YT_CLIENT_SECRET and YT_REFRESH_TOKEN must belong "
-            "to the same OAuth client, and the refresh token must have YouTube "
-            "upload permission. Original error: " + str(e)
-        ) from e
+    # Force the refresh now so an invalid/mismatched refresh token fails here,
+    # before the upload request starts.
+    credentials.refresh(Request())
+    print("YouTube OAuth refresh succeeded.")
 
-    try:
-        youtube = build(
-            "youtube",
-            "v3",
-            credentials=creds,
-            cache_discovery=False,
-        )
+    youtube = build("youtube", "v3", credentials=credentials, cache_discovery=False)
 
-        # Verify which YouTube channel this OAuth token actually belongs to.
-        channel_response = youtube.channels().list(
-            part="snippet",
-            mine=True
-        ).execute()
-        channels = channel_response.get("items", [])
-        if not channels:
-            raise RuntimeError(
-                "OAuth worked, but Google returned no YouTube channel for this account."
-            )
+    # Verify which channel is authenticated.
+    channel_response = youtube.channels().list(part="id,snippet", mine=True).execute()
+    channels = channel_response.get("items", [])
+    if not channels:
+        raise RuntimeError("OAuth succeeded but no YouTube channel was returned.")
 
-        channel = channels[0]
-        channel_title = channel.get("snippet", {}).get("title", "Unknown channel")
-        channel_id = channel.get("id", "unknown")
-        print(f"YouTube channel: {channel_title} (ID: {channel_id})")
+    channel = channels[0]
+    channel_id = channel.get("id", "unknown")
+    channel_title = channel.get("snippet", {}).get("title", "unknown")
+    print(f"Authenticated YouTube channel: {channel_title} ({channel_id})")
 
-        clean_title = str(title or "AI Short").strip()
-        # YouTube titles have a 100-character limit.
-        clean_title = clean_title[:100]
+    body = {
+        "snippet": {
+            "title": title[:100],
+            "description": "Generated automatically via AI Influencer Bot #Shorts",
+            "tags": ["AI", "Shorts", "Trending"],
+            "categoryId": "22",
+        },
+        "status": {
+            "privacyStatus": YT_PRIVACY_STATUS,
+            "selfDeclaredMadeForKids": False,
+        },
+    }
 
-        body = {
-            "snippet": {
-                "title": clean_title,
-                "description": (
-                    "Generated automatically by the AI Shorts pipeline.\n\n"
-                    "#Shorts #AI"
-                ),
-                "tags": ["AI", "Shorts", "Trending"],
-                "categoryId": "22",
-            },
-            "status": {
-                "privacyStatus": YT_PRIVACY_STATUS,
-                "selfDeclaredMadeForKids": False,
-            },
-        }
+    print(f"Uploading video to YouTube with privacyStatus={YT_PRIVACY_STATUS}...")
+    media = MediaFileUpload(
+        str(video_path),
+        mimetype="video/mp4",
+        chunksize=8 * 1024 * 1024,
+        resumable=True,
+    )
 
-        media = MediaFileUpload(
-            video_path,
-            mimetype="video/mp4",
-            chunksize=8 * 1024 * 1024,
-            resumable=True,
-        )
+    request = youtube.videos().insert(
+        part="snippet,status",
+        body=body,
+        media_body=media,
+    )
 
-        print("Starting YouTube upload...")
-        request = youtube.videos().insert(
-            part="snippet,status",
-            body=body,
-            media_body=media,
-        )
+    response = None
+    while response is None:
+        status, response = request.next_chunk()
+        if status:
+            print(f"YouTube upload progress: {int(status.progress() * 100)}%")
 
-        response = None
-        last_error = None
+    video_id = response.get("id")
+    if not video_id:
+        raise RuntimeError(f"YouTube returned no video ID: {response}")
 
-        for attempt in range(1, YT_UPLOAD_RETRIES + 1):
-            try:
-                print(f"Upload attempt {attempt}/{YT_UPLOAD_RETRIES}...")
-                while response is None:
-                    status, response = request.next_chunk()
-                    if status:
-                        print(
-                            f"Upload progress: "
-                            f"{int(status.progress() * 100)}%"
-                        )
-                break
-            except HttpError as e:
-                last_error = e
-                status_code = getattr(e.resp, "status", None)
-                if status_code not in {500, 502, 503, 504} or attempt == YT_UPLOAD_RETRIES:
-                    raise
-                wait = min(60, 2 ** attempt)
-                print(
-                    f"Temporary YouTube error HTTP {status_code}. "
-                    f"Retrying in {wait}s..."
-                )
-                time.sleep(wait)
+    # Read back the uploaded video's status. This catches cases where the API
+    # accepted the insert but the resulting resource is not in the expected state.
+    verify = youtube.videos().list(part="status,snippet", id=video_id).execute()
+    items = verify.get("items", [])
+    if not items:
+        raise RuntimeError(f"Upload returned ID {video_id}, but verification failed.")
 
-        if not response:
-            raise RuntimeError(f"YouTube upload did not return a response: {last_error}")
+    status_data = items[0].get("status", {})
+    print(
+        "YouTube upload complete: "
+        f"https://www.youtube.com/watch?v={video_id} | "
+        f"privacyStatus={status_data.get('privacyStatus')} | "
+        f"uploadStatus={status_data.get('uploadStatus')}"
+    )
 
-        video_id = response.get("id")
-        if not video_id:
-            raise RuntimeError(f"YouTube upload returned no video ID: {response}")
+    return video_id
 
-        print(f"Upload complete! Video ID: {video_id}")
 
-        # Read the uploaded resource back so the Actions log tells us whether
-        # YouTube accepted it as uploaded/processed and what privacy was applied.
-        verify = youtube.videos().list(
-            part="status,processingDetails",
-            id=video_id,
-        ).execute()
-        uploaded_items = verify.get("items", [])
-        if uploaded_items:
-            status = uploaded_items[0].get("status", {})
-            print(f"YouTube uploadStatus: {status.get('uploadStatus')}")
-            print(f"YouTube privacyStatus: {status.get('privacyStatus')}")
-            if status.get("failureReason"):
-                print(f"YouTube failureReason: {status.get('failureReason')}")
-            if status.get("rejectionReason"):
-                print(f"YouTube rejectionReason: {status.get('rejectionReason')}")
-
-        print(f"https://www.youtube.com/watch?v={video_id}")
-        return video_id
-
-    except Exception as e:
-        print("========== YOUTUBE UPLOAD ERROR ==========")
-        print(type(e).__name__ + ": " + str(e))
-        if hasattr(e, "content"):
-            try:
-                print("YouTube API response:", e.content.decode("utf-8", errors="replace"))
-            except Exception:
-                print("YouTube API response:", e.content)
-        print("===========================================")
-        raise
-
+# ========================= MAIN =========================
 def main():
-    os.makedirs("output", exist_ok=True)
-    
-    # Step 1: Generate Script
     title, script_text = generate_influencer_script()
     print(f"Title: {title}")
     print(f"Script: {script_text}")
 
-    # Step 2: Generate Voiceover
     audio_file = generate_voiceover(script_text)
     if not audio_file:
-        print("Critical Error: Voiceover generation failed.")
-        return
+        raise RuntimeError("Voiceover generation failed.")
 
-    # Step 3: Generate Lipsync Video
-    if not os.path.exists(CHARACTER_IMAGE):
-        print(f"Error: {CHARACTER_IMAGE} not found in repository root!")
-        return
+    if not CHARACTER_IMAGE.exists():
+        raise RuntimeError(f"character.jpg not found at {CHARACTER_IMAGE}")
 
-    video_output = generate_lipsync_video(CHARACTER_IMAGE, audio_file)
-    lipsync_succeeded = bool(video_output and os.path.exists(video_output))
+    video_file = create_video(CHARACTER_IMAGE, audio_file)
+    print(f"Final video ready: {video_file}")
 
-    if lipsync_succeeded:
-        import shutil
-        shutil.copy(video_output, OUTPUT_VIDEO_PATH)
-        print(f"Final video ready at: {OUTPUT_VIDEO_PATH}")
-    else:
-        # Pehle yahan seedha ek silent black video ban ke YouTube pe upload ho jata tha.
-        # Ab hum wo broken video YouTube pe post NHI karenge - sirf local debug ke liye bana rahe hain.
-        print("Lipsync failed on all Spaces. Saving a local placeholder for debugging (NOT uploading it)...")
-        os.system(f'ffmpeg -y -f lavfi -i color=c=black:s=1080x1920:d=15 -c:v libx264 {OUTPUT_VIDEO_PATH}')
-        print("Critical Error: Real lipsync video nahi ban saka, isliye YouTube upload skip kiya ja raha hai.")
-        print("Tip: GitHub Actions logs mein 'Lipsync attempt failed on ...' lines dekhein for exact reason.")
-        return
-
-    # Step 4: Upload to YouTube (sirf tab jab asal lipsync video ban chuka ho)
-    try:
-        upload_to_youtube(OUTPUT_VIDEO_PATH, title)
-    except Exception as e:
-        print(f"CRITICAL: YouTube upload failed: {e}")
-        # Exit non-zero so GitHub Actions clearly shows the run as failed.
-        raise
+    # Do not silently swallow YouTube errors. If upload fails, GitHub Actions must
+    # become red so the real reason is visible in the run log.
+    video_id = upload_to_youtube(video_file, title)
+    print(f"SUCCESS: YouTube video uploaded. ID={video_id}")
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as exc:
+        print("\n========== PIPELINE FAILED ==========")
+        print(str(exc))
+        raise
