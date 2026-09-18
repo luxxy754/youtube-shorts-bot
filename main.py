@@ -284,22 +284,37 @@ def try_lipsync(character_image, audio_path):
         print(f"Wav2Lip face detector missing or too small: {WAV2LIP_FACE_DET}")
         return None
 
+    # Wav2Lip's audio loader falls back to librosa/audioread for mp3 input, which
+    # shells out to ffmpeg and writes a scratch file at the relative path
+    # "temp/temp.wav". That folder does not exist in this repo, so mp3 input
+    # crashes Wav2Lip before it ever runs. Converting to wav ourselves avoids
+    # that fallback path entirely (and also makes sure a "temp" dir exists as a
+    # belt-and-suspenders safety net).
     output = OUTPUT_DIR / "wav2lip_result.mp4"
-    print("Running LOCAL Wav2Lip lipsync (CPU)...")
-    command = [
-        sys.executable, str(inference_py),
-        "--checkpoint_path", str(WAV2LIP_CHECKPOINT),
-        "--face", str(character_image),
-        "--audio", str(audio_path),
-        "--outfile", str(output),
-        "--static", "True",
-        "--resize_factor", "2",
-        "--nosmooth",
-        "--pads", "0", "10", "0", "0",
-        "--face_det_batch_size", "4",
-        "--wav2lip_batch_size", str(WAV2LIP_BATCH_SIZE),
-    ]
     try:
+        (ROOT / "temp").mkdir(parents=True, exist_ok=True)
+        wav_audio_path = OUTPUT_DIR / "voiceover_16k.wav"
+        run_command([
+            "ffmpeg", "-y",
+            "-i", str(audio_path),
+            "-ar", "16000", "-ac", "1",
+            str(wav_audio_path),
+        ], timeout=120)
+
+        print("Running LOCAL Wav2Lip lipsync (CPU)...")
+        command = [
+            sys.executable, str(inference_py),
+            "--checkpoint_path", str(WAV2LIP_CHECKPOINT),
+            "--face", str(character_image),
+            "--audio", str(wav_audio_path),
+            "--outfile", str(output),
+            "--static", "True",
+            "--resize_factor", "2",
+            "--nosmooth",
+            "--pads", "0", "10", "0", "0",
+            "--face_det_batch_size", "4",
+            "--wav2lip_batch_size", str(WAV2LIP_BATCH_SIZE),
+        ]
         run_command(command, timeout=1500)
         if not output.exists() or output.stat().st_size < 10000:
             raise RuntimeError("Wav2Lip did not create a usable output video.")
