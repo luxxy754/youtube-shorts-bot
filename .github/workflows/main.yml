@@ -10,7 +10,7 @@ on:
 jobs:
   build-and-generate:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 35
 
     steps:
       - name: Checkout Code Repository
@@ -27,10 +27,26 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg
 
-      - name: Install Python Dependencies
+      - name: Install Bot Dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          pip install numpy==1.26.4 opencv-python==4.10.0.84 scipy==1.13.1 librosa==0.10.2 numba==0.59.1 tqdm
+          pip install torch==2.2.2 torchvision==0.17.2 --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Download Wav2Lip Engine
+        run: |
+          git clone --depth 1 https://github.com/Rudrabha/Wav2Lip.git third_party/Wav2Lip
+          mkdir -p models third_party/Wav2Lip/face_detection/detection/sfd
+          curl -L --fail --retry 3 --retry-delay 2 \
+            https://huggingface.co/rippertnt/wav2lip/resolve/main/wav2lip_gan.pth?download=true \
+            -o models/wav2lip_gan.pth
+          curl -L --fail --retry 3 --retry-delay 2 \
+            https://huggingface.co/rippertnt/wav2lip/resolve/main/s3fd.pth?download=true \
+            -o third_party/Wav2Lip/face_detection/detection/sfd/s3fd.pth
+          test -s models/wav2lip_gan.pth
+          test -s third_party/Wav2Lip/face_detection/detection/sfd/s3fd.pth
+          ls -lh models/wav2lip_gan.pth third_party/Wav2Lip/face_detection/detection/sfd/s3fd.pth
 
       - name: Run AI Influencer Bot
         env:
@@ -42,18 +58,20 @@ jobs:
           YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
-          YT_PRIVACY_STATUS: ${{ vars.YT_PRIVACY_STATUS }}
+          YT_PRIVACY_STATUS: public
           ENABLE_LIPSYNC: 'true'
-          LIPSYNC_SPACES: 'manavisrani07/gradio-lipsync-wav2lip,lmh07072000/gradio-lipsync-wav2lip'
-          LIPSYNC_TIMEOUT_SECONDS: '240'
+          WAV2LIP_DIR: third_party/Wav2Lip
+          WAV2LIP_CHECKPOINT: models/wav2lip_gan.pth
+          WAV2LIP_FACE_DET: third_party/Wav2Lip/face_detection/detection/sfd/s3fd.pth
+          WAV2LIP_BATCH_SIZE: '16'
         run: |
           python main.py
 
       - name: Upload generated video as workflow artifact
-        if: always()
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: generated-short
           path: output/short_video.mp4
-          if-no-files-found: ignore
+          if-no-files-found: error
           retention-days: 3
