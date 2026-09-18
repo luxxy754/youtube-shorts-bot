@@ -1,6 +1,0 @@
-requests
-edge-tts
-google-auth
-google-api-python-client
-# Optional: only needed if you configure a working remote Gradio lipsync Space.
-gradio_client
