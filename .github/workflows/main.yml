@@ -2,7 +2,6 @@ name: Automated AI Content Generator Pipeline
 
 on:
   schedule:
-    # Daily automated trigger at UTC 00:00 (Subah 5:00 AM PKT)
     - cron: '0 0 * * *'
   workflow_dispatch:
     inputs:
@@ -40,45 +39,12 @@ jobs:
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-      - name: Determine Content Category
-        id: select-category
-        run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            echo "CATEGORY=${{ github.event.inputs.content_category }}" >> $GITHUB_OUTPUT
-          else
-            # Automated Rotation based on Day of Week
-            DAY=$(date +%u)
-            if [ "$DAY" -eq 1 ] || [ "$DAY" -eq 4 ]; then
-              echo "CATEGORY=ai_vs_human" >> $GITHUB_OUTPUT
-            elif [ "$DAY" -eq 2 ] || [ "$DAY" -eq 5 ]; then
-              echo "CATEGORY=day_in_life_ai" >> $GITHUB_OUTPUT
-            else
-              echo "CATEGORY=quick_ai_hacks" >> $GITHUB_OUTPUT
-            fi
-          fi
-
-      - name: Generate AI Content Script & Prompt
+      - name: Run Main AI Influencer Pipeline
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          SELECTED_CATEGORY: ${{ steps.select-category.outputs.CATEGORY }}
-        run: |
-          python scripts/generate_script.py --type $SELECTED_CATEGORY
-
-      - name: Synthesize Voiceover & Generate Assets
-        env:
-          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
-        run: |
-          python scripts/create_assets.py
-
-      - name: Render Video (FFmpeg / MoviePy)
-        run: |
-          python scripts/render_video.py --output output/short_video.mp4
-
-      - name: Upload Video to YouTube Shorts
-        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
           YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
         run: |
-          python scripts/upload_youtube.py --file output/short_video.mp4
+          python "main (5).py"
