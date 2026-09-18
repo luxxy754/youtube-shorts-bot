@@ -43,8 +43,9 @@ jobs:
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
           YT_PRIVACY_STATUS: ${{ vars.YT_PRIVACY_STATUS }}
-          ENABLE_LIPSYNC: 'false'
-          LIPSYNC_SPACES: ''
+          ENABLE_LIPSYNC: 'true'
+          LIPSYNC_SPACES: 'manavisrani07/gradio-lipsync-wav2lip,lmh07072000/gradio-lipsync-wav2lip'
+          LIPSYNC_TIMEOUT_SECONDS: '240'
         run: |
           python main.py
 
