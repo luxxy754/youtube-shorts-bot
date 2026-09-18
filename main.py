@@ -46,25 +46,14 @@ HF_KEYS = [
     os.getenv("HF_TOKEN_2", ""),
     os.getenv("HF_TOKEN_3", ""),
 ]
-# Public free Wav2Lip Spaces (lips-only movement, no head/body movement - matches
-# "sirf lipsync, koi aur movement nahi" requirement). Comma-separated override via
-# LIPSYNC_SPACES env var if you ever want to add/replace one.
+
 DEFAULT_LIPSYNC_SPACES = "manavisrani07/gradio-lipsync-wav2lip,Artificial-superintelligence/gradio-lipsync-wav2lip"
 LIPSYNC_SPACES = [s.strip() for s in os.getenv("LIPSYNC_SPACES", DEFAULT_LIPSYNC_SPACES).split(",") if s.strip()]
-LIPSYNC_CHECKPOINT = os.getenv("LIPSYNC_CHECKPOINT", "wav2lip")  # or "wav2lip_gan" (slower, sharper mouth)
+LIPSYNC_CHECKPOINT = os.getenv("LIPSYNC_CHECKPOINT", "wav2lip")  
 LIPSYNC_TIMEOUT_SECONDS = int(os.getenv("LIPSYNC_TIMEOUT_SECONDS", "420"))
 
-# Self-hosted Wav2Lip fallback: runs directly on the Actions runner (CPU), so it
-# never depends on a third-party Space being online. Heavier (bigger download,
-# slower per run) but guaranteed to actually attempt lipsync every time.
 WAV2LIP_ENGINE_DIR = "wav2lip_engine"
 WAV2LIP_ENGINE_REPO = os.getenv("WAV2LIP_ENGINE_REPO", "camenduru/Wav2Lip")
-# IMPORTANT: "checkpoints/wav2lip.pth" in this HF repo is a broken/corrupted upload -
-# it's only ~167KB (a real checkpoint is well over 100MB), so torch.load on it either
-# crashes or produces garbage, and every self-hosted run was silently failing and
-# falling through to the static-image fallback (no lipsync at all). "wav2lip_gan.pth"
-# in the same repo is a valid, full-size (~436MB) checkpoint, so that's now the
-# default - it also tends to give sharper mouth shapes than the plain model anyway.
 WAV2LIP_SELFHOSTED_CHECKPOINT = os.getenv("WAV2LIP_SELFHOSTED_CHECKPOINT", "wav2lip_gan.pth")
 WAV2LIP_INFERENCE_TIMEOUT = int(os.getenv("WAV2LIP_INFERENCE_TIMEOUT", "900"))
 
@@ -74,10 +63,6 @@ YT_REFRESH_TOKEN = os.getenv("YT_REFRESH_TOKEN", "")
 YT_PRIVACY_STATUS = os.getenv("YT_PRIVACY_STATUS", "public")
 
 # --- Caption Configuration (Groq Whisper - free, fast speech-to-text) ---
-# Whisper sirf TIMING (word timestamps) ke liye use hota hai - jo text ON-SCREEN
-# dikhega wo hamesha humara apna original Hinglish script hota hai, Whisper ka
-# apna transcription output nahi (taake Roman spelling exactly wahi rahe jo
-# humne khud generate ki thi, na ke Whisper ki Devanagari/alag spelling).
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 GROQ_STT_MODEL = os.getenv("GROQ_STT_MODEL", "whisper-large-v3")
 ENABLE_CAPTIONS = os.getenv("ENABLE_CAPTIONS", "true").lower() == "true"
@@ -89,9 +74,6 @@ print("AI Influencer Bot Initialized with Edge-TTS.")
 
 
 def generate_influencer_script():
-    """Gemini se aajkal ke trending topics par Hinglish script generate karwata hai.
-    ~90-130 words rakhte hain taake normal bolne ki speed par final Short 30-40
-    second ka bane (bahut chhota script = bahut chhota video)."""
     fallback_title = "Aaj Ki Viral Baat!"
     fallback_script = (
         "Dosto, kya aapko pata hai aajkal technology ki duniya mein kya naya chal raha hai? "
@@ -149,13 +131,11 @@ def generate_influencer_script():
 
 
 async def _generate_edge_tts_async(script_text, output_path):
-    """Asynchronous helper to generate audio using edge-tts."""
     communicate = edge_tts.Communicate(script_text, VOICE, rate=RATE, pitch=PITCH)
     await communicate.save(output_path)
 
 
 def generate_voiceover(script_text):
-    """Edge-TTS ka use karke natural sounding voiceover banata hai with configured speed and pitch."""
     print(f"Generating voiceover with Edge-TTS (voice={VOICE}, rate={RATE}, pitch={PITCH})...")
     try:
         asyncio.run(_generate_edge_tts_async(script_text, OUTPUT_AUDIO_FILE))
@@ -171,19 +151,11 @@ def generate_voiceover(script_text):
 
 
 def generate_lipsync_video(character_image, audio_path):
-    """Free Hugging Face Wav2Lip Space se sirf LIPS move karta hua video banata hai
-    (koi head/body movement nahi - bilkul static photo, bas mooh audio ke sath sync).
-    Agar sab Spaces fail ho jayein (busy/queued/down), None return karta hai taake
-    caller static (no-lipsync) video par fallback kar sake."""
     if not GRADIO_AVAILABLE:
         print("gradio_client not installed - skipping lipsync step.")
         return None
 
     def make_client(space, token):
-        """These Spaces are public, so token is optional (only helps avoid shared
-        rate limits). Different gradio_client versions use different keyword names
-        for it (hf_token vs token), so try both, then fall back to no token at all
-        rather than crashing the whole run over a library version mismatch."""
         if not token:
             return GradioClient(space)
         try:
@@ -196,7 +168,7 @@ def generate_lipsync_video(character_image, audio_path):
                 return GradioClient(space)
 
     tokens = [t for t in HF_KEYS if t.strip()]
-    attempts = tokens + [None]  # always keep a no-token attempt as a last resort
+    attempts = tokens + [None]
 
     for space in LIPSYNC_SPACES:
         for token_idx, token in enumerate(attempts):
@@ -206,15 +178,15 @@ def generate_lipsync_video(character_image, audio_path):
                 client = make_client(space, token)
 
                 job = client.submit(
-                    handle_file(character_image),  # face image
-                    handle_file(audio_path),        # driving audio
-                    LIPSYNC_CHECKPOINT,             # "wav2lip" or "wav2lip_gan"
-                    False,                          # no_smooth
-                    1,                              # resize_factor
-                    0,                              # pad_top
-                    10,                             # pad_bottom
-                    0,                              # pad_left
-                    0,                              # pad_right
+                    handle_file(character_image),
+                    handle_file(audio_path),
+                    LIPSYNC_CHECKPOINT,
+                    False,
+                    1,
+                    0,
+                    10,
+                    0,
+                    0,
                     api_name="/generate",
                 )
                 result = job.result(timeout=LIPSYNC_TIMEOUT_SECONDS)
@@ -241,11 +213,6 @@ def generate_lipsync_video(character_image, audio_path):
 
 
 def ensure_wav2lip_engine():
-    """Wav2Lip code + checkpoints (~1GB) ko ek hi baar download karta hai (agli baar
-    actions/cache se turant mil jayega). camenduru/Wav2Lip HF repo mein poora ready-
-    to-run Wav2Lip already sahi folder structure mein bundled hai (code, s3fd face
-    detector, checkpoints) - isliye alag alag jagah se cheezein jodne ki zaroorat
-    nahi padti."""
     inference_script = os.path.join(WAV2LIP_ENGINE_DIR, "inference.py")
     if os.path.exists(inference_script):
         return WAV2LIP_ENGINE_DIR
@@ -267,9 +234,6 @@ def ensure_wav2lip_engine():
 
 
 def generate_lipsync_video_selfhosted(character_image, audio_path):
-    """Wav2Lip ko seedha Actions runner (CPU) par chalata hai - koi third-party
-    Space/API par depend nahi karta, isliye sabse reliable option hai. Dheema hai
-    (CPU par kuch minute lag sakte hain) par lipsync guarantee karta hai."""
     engine_dir = ensure_wav2lip_engine()
     if not engine_dir:
         return None
@@ -288,74 +252,3 @@ def generate_lipsync_video_selfhosted(character_image, audio_path):
         "--outfile", out_path,
         "--pads", "0", "20", "0", "0",
         "--resize_factor", "1",
-    ]
-
-    try:
-        print("Running self-hosted Wav2Lip inference (can take a few minutes on CPU)...")
-        result = subprocess.run(
-            cmd, cwd=engine_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            timeout=WAV2LIP_INFERENCE_TIMEOUT,
-        )
-        if result.returncode != 0 or not os.path.exists(out_path):
-            tail = result.stderr.decode("utf-8", errors="ignore")[-2500:]
-            print(f"Self-hosted Wav2Lip failed:\n{tail}")
-            return None
-        print("Self-hosted Wav2Lip succeeded.")
-        return out_path
-    except subprocess.TimeoutExpired:
-        print(f"Self-hosted Wav2Lip timed out after {WAV2LIP_INFERENCE_TIMEOUT}s.")
-        return None
-    except Exception as e:
-        print(f"Self-hosted Wav2Lip crashed: {e}")
-        return None
-
-
-def create_static_influencer_video(character_image, audio_path):
-    """Fallback: fixed character image par bina movement/lipsync ke audio merge
-    karke video banata hai. Sirf tab use hota hai jab lipsync step fail ho jaye,
-    taake daily upload kabhi na ruke."""
-    video_file = "scene_video.mp4"
-
-    if not os.path.exists(character_image):
-        print(f"Error: {character_image} not found in repository!")
-        return None
-
-    cmd = [
-        "ffmpeg", "-y", "-loop", "1", "-i", character_image,
-        "-i", audio_path,
-        "-vf", "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,format=yuv420p",
-        "-c:v", "libx264", "-tune", "stillimage",
-        "-c:a", "aac", "-b:a", "192k",
-        "-shortest", video_file,
-    ]
-
-    result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    if result.returncode != 0 or not os.path.exists(video_file):
-        print(f"FFmpeg error: {result.stderr.decode('utf-8')}")
-        return None
-
-    return video_file
-
-
-def finalize_video(raw_video_path):
-    """Lipsync/static video ko 1080x1920 (Shorts) format mein re-encode karta hai
-    taake dono paths se aane wala output hamesha same, upload-ready shape mein ho."""
-    final_path = "final_short.mp4"
-    cmd = [
-        "ffmpeg", "-y", "-i", raw_video_path,
-        "-vf", "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,format=yuv420p",
-        "-c:v", "libx264", "-c:a", "aac", "-b:a", "192k",
-        final_path,
-    ]
-    result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    if result.returncode != 0 or not os.path.exists(final_path):
-        print(f"Final re-encode failed, using raw file as-is: {result.stderr.decode('utf-8')}")
-        return raw_video_path
-    return final_path
-
-
-def transcribe_with_groq(audio_path):
-    """Groq ki free Whisper API se audio transcribe karta hai aur word-level
-    timestamps maangta hai (sirf timing chahiye, actual recognized text use nahi
-    karenge - display text hamesha humara original script hoga)."""
-    if not GROQ
