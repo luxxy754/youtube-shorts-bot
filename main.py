@@ -57,7 +57,7 @@ LIPSYNC_SPACES = [
     s.strip() for s in os.getenv("LIPSYNC_SPACES", "").split(",") if s.strip()
 ]
 LIPSYNC_TIMEOUT_SECONDS = int(os.getenv("LIPSYNC_TIMEOUT_SECONDS", "180"))
-ENABLE_LIPSYNC = os.getenv("ENABLE_LIPSYNC", "true").strip().lower() in {"1", "true", "yes", "on"}
+ENABLE_LIPSYNC = os.getenv("ENABLE_LIPSYNC", "false").strip().lower() in {"1", "true", "yes", "on"}
 
 print("AI Influencer Bot Initialized.")
 
@@ -341,17 +341,6 @@ def upload_to_youtube(video_path, title):
 
     youtube = build("youtube", "v3", credentials=credentials, cache_discovery=False)
 
-    # Verify which channel is authenticated.
-    channel_response = youtube.channels().list(part="id,snippet", mine=True).execute()
-    channels = channel_response.get("items", [])
-    if not channels:
-        raise RuntimeError("OAuth succeeded but no YouTube channel was returned.")
-
-    channel = channels[0]
-    channel_id = channel.get("id", "unknown")
-    channel_title = channel.get("snippet", {}).get("title", "unknown")
-    print(f"Authenticated YouTube channel: {channel_title} ({channel_id})")
-
     body = {
         "snippet": {
             "title": title[:100],
@@ -389,20 +378,10 @@ def upload_to_youtube(video_path, title):
     if not video_id:
         raise RuntimeError(f"YouTube returned no video ID: {response}")
 
-    # Read back the uploaded video's status. This catches cases where the API
-    # accepted the insert but the resulting resource is not in the expected state.
-    verify = youtube.videos().list(part="status,snippet", id=video_id).execute()
-    items = verify.get("items", [])
-    if not items:
-        raise RuntimeError(f"Upload returned ID {video_id}, but verification failed.")
-
-    status_data = items[0].get("status", {})
-    print(
-        "YouTube upload complete: "
-        f"https://www.youtube.com/watch?v={video_id} | "
-        f"privacyStatus={status_data.get('privacyStatus')} | "
-        f"uploadStatus={status_data.get('uploadStatus')}"
-    )
+    # The insert response itself is enough to confirm the upload request returned
+    # a YouTube video ID. Avoid an extra API call because it can require scopes
+    # beyond youtube.upload.
+    print(f"YouTube upload complete: https://www.youtube.com/watch?v={video_id}")
 
     return video_id
 
