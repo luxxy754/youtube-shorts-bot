@@ -6,7 +6,6 @@ on:
     - cron: '0 12 * * *'
     - cron: '0 16 * * *'
   workflow_dispatch:
-  workflow_dispatch:
 
 jobs:
   build-and-generate:
@@ -44,8 +43,8 @@ jobs:
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
           YT_PRIVACY_STATUS: ${{ vars.YT_PRIVACY_STATUS }}
-          ENABLE_LIPSYNC: ${{ vars.ENABLE_LIPSYNC }}
-          LIPSYNC_SPACES: ${{ vars.LIPSYNC_SPACES }}
+          ENABLE_LIPSYNC: 'false'
+          LIPSYNC_SPACES: ''
         run: |
           python main.py
 
