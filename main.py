@@ -168,21 +168,137 @@ def generate_voiceover(script_text):
         return None
 
 
+BROWSER_UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+)
+LIPSYNC_DOWNLOAD_DIR = "output/lipsync_raw"
+
+
+def _hf_headers(token=None):
+    headers = {"User-Agent": BROWSER_UA, "Accept": "*/*"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    return headers
+
+
+def _space_root_url(space, client=None):
+    """Space ka base URL (client se, warna slug bana kar)."""
+    src = getattr(client, "src", "") or ""
+    if isinstance(src, str) and src.startswith("http"):
+        return src.rstrip("/")
+    slug = space.replace("/", "-").replace("_", "-").replace(".", "-").lower()
+    return f"https://{slug}.hf.space"
+
+
+def _extract_remote_file(result):
+    """Gradio result se (url, server-side path) nikalo - list/dict/str sab handle karta hai."""
+    node = result
+    while isinstance(node, (list, tuple)) and node:
+        node = node[0]
+
+    url = None
+    path = None
+
+    if isinstance(node, dict):
+        url = node.get("url")
+        path = node.get("path") or node.get("name") or node.get("video")
+        if isinstance(path, dict):
+            url = url or path.get("url")
+            path = path.get("path") or path.get("name")
+    elif isinstance(node, str):
+        if node.startswith("http"):
+            url = node
+        else:
+            path = node
+
+    return url, path
+
+
+def _download_lipsync_output(url, remote_path, root, token, dest):
+    """Output video ko khud download karo.
+
+    gradio_client ka apna downloader purane '/file=' route par 403 Forbidden de
+    deta hai (naye Gradio Spaces par route '/gradio_api/file=' hai). Isliye hum
+    khud saare possible routes try karte hain, proper headers + HF token ke saath.
+    """
+    candidates = []
+    if url:
+        candidates.append(url)
+    if remote_path:
+        clean = str(remote_path).lstrip("/")
+        candidates.extend([
+            f"{root}/gradio_api/file={remote_path}",
+            f"{root}/file={remote_path}",
+            f"{root}/gradio_api/file={clean}",
+            f"{root}/file={clean}",
+        ])
+
+    seen = set()
+    ordered = []
+    for c in candidates:
+        if c and c not in seen:
+            seen.add(c)
+            ordered.append(c)
+
+    tokens = [t for t in ([token] + [k for k in HF_KEYS if k.strip()]) if t]
+    tokens.append(None)
+
+    os.makedirs(os.path.dirname(dest) or ".", exist_ok=True)
+
+    for link in ordered:
+        for tok in tokens:
+            try:
+                resp = requests.get(
+                    link,
+                    headers=_hf_headers(tok),
+                    stream=True,
+                    timeout=300,
+                    allow_redirects=True,
+                )
+                if resp.status_code == 200:
+                    with open(dest, "wb") as f:
+                        for chunk in resp.iter_content(chunk_size=1024 * 256):
+                            if chunk:
+                                f.write(chunk)
+                    if os.path.exists(dest) and os.path.getsize(dest) > 10000:
+                        print(f"Lipsync video downloaded ({os.path.getsize(dest)} bytes) from: {link}")
+                        return dest
+                    print(f"Download se khali/chhoti file aayi: {link}")
+                else:
+                    print(f"Download failed [{resp.status_code}] -> {link}")
+            except Exception as e:
+                print(f"Download error on {link}: {e}")
+            time.sleep(2)
+
+    return None
+
+
 def generate_lipsync_video(character_image, audio_path):
     if not GRADIO_AVAILABLE:
         print("gradio_client not installed - skipping lipsync step.")
         return None
 
     def make_client(space, token):
-        if not token:
-            return GradioClient(space)
-        try:
-            return GradioClient(space, hf_token=token)
-        except TypeError:
+        """Client banao aur gradio ka auto-download BAND rakho (403 wali jagah)."""
+        kwarg_options = []
+        if token:
+            kwarg_options += [
+                {"hf_token": token, "download_files": False},
+                {"token": token, "download_files": False},
+                {"hf_token": token},
+                {"token": token},
+            ]
+        kwarg_options += [{"download_files": False}, {}]
+
+        last_error = None
+        for kwargs in kwarg_options:
             try:
-                return GradioClient(space, token=token)
-            except TypeError:
-                return GradioClient(space)
+                return GradioClient(space, **kwargs)
+            except TypeError as e:
+                last_error = e
+                continue
+        raise last_error if last_error else RuntimeError("Gradio client ban hi nahi saka")
 
     tokens = [t for t in HF_KEYS if t.strip()]
     attempts = tokens + [None]
@@ -210,18 +326,26 @@ def generate_lipsync_video(character_image, audio_path):
                     )
                     result = job.result(timeout=LIPSYNC_TIMEOUT_SECONDS)
 
-                    out_path = None
-                    if isinstance(result, str):
-                        out_path = result
-                    elif isinstance(result, dict):
-                        out_path = result.get("video") or result.get("path") or result.get("name")
-                    elif isinstance(result, (list, tuple)) and result:
-                        first = result[0]
-                        out_path = first.get("video") if isinstance(first, dict) else first
+                    url, remote_path = _extract_remote_file(result)
 
-                    if out_path and os.path.exists(out_path):
+                    # Agar gradio ne khud hi file local save kar di ho to wahi use karo.
+                    if remote_path and os.path.exists(remote_path):
                         print(f"Lipsync video generated successfully via {space}")
-                        return out_path
+                        return remote_path
+
+                    if not url and not remote_path:
+                        print(f"Space ne koi file return nahi ki: {result}")
+                        continue
+
+                    root = _space_root_url(space, client)
+                    dest = os.path.join(LIPSYNC_DOWNLOAD_DIR, f"lipsync_{int(time.time())}.mp4")
+                    downloaded = _download_lipsync_output(url, remote_path, root, token, dest)
+
+                    if downloaded:
+                        print(f"Lipsync video generated successfully via {space}")
+                        return downloaded
+
+                    print("Video to ban gaya tha lekin download nahi ho saka (403/route issue). Agli koshish...")
                 except Exception as e:
                     err_text = str(e)
                     if "PAUSED" in err_text or "invalid state" in err_text:
@@ -259,7 +383,7 @@ def upload_to_youtube(video_path, title):
         creds = Credentials(
             None,
             refresh_token=refresh_token,
-            token_uri="[https://oauth2.googleapis.com/token](https://oauth2.googleapis.com/token)",
+            token_uri="https://oauth2.googleapis.com/token",
             client_id=client_id,
             client_secret=client_secret,
         )
