@@ -292,7 +292,7 @@ def try_lipsync(character_image, audio_path):
         "--face", str(character_image),
         "--audio", str(audio_path),
         "--outfile", str(output),
-        "--static",
+        "--static", "True",
         "--resize_factor", "2",
         "--nosmooth",
         "--pads", "0", "10", "0", "0",
