@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import random
 import re
 import shutil
 import subprocess
@@ -57,14 +58,104 @@ print("AI Influencer Bot Initialized.")
 
 
 # ========================= SCRIPT =========================
-def fallback_content():
-    return (
+# Every run must produce a fresh script. A fixed prompt + default sampling was
+# making Gemini return nearly the same video again and again, and the single
+# hardcoded fallback repeated word-for-word whenever the API failed. So we pick
+# a random topic/angle/hook per run, push the sampling temperature up, and keep
+# a pool of fallbacks instead of one.
+TOPIC_POOL = [
+    "AI tools jo students ki padhai asaan bana rahe hain",
+    "AI se freelancing aur side income ke naye tareeqe",
+    "AI image aur video generators ka craze",
+    "ChatGPT jaise chatbots ke smart use cases",
+    "AI aur jobs: kaunsa kaam badal raha hai",
+    "Mobile par chalne wale free AI apps",
+    "AI se content creation aur editing shortcuts",
+    "AI voice aur cloning technology",
+    "Deepfakes aur online fake content se bachna",
+    "AI se daily life ke chhote chhote kaam automate karna",
+    "AI coding assistants aur non-programmers",
+    "AI se travel, shopping aur budgeting planning",
+    "AI privacy aur data safety ki baat",
+    "AI se business marketing aur ads",
+    "AI ke saath seekhne ki nayi habits",
+]
+
+ANGLE_POOL = [
+    "ek chhoti si relatable story ke through samjhao",
+    "ek common misconception todo",
+    "ek practical tip do jo banda aaj try kar sake",
+    "future mein kya hone wala hai us par baat karo",
+    "beginner ki sabse badi galti batao",
+    "ek surprising fact se shuru karo",
+    "before vs after wala comparison do",
+    "ek halki si mazahiya observation ke saath samjhao",
+]
+
+HOOK_POOL = [
+    "ek seedha sawal",
+    "ek bold statement",
+    "ek chhota sa shocking fact",
+    "'agar tum ye nahi jaante to' wala hook",
+    "ek personal sa observation",
+    "ek warning style line",
+]
+
+FALLBACK_CONTENT = [
+    (
+        "AI Ne Sab Badal Diya! #Shorts",
         "Aajkal AI literally har jagah nazar aa rahi hai. Study se lekar business aur daily work tak "
         "har cheez ke liye naye tools aa rahe hain. Aur honestly sabse interesting baat ye hai ke inmein "
         "se bohat se tools use karna bilkul difficult nahi hai. Bas thoda curious raho aur jo naya tool "
         "dikhe usko try karo. Ho sakta hai jo cheez aaj tum sirf trend samajh rahe ho wahi kal tumhara "
         "favourite tool ban jaye. Comment mein batao tum abhi kaunsa AI tool sabse zyada use kar rahe ho!"
-    )
+    ),
+    (
+        "Students Ye AI Trick Zaroor Try Karo #Shorts",
+        "Agar tum student ho aur notes banate banate thak jate ho to ek chhota sa trick suno. Apni lambi "
+        "reading AI ko do aur usse kaho ke simple points mein summary bana de, phir usi se apne aap se "
+        "sawal poochho. Ye tareeqa ratta lagane se kahin zyada kaam karta hai kyun ke tumhara dimagh "
+        "actually sochta hai. Shuru mein thoda ajeeb lagega lekin do teen din mein hi farq mehsoos hoga. "
+        "Aaj hi ek chapter par try karke dekho aur mujhe comment mein batao kaisa raha!"
+    ),
+    (
+        "AI Se Paise Kaise Bante Hain? #Shorts",
+        "Log kehte hain AI sab kaam khatam kar degi, lekin asli baat ye hai ke AI un logon ka kaam asaan "
+        "kar rahi hai jo isse use karna seekh rahe hain. Writing, designing, editing ya translation, har "
+        "jagah wahi banda aagey ja raha hai jo tools ke saath tez kaam kar sakta hai. Zaroori nahi tum "
+        "expert bano, bas ek skill chuno aur usmein AI ko apna assistant bana lo. Client ko result chahiye "
+        "hota hai, aur result dene wale hamesha demand mein rehte hain!"
+    ),
+    (
+        "Har Cheez Sach Mat Samjho! #Shorts",
+        "Aaj kal jo video ya photo tum scroll karte hue dekhte ho, zaroori nahi wo asli ho. AI itni "
+        "advanced ho chuki hai ke ek banda ghar baithe kisi ki awaz aur shakal bana sakta hai. Isliye ek "
+        "chhoti si aadat daal lo, jo cheez bohat zyada shocking lage usko share karne se pehle ek dafa "
+        "check kar lo ke source kya hai. Ye ek second ki aadat tumhein bohat si sharmindagi se bacha "
+        "sakti hai. Apne ghar walon ko bhi ye baat zaroor batana!"
+    ),
+    (
+        "Free AI Apps Jo Sab Ke Phone Mein Hone Chahiye #Shorts",
+        "Bohat se log samajhte hain ke AI use karne ke liye mehnga laptop ya paid plan chahiye, lekin "
+        "sach ye hai ke aaj sirf mobile par hi kaafi kuch free mein ho jata hai. Photo clean karni ho, "
+        "awaz se text banana ho, ya kisi lambi post ko samajhna ho, sab ke liye free options mojood hain. "
+        "Bas ek app pakro aur ek hafta seriously use karo, tab hi pata chalega ye tumhare kaam ka hai ya "
+        "nahi. Comment mein apna favourite free app zaroor batana!"
+    ),
+    (
+        "AI Se Waqt Bachane Ka Asaan Tareeqa #Shorts",
+        "Din ke chhote chhote kaam hi sabse zyada waqt khaate hain. Reply likhna, list banana, plan set "
+        "karna, ye sab milkar ghante le lete hain. Yahin AI sabse zyada kaam aati hai, kyun ke tum usse "
+        "pehla draft bana kar apna waqt aadha kar sakte ho. Yaad rakho, AI ka kaam tumhari jagah lena "
+        "nahi, tumhein shuruaat deni hai. Kal subah apna ek boring kaam chuno aur usse AI ke saath karke "
+        "dekho, farq khud mehsoos hoga!"
+    ),
+]
+
+
+def fallback_content():
+    """Pick a different fallback each run so failures don't repeat one video."""
+    return random.choice(FALLBACK_CONTENT)
 
 
 def clean_json_text(text):
@@ -76,8 +167,7 @@ def clean_json_text(text):
 
 
 def generate_influencer_script():
-    fallback_title = "Aaj Ki Viral Baat! #Shorts"
-    fallback_script = fallback_content()
+    fallback_title, fallback_script = fallback_content()
 
     if not GEMINI_API_KEY:
         print("GEMINI_API_KEY not set. Using fallback content.")
@@ -88,15 +178,38 @@ def generate_influencer_script():
         f"{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
     )
 
+    topic = random.choice(TOPIC_POOL)
+    angle = random.choice(ANGLE_POOL)
+    hook = random.choice(HOOK_POOL)
+    run_seed = f"{int(time.time())}-{random.randint(100000, 999999)}"
+
     instruction = (
         "Generate one short AI-trend YouTube Shorts script. "
         "Use Roman Urdu/Hinglish, casual Pakistani/Indian spoken style, 90-120 words. "
         "It must be one flowing spoken thought, not a list. Avoid difficult Urdu/Hindi words. "
+        f"Topic for THIS script: {topic}. "
+        f"Approach: {angle}. "
+        f"Start with {hook}. "
+        "This must be a completely fresh script, different from any generic 'AI har jagah hai' "
+        "intro, and the title must not repeat common phrases. "
+        f"Uniqueness seed (ignore in output, just vary the wording): {run_seed}. "
         "Return ONLY valid JSON in this exact format: "
         '{"title":"catchy title","script":"spoken script"}'
     )
 
-    body = {"contents": [{"parts": [{"text": instruction}]}]}
+    body = {
+        "contents": [{"parts": [{"text": instruction}]}],
+        # Default sampling was too deterministic and kept returning the same
+        # script on every run. Higher temperature = fresh output each time.
+        "generationConfig": {
+            "temperature": 1.3,
+            "topP": 0.95,
+            "topK": 64,
+            "candidateCount": 1,
+        },
+    }
+
+    print(f"Run topic: {topic} | angle: {angle} | seed: {run_seed}")
 
     try:
         print(f"Asking Gemini ({GEMINI_MODEL}) for a script...")
