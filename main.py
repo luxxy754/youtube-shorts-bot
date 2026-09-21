@@ -3,71 +3,83 @@ import asyncio
 import requests
 import replicate
 import edge_tts
-from moviepy.editor import ImageClip, AudioFileClip, CompositeVideoClip
+from moviepy.editor import VideoFileClip, AudioFileClip
 
-# 1. Replicate API se Image/Animation Generate Karna
-def generate_ai_image(prompt):
-    print("Generating AI visual using Replicate...")
-    # Flux Schnell Model (Fast & High Quality)
+# 1. Replicate API se Moving 3D Animation Video Generate Karna
+def generate_ai_animation(prompt):
+    print("Generating 3D Animation Video clip using Replicate MiniMax...")
+    
+    # MiniMax Video Generation Model
     output = replicate.run(
-        "black-forest-labs/flux-schnell",
+        "minimax/video-01",
         input={
             "prompt": prompt,
-            "aspect_ratio": "9:16", # YouTube Shorts / Reels Format
-            "output_format": "webp"
+            "prompt_optimizer": True
         }
     )
     
-    # Image download karke local file me save karein
-    image_url = str(output[0])
-    img_data = requests.get(image_url).content
-    image_path = "scene.jpg"
-    with open(image_path, "wb") as handler:
-        handler.write(img_data)
-    print("Image saved successfully!")
-    return image_path
+    # Video clip download karke local file me save karein
+    video_url = str(output)
+    video_data = requests.get(video_url).content
+    clip_path = "scene_animation.mp4"
+    
+    with open(clip_path, "wb") as handler:
+        handler.write(video_data)
+        
+    print("Animation clip downloaded successfully!")
+    return clip_path
 
-# 2. Edge-TTS se Audio Generate Karna
+# 2. Edge-TTS se Voiceover Generate Karna
 async def generate_voiceover(text, output_audio):
-    print("Generating voiceover...")
-    voice = "hi-IN-SwaraNeural"  # Hindi voice
+    print("Generating voiceover with Edge-TTS...")
+    voice = "hi-IN-SwaraNeural"  # Hindi Voice
     communicate = edge_tts.Communicate(text, voice)
     await communicate.save(output_audio)
     print("Audio saved successfully!")
 
-# 3. Audio aur Image ko Combine Karke Video Banana
-def build_short_video(image_path, audio_path, output_video):
-    print("Rendering final video...")
+# 3. Animated Video Clip aur Audio ko Merge Karna
+def build_short_video(video_clip_path, audio_path, output_video):
+    print("Merging animation and audio...")
+    
+    video_clip = VideoFileClip(video_clip_path)
     audio_clip = AudioFileClip(audio_path)
     
-    # Image clip ki duration audio jitni rakhein
-    image_clip = ImageClip(image_path).set_duration(audio_clip.duration)
+    # Agar video audio se lambi hai toh cut kar dein, agar chhoti hai toh loop karein
+    if video_clip.duration < audio_clip.duration:
+        # Audio ki length ke hisab se loop
+        loops = int(audio_clip.duration / video_clip.duration) + 1
+        final_video = video_clip.loop(n=loops).subclip(0, audio_clip.duration)
+    else:
+        final_video = video_clip.subclip(0, audio_clip.duration)
     
-    # Audio add karein
-    video_clip = image_clip.set_audio(audio_clip)
+    # Audio clip apply karein
+    final_video = final_video.set_audio(audio_clip)
     
-    # Video render karein
-    video_clip.write_videofile(
+    # Final Short render karein
+    final_video.write_videofile(
         output_video,
         fps=24,
         codec="libx264",
         audio_codec="aac"
     )
-    print(f"Video completely built: {output_video}")
+    print(f"Final 3D Short ready: {output_video}")
 
-# Pipeline Execution
+# Execution Flow
 if __name__ == "__main__":
-    script_text = "Dosto, yeh ek AI dwara banaya gaya automated short video hai."
-    image_prompt = "A futuristic cyberpunk city with glowing neon lights, 8k resolution, cinematic lighting"
+    # Aapka script/dialogue
+    script_text = "Kabhi kisi billi par bharosa mat karna, yeh bohot chalak hoti hain!"
     
-    audio_file = "voice.mp3"
+    # 3D Animation Prompt (Pixar/3D style animated short ke liye)
+    animation_prompt = "3D Pixar style funny cute cat wearing a helmet driving a small motorcycle, animated moving scene, 8k resolution, cinematic lighting"
+    
+    audio_file = "voiceover.mp3"
     final_output = "generated_short.mp4"
 
-    # Step A: Image Generate Karein
-    img_file = generate_ai_image(image_prompt)
+    # Step 1: 3D Animation Video Generate Karein
+    anim_clip = generate_ai_animation(animation_prompt)
     
-    # Step B: Audio Generate Karein
+    # Step 2: Edge-TTS Voiceover Generate Karein
     asyncio.run(generate_voiceover(script_text, audio_file))
     
-    # Step C: Merge Karein
-    build_short_video(img_file, audio_file, final_output)
+    # Step 3: Combine aur Render Karein
+    build_short_video(anim_clip, audio_file, final_output)
