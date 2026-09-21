@@ -74,12 +74,22 @@ def get_music(prompt, path, seconds=20):
 
 
 def get_sfx(scenes, out_dir):
-    """Returns list aligned with scenes: mp3 path or None."""
+    """Returns list aligned with scenes: mp3 path or None.
+    A cute cat sound (meow/purr/chirp) is always blended in, since that reads as
+    warm and "mast" - not just whatever mechanical sfx the scene action implies."""
+    CAT_SOUNDS = [
+        "one single cute short cat meow, high pitched and adorable",
+        "a soft happy cat purring for a moment",
+        "a playful curious cat chirp/trill, friendly and cute",
+    ]
     out = []
     for i, sc in enumerate(scenes):
-        text = (sc.get("sfx") or "").strip()
-        if text:
-            text = f"{text}, clean isolated sound effect, no music, no speech"
+        action_text = (sc.get("sfx") or "").strip()
+        cat_text = CAT_SOUNDS[i % len(CAT_SOUNDS)]
+        if action_text:
+            text = f"{cat_text}, layered with {action_text}, clean isolated sound effect, no music, no speech"
+        else:
+            text = f"{cat_text}, clean isolated sound effect, no music, no speech"
         path = os.path.join(out_dir, f"sfx_{i}.mp3")
-        out.append(path if text and eleven_sound(text, 2.5, path) else None)
+        out.append(path if eleven_sound(text, 2.5, path) else None)
     return out
