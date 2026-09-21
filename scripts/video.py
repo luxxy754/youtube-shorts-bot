@@ -1,5 +1,6 @@
 """Scene clip generation: Replicate -> Pollinations video -> Pollinations image + zoom."""
 import os
+import re
 import shutil
 import subprocess
 import time
@@ -74,7 +75,7 @@ def replicate_clip(prompt, path):
 
 # ---------------------------------------------------------------- Hugging Face (free)
 HF_SPACES = [x.strip() for x in os.getenv(
-    "HF_VIDEO_SPACES", "Lightricks/ltx-video-distilled,Wan-AI/Wan2.1").split(",") if x.strip()]
+    "HF_VIDEO_SPACES", "Lightricks/ltx-video-distilled").split(",") if x.strip()]
 _hf_dead = set()  # (space, token_index) that ran out of quota
 
 
@@ -125,6 +126,42 @@ def _pick_endpoint(api):
     return best
 
 
+
+def _choices(p):
+    """Allowed values of a dropdown/radio parameter, from the API description."""
+    t = p.get("type")
+    if isinstance(t, dict) and t.get("enum"):
+        return [str(x) for x in t["enum"]]
+    return re.findall(r"'([^']+)'", str(p.get("python_type", "")) + " " + str(t))
+
+
+def _num(v):
+    return isinstance(v, (int, float)) and not isinstance(v, bool)
+
+
+def _build_kwargs(params, prompt, rich):
+    """Fill prompt, force text-to-video mode; optionally set duration + portrait size."""
+    kw = {}
+    defaults = {p.get("parameter_name", ""): p.get("parameter_default") for p in params}
+    for p in params:
+        n = p.get("parameter_name", "")
+        ln = n.lower()
+        if "prompt" in ln and "negative" not in ln:
+            kw[n] = prompt
+        elif "mode" in ln:
+            pick = [c for c in _choices(p) if "text" in c.lower()]
+            if pick:
+                kw[n] = pick[0]
+        elif rich and "duration" in ln and _num(p.get("parameter_default")):
+            kw[n] = CLIP_SECONDS
+    if rich:
+        h = [n for n in defaults if "height" in n.lower() and _num(defaults[n])]
+        w = [n for n in defaults if "width" in n.lower() and _num(defaults[n])]
+        if h and w and defaults[w[0]] > defaults[h[0]]:  # make it portrait
+            kw[h[0]], kw[w[0]] = defaults[w[0]], defaults[h[0]]
+    return kw
+
+
 def hf_clip(prompt, path):
     tokens = _hf_tokens()
     if not tokens:
@@ -150,15 +187,25 @@ def hf_clip(prompt, path):
                     print("  no usable text->video endpoint, skipping Space")
                     break
                 _, name, params = pick
-                kwargs = {}
-                for prm in params:
-                    pn = prm.get("parameter_name", "")
-                    if "prompt" in pn.lower() and "negative" not in pn.lower():
-                        kwargs[pn] = prompt
-                result = client.submit(api_name=name, **kwargs).result(timeout=900)
-                video = _find_video(result)
+                print(f"  endpoint {name}: {[q.get('parameter_name') for q in params]}")
+                video, err = None, None
+                for rich in (True, False):
+                    kwargs = _build_kwargs(params, prompt, rich)
+                    try:
+                        result = client.submit(api_name=name, **kwargs).result(timeout=900)
+                    except Exception as exc:  # noqa: BLE001
+                        err = exc
+                        if any(w in str(exc).lower() for w in ("quota", "exceeded", "gpu")):
+                            raise
+                        print(f"  attempt failed ({'custom' if rich else 'basic'}): {str(exc)[:160]}")
+                        continue
+                    video = _find_video(result)
+                    if video:
+                        break
+                    print(f"  no video in result: {str(result)[:120]}")
                 if not video:
-                    print(f"  no video in result: {str(result)[:150]}")
+                    if err:
+                        raise err
                     break
                 shutil.copyfile(video, path)
                 return True
