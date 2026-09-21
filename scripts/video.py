@@ -21,7 +21,7 @@ _replicate_dead = False  # set when credit is exhausted, so we stop wasting time
 def _inputs(model, prompt):
     if model.startswith("bytedance/seedance"):
         full = {"prompt": prompt, "duration": CLIP_SECONDS, "resolution": "720p",
-                "aspect_ratio": "9:16", "fps": 24}
+                "aspect_ratio": "9:16", "fps": 24, "camera_fixed": False}
     elif model.startswith("minimax/"):
         full = {"prompt": prompt, "prompt_optimizer": True}
     else:
@@ -249,7 +249,7 @@ SHOTS = [
     "close-up shot of the characters' faces and funny reactions",
     "dynamic low angle action shot",
 ]
-IMAGES_PER_SCENE = int(os.getenv("IMAGES_PER_SCENE", "2"))
+IMAGES_PER_SCENE = int(os.getenv("IMAGES_PER_SCENE", "1"))
 FREE_MODE = os.getenv("FREE_MODE", "0").lower() in {"1", "true", "yes"}
 
 
@@ -293,7 +293,8 @@ def image_motion_clip(prompt, path, seed):
         for k in range(n):
             img = f"{path}.{k}.jpg"
             part = f"{path}.{k}.mp4"
-            _fetch_image(f"{prompt} {SHOTS[k % len(SHOTS)]}", img, seed + k)
+            # SAME seed for every shot of a scene -> same character, not a new cat each time.
+            _fetch_image(f"{prompt}, {SHOTS[k % len(SHOTS)]}", img, seed)
             zp = _move((seed + k) % 4, frames)
             subprocess.run([
                 "ffmpeg", "-y", "-loglevel", "error", "-i", img, "-vf",
