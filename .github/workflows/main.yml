@@ -51,8 +51,17 @@ jobs:
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
           YT_PRIVACY_STATUS: ${{ vars.YT_PRIVACY_STATUS || 'public' }}
           DRY_RUN: ${{ inputs.dry_run }}
-          # 1 = free mode: Hugging Face free GPU video, then images + camera motion. 0 = Replicate (paid).
-          FREE_MODE: "1"
+
+          # ---- THE IMPORTANT ONE ----
+          # 0 = Replicate real text-to-video (true 3D motion, costs ~$0.10-0.20 per run)
+          # 1 = free mode: still images + ken-burns zoom. Looks flat/2D. Only for testing.
+          FREE_MODE: "0"
+
+          # Real video models, tried in order.
+          VIDEO_MODELS: "bytedance/seedance-1-lite,minimax/video-01"
+          NUM_SCENES: "3"
+          CLIP_SECONDS: "5"
+          MUSIC_VOLUME: "0.16"
         run: python main.py
 
       - name: Keep a copy of the video
