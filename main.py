@@ -48,7 +48,8 @@ def main():
     print("Audio...")
     sfx = get_sfx(scenes, OUT)
     music = get_music(story.get("music", "playful cartoon background music"),
-                      os.path.join(OUT, "music.mp3"))
+                      os.path.join(OUT, "music.mp3"),
+                      seconds=max(8, int(sum(durs)) + 2))
     final = os.path.join(OUT, "final_short.mp4")
     mix(joined, durs, sfx, music, final, music_volume=MUSIC_VOLUME)
     print(f"Video ready: {final} ({sum(durs):.1f}s)")
