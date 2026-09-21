@@ -15,9 +15,19 @@ def _duration(path):
 
 
 def join_clips(clips, out_dir, max_len):
-    """Returns (joined_video_path, [duration per clip])."""
-    vf = ("scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,"
-          "setsar=1,fps=30,format=yuv420p")
+    """Returns (joined_video_path, [duration per clip]).
+    Uses a blurred-background letterbox instead of a hard crop: whatever aspect
+    ratio the source clip comes in at, the WHOLE frame is kept (nothing cut off
+    the sides/top), just scaled to fit inside 1080x1920 and centred. A cropped
+    fill was cutting characters standing near the edges out of frame."""
+    vf = (
+        "split=2[bg][fg];"
+        "[bg]scale=1080:1920:force_original_aspect_ratio=increase,"
+        "crop=1080:1920,gblur=sigma=25,eq=brightness=-0.05[bgblur];"
+        "[fg]scale=1080:1920:force_original_aspect_ratio=decrease[fgfit];"
+        "[bgblur][fgfit]overlay=(W-w)/2:(H-h)/2,"
+        "setsar=1,fps=30,format=yuv420p"
+    )
     norm, durs = [], []
     for i, c in enumerate(clips):
         n = os.path.join(out_dir, f"norm_{i}.mp4")
