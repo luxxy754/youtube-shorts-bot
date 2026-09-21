@@ -19,15 +19,18 @@ THEMES = [
 # Render-engine wording matters far more than the words "Pixar style".
 # Model needs to be told it is looking at a RENDER, not a drawing.
 STYLE = (
-    "3D CGI animated short film, Pixar / DreamWorks feature film quality, "
+    "3D CGI animated short film, Pixar / DreamWorks feature film quality, semi-realistic "
+    "creature design (natural animal body proportions, not exaggerated toy-like big-head "
+    "cartoon proportions), realistic detailed fur and skin texture, "
     "Unreal Engine 5 cinematic render, octane render, subsurface scattering on skin, "
     "physically based rendering, ray traced global illumination, soft volumetric light, "
     "shallow depth of field, detailed fur simulation with individual strands, "
-    "glossy expressive eyes with catchlights and reflections, rounded appealing "
-    "character design with big head and small body proportions, "
-    "vibrant saturated colour grading, "
-    "smooth fluid character animation with squash and stretch, clear body acting, "
-    "vertical 9:16 portrait framing, 24fps cinematic motion, "
+    "glossy expressive realistic eyes with catchlights and reflections, "
+    "vibrant natural colour grading, "
+    "smooth fluid character animation with clear body acting, "
+    "medium shot, both characters fully inside frame with headroom and margin on both sides, "
+    "nothing touching or cropped by the frame edges, centred composition, "
+    "vertical 9:16 portrait framing, full body visible, 24fps cinematic motion, "
     "NOT flat 2D, not a drawing, not an illustration, not anime, not a cartoon sketch, "
     "no text, no watermark, no subtitles, no dialogue, no human characters"
 )
