@@ -74,8 +74,11 @@ def replicate_clip(prompt, path):
 
 
 # ---------------------------------------------------------------- Hugging Face (free)
+# Tried in order. Wan2.2 gives noticeably better motion/quality than the old default;
+# LTX stays as a lighter/faster last resort if Wan2.2's queue is full.
 HF_SPACES = [x.strip() for x in os.getenv(
-    "HF_VIDEO_SPACES", "Lightricks/ltx-video-distilled").split(",") if x.strip()]
+    "HF_VIDEO_SPACES",
+    "zerogpu-aoti/wan2-2-fp8da-aoti,Lightricks/ltx-video-distilled").split(",") if x.strip()]
 _hf_dead = set()  # (space, token_index) that ran out of quota
 
 
