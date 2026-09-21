@@ -16,48 +16,73 @@ THEMES = [
     "a cute cat teaches a baby duck how to skateboard",
 ]
 
+# Render-engine wording matters far more than the words "Pixar style".
+# Model needs to be told it is looking at a RENDER, not a drawing.
 STYLE = (
-    "3D Pixar style animation, cute expressive animal characters, vibrant colors, "
-    "soft cinematic lighting, smooth natural motion, vertical 9:16 framing, "
-    "no text, no subtitles, no dialogue"
+    "3D CGI animated short film, Pixar / DreamWorks feature film quality, "
+    "Unreal Engine 5 cinematic render, octane render, subsurface scattering on skin, "
+    "physically based rendering, ray traced global illumination, soft volumetric light, "
+    "shallow depth of field, detailed fur simulation with individual strands, "
+    "glossy expressive eyes with catchlights and reflections, rounded appealing "
+    "character design with big head and small body proportions, "
+    "vibrant saturated colour grading, "
+    "smooth fluid character animation with squash and stretch, clear body acting, "
+    "vertical 9:16 portrait framing, 24fps cinematic motion, "
+    "NOT flat 2D, not a drawing, not an illustration, not anime, not a cartoon sketch, "
+    "no text, no watermark, no subtitles, no dialogue, no human characters"
 )
 
 FALLBACK = {
-    "title": "Never Trust A Cat! 🐱🏍️ #shorts #cat #funny",
+    "title": "Never Trust A Cat! 🐱🏍️ #shorts",
     "description": "The ultimate betrayal! Watch what happens when a cute cat takes a duck for a ride...",
     "hashtags": ["#cat", "#funny", "#3danimation", "#pixar", "#viral", "#shorts", "#funnyanimals"],
-    "keywords": ["funny cat video", "3D animation shorts", "cat and duck", "cute animal animation", "viral shorts"],
+    "keywords": ["funny cat video", "3D animation shorts", "cat and duck",
+                 "cute animal animation", "viral shorts"],
     "character": (
-        "a fluffy orange tabby cat wearing a small red helmet and a small yellow duckling "
-        "with big eyes, in a sunny cartoon village"
+        "a chubby fluffy orange tabby cat with huge round green eyes, white chest fur and a tiny "
+        "red crash helmet, and a small round yellow duckling with an orange beak and big shiny "
+        "black eyes, in a sunny colourful cartoon village with pastel houses"
     ),
     "scenes": [
-        {"visual": "the friendly cat waves at the duckling and pats the seat of a small red motorcycle, smiling warmly",
-         "sfx": "cute cat meow"},
-        {"visual": "the cat and the duckling ride the motorcycle down a sunny road, wind in their fur and feathers",
-         "sfx": "small motorcycle engine revving and driving"},
-        {"visual": "the cat stops in front of a giant cooking pot and puts on a chef hat with a sneaky grin while the duckling gasps",
-         "sfx": "duck quack panicked, then sneaky cat laugh"},
+        {"visual": "the orange cat grins and pats the seat of a small red motorcycle, the yellow "
+                   "duckling waddles up excitedly and hops on, camera slowly pushes in on them",
+         "sfx": "cute cat meow and a small happy duck quack"},
+        {"visual": "the cat and the duckling speed down a sunny village road on the red motorcycle, "
+                   "fur and feathers blowing back, camera tracks alongside them at low angle",
+         "sfx": "small motorcycle engine revving and driving fast"},
+        {"visual": "the motorcycle screeches to a stop in front of a giant steaming cooking pot, the "
+                   "cat slowly puts on a white chef hat with a sneaky grin, camera pushes in fast on "
+                   "the duckling's shocked wide-eyed face",
+         "sfx": "tyre screech then a panicked duck quack"},
     ],
-    "music": "playful cheerful ukulele and pizzicato cartoon background music, instrumental, light and funny",
+    "music": "playful cheerful upbeat cartoon score, ukulele, pizzicato strings, marimba and light "
+             "percussion, comedic and bouncy, instrumental only, no vocals",
 }
 
 
 def _prompt(n_scenes):
     theme = random.choice(THEMES)
-    return f"""Create ONE funny viral YouTube Short idea, 3D animated Pixar-style, about: {theme}.
+    return f"""Create ONE funny viral YouTube Short idea, 3D CGI Pixar-style animation, about: {theme}.
 It has NO speech and NO voiceover. It is told only through visuals, sound effects and music.
 Structure: {n_scenes} scenes of ~5 seconds each: friendly setup, fun moment, surprising funny twist at the end.
-Keep it family friendly, no violence, no gore, no text on screen.
+Keep it family friendly, no violence, no gore, no text on screen, no human characters.
+
+IMPORTANT for each scene "visual":
+- Describe ONE continuous 5 second shot, present tense.
+- Always name the characters by their colour/look (e.g. "the orange tabby cat"), never "he"/"it".
+- Include one clear physical ACTION and one CAMERA move (push in, track alongside, low angle, slow orbit).
+- Include a readable facial expression (grinning, shocked wide eyes, proud smirk).
+- Do NOT mention style, render or "3D" - that is added separately.
+
 Return ONLY JSON with exactly these keys:
 {{
  "title": "curiosity title under 80 chars with 1-2 emojis and ending with #shorts",
  "description": "1-2 short engaging sentences",
  "hashtags": ["#cat", "... 6-8 hashtags incl. #shorts"],
  "keywords": ["6-8 search keyword phrases people would search on YouTube"],
- "character": "one detailed sentence describing the exact look of the main characters (colors, clothes, size), reused in every scene for consistency",
- "scenes": [{{"visual": "what happens, one sentence, concrete action and camera", "sfx": "short sound effect description e.g. cat meow"}}],
- "music": "short description of funny background music"
+ "character": "ONE detailed sentence describing the exact look of the main characters - species, body shape, fur/feather colour, eye colour, clothing, size difference, and the setting. This exact sentence is reused in every scene for consistency, so be very specific.",
+ "scenes": [{{"visual": "one sentence, concrete action + camera + expression", "sfx": "short sound effect description e.g. cat meow"}}],
+ "music": "short description of funny instrumental background music, name real instruments and tempo"
 }}
 The scenes array must have exactly {n_scenes} items."""
 
@@ -125,4 +150,5 @@ def generate_story(n_scenes=3):
 
 
 def scene_prompt(story, scene):
-    return f"{STYLE}. Characters: {story['character']}. Scene: {scene['visual']}."
+    """Character description FIRST - video models weight the start of the prompt most."""
+    return (f"{story['character']}. {scene['visual']}. {STYLE}.")
