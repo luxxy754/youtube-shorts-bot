@@ -7,9 +7,10 @@ on:
         description: "Only make the video, do not upload to YouTube"
         type: boolean
         default: false
-  # Test manually first. When happy, uncomment to post automatically (UTC time):
-  # schedule:
-  #   - cron: "0 4,14 * * *"
+  # Auto-run 2 times daily (UTC time)
+  # 04:00 UTC = 09:00 AM PKT | 14:00 UTC = 07:00 PM PKT
+  schedule:
+    - cron: "0 4,14 * * *"
 
 permissions:
   contents: read
@@ -50,6 +51,8 @@ jobs:
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
           YT_PRIVACY_STATUS: ${{ vars.YT_PRIVACY_STATUS || 'public' }}
+          # Scheduled runs have no inputs, so this is empty and the video gets uploaded.
+          # Manual runs with dry_run ticked pass "true" and skip the upload.
           DRY_RUN: ${{ inputs.dry_run }}
 
           # ---- THE IMPORTANT ONE ----
