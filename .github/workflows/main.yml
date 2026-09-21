@@ -1,87 +1,45 @@
-name: Automated AI Content Generator Pipeline
+name: Python Video Generator Bot Workflow
 
+# 1. Workflow kab chalega (Triggers)
 on:
-  schedule:
-    - cron: '0 7 * * *'
-    - cron: '0 12 * * *'
-    - cron: '0 16 * * *'
-  workflow_dispatch:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  # Manual Run button ke liye (Actions tab se trigger karne ke liye)
+  workflow_dispatch: 
 
 jobs:
-  build-and-generate:
+  build-and-run:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
 
     steps:
-      - name: Checkout Code Repository
-        uses: actions/checkout@v4
+    # Code checkout karne ke liye
+    - name: Checkout Repository
+      uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-          cache: 'pip'
+    # System me FFmpeg install karne ke liye (Video/Audio processing ke liye zaroori hai)
+    - name: Install FFmpeg
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ffmpeg
 
-      - name: Install FFmpeg
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg
+    # Python setup karne ke liye
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
 
-      - name: Install Bot Dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install numpy==1.26.4 opencv-python==4.10.0.84 scipy==1.13.1 librosa==0.10.2 numba==0.59.1 tqdm
-          pip install torch==2.2.2 torchvision==0.17.2 --index-url https://download.pytorch.org/whl/cpu
+    # Dependencies install karne ke liye
+    - name: Install Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-      - name: Download Wav2Lip Engine
-        run: |
-          git clone --depth 1 https://github.com/Rudrabha/Wav2Lip.git third_party/Wav2Lip
-
-          # Wav2Lip's audio.py calls librosa.filters.mel() with positional
-          # arguments (sr, n_fft), which librosa>=0.10 no longer accepts
-          # (sr/n_fft became keyword-only). Patch it so it works with the
-          # librosa version installed above, instead of downgrading librosa.
-          sed -i \
-            's/librosa\.filters\.mel(hp\.sample_rate, hp\.n_fft, n_mels=hp\.num_mels,/librosa.filters.mel(sr=hp.sample_rate, n_fft=hp.n_fft, n_mels=hp.num_mels,/' \
-            third_party/Wav2Lip/audio.py
-          grep -n "librosa.filters.mel" third_party/Wav2Lip/audio.py
-
-          mkdir -p models third_party/Wav2Lip/face_detection/detection/sfd
-          curl -L --fail --retry 3 --retry-delay 2 \
-            https://huggingface.co/rippertnt/wav2lip/resolve/main/wav2lip_gan.pth?download=true \
-            -o models/wav2lip_gan.pth
-          curl -L --fail --retry 3 --retry-delay 2 \
-            https://huggingface.co/rippertnt/wav2lip/resolve/main/s3fd.pth?download=true \
-            -o third_party/Wav2Lip/face_detection/detection/sfd/s3fd.pth
-          test -s models/wav2lip_gan.pth
-          test -s third_party/Wav2Lip/face_detection/detection/sfd/s3fd.pth
-          ls -lh models/wav2lip_gan.pth third_party/Wav2Lip/face_detection/detection/sfd/s3fd.pth
-
-      - name: Run AI Influencer Bot
-        env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
-          EDGE_TTS_VOICE: hi-IN-SwaraNeural
-          EDGE_TTS_RATE: +2%
-          EDGE_TTS_PITCH: +1Hz
-          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
-          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
-          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
-          YT_PRIVACY_STATUS: public
-          ENABLE_LIPSYNC: 'true'
-          WAV2LIP_DIR: third_party/Wav2Lip
-          WAV2LIP_CHECKPOINT: models/wav2lip_gan.pth
-          WAV2LIP_FACE_DET: third_party/Wav2Lip/face_detection/detection/sfd/s3fd.pth
-          WAV2LIP_BATCH_SIZE: '16'
-        run: |
-          python main.py
-
-      - name: Upload generated video as workflow artifact
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: generated-short
-          path: output/short_video.mp4
-          if-no-files-found: error
-          retention-days: 3
+    # Secrets/API Keys secure tareeqe se pass karke script run karein
+    - name: Run Script
+      env:
+        REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      run: |
+        python main.py
