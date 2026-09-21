@@ -140,7 +140,10 @@ def hf_clip(prompt, path):
                 continue
             try:
                 print(f"  HF Space {space} (token {ti + 1}) ...")
-                client = Client(space, hf_token=token, verbose=False)
+                try:
+                    client = Client(space, token=token, verbose=False)  # newer gradio_client
+                except TypeError:
+                    client = Client(space, hf_token=token, verbose=False)  # older versions
                 api = client.view_api(return_format="dict", print_info=False)
                 pick = _pick_endpoint(api)
                 if not pick:
