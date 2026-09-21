@@ -35,31 +35,62 @@ def join_clips(clips, out_dir, max_len):
     return joined, durs
 
 
-def mix(joined, durs, sfx, music, output, music_volume=0.30, sfx_volume=1.0):
+def mix(joined, durs, sfx, music, output, music_volume=0.16, sfx_volume=0.85):
+    """Mix: SFX on top, music underneath and DUCKED whenever an SFX plays,
+    then loudness-normalised so nothing is harsh or clipping."""
     total = sum(durs)
     cmd = ["ffmpeg", "-y", "-loglevel", "error", "-i", joined]
-    filters, labels, idx = [], [], 1
+    filters, sfx_labels, idx = [], [], 1
+
     start = 0.0
     for d, s in zip(durs, sfx):
         if s:
             cmd += ["-i", s]
-            ms = int((start + 0.3) * 1000)
-            filters.append(f"[{idx}:a]adelay={ms}|{ms},volume={sfx_volume}[s{idx}]")
-            labels.append(f"[s{idx}]")
+            ms = int((start + 0.25) * 1000)
+            filters.append(
+                f"[{idx}:a]aformat=sample_rates=44100:channel_layouts=stereo,"
+                f"adelay={ms}|{ms},volume={sfx_volume}[s{idx}]")
+            sfx_labels.append(f"[s{idx}]")
             idx += 1
         start += d
-    if music:
+
+    has_sfx = bool(sfx_labels)
+    if has_sfx:
+        if len(sfx_labels) > 1:
+            filters.append("".join(sfx_labels) +
+                           f"amix=inputs={len(sfx_labels)}:normalize=0:duration=longest[sfxraw]")
+        else:
+            filters.append(f"{sfx_labels[0]}anull[sfxraw]")
+        # pad to full length so the sidechain key covers the whole video
+        filters.append(f"[sfxraw]apad,atrim=0:{total:.2f},asetpts=N/SR/TB[sfxpad]")
+
+    has_music = bool(music)
+    if has_music:
         cmd += ["-stream_loop", "-1", "-i", music]
-        fade = max(total - 1.0, 0)
-        filters.append(f"[{idx}:a]atrim=0:{total},asetpts=N/SR/TB,volume={music_volume},"
-                       f"afade=t=out:st={fade}:d=1[m]")
-        labels.append("[m]")
-    if not labels:
+        fade = max(total - 1.2, 0)
+        filters.append(
+            f"[{idx}:a]aformat=sample_rates=44100:channel_layouts=stereo,"
+            f"atrim=0:{total:.2f},asetpts=N/SR/TB,volume={music_volume},"
+            f"afade=t=in:st=0:d=0.7,afade=t=out:st={fade:.2f}:d=1.2[mus]")
+
+    if has_sfx and has_music:
+        filters.append("[sfxpad]asplit=2[sfxout][sfxkey]")
+        filters.append("[mus][sfxkey]sidechaincompress="
+                       "threshold=0.02:ratio=8:attack=15:release=400:makeup=1[musd]")
+        filters.append("[musd][sfxout]amix=inputs=2:normalize=0:duration=longest[pre]")
+    elif has_sfx:
+        filters.append("[sfxpad]anull[pre]")
+    elif has_music:
+        filters.append("[mus]anull[pre]")
+    else:
         _run(["ffmpeg", "-y", "-loglevel", "error", "-i", joined, "-c", "copy",
               "-movflags", "+faststart", output])
         return
-    filters.append("".join(labels) + f"amix=inputs={len(labels)}:normalize=0:duration=longest[a]")
+
+    # This is what stops the "ganda / loud / distorted" sound.
+    filters.append("[pre]loudnorm=I=-14:TP=-1.5:LRA=11,alimiter=limit=0.95[a]")
+
     cmd += ["-filter_complex", ";".join(filters), "-map", "0:v", "-map", "[a]",
             "-t", f"{total:.2f}", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
-            "-movflags", "+faststart", output]
+            "-ar", "44100", "-movflags", "+faststart", output]
     _run(cmd)
