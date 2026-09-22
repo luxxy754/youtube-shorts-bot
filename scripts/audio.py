@@ -2,6 +2,7 @@
 import glob
 import os
 import random
+import subprocess
 
 import requests
 
@@ -73,23 +74,51 @@ def get_music(prompt, path, seconds=20):
     return None
 
 
+def _mix(paths, out_path):
+    """Mix 2+ short mp3s into one file. The sound-generation model handles ONE clean
+    request much better than being asked to imagine two sounds "layered" together in
+    a single prompt - that was producing muddy/garbled sfx. So we generate each sound
+    separately and let ffmpeg do the actual layering."""
+    cmd = ["ffmpeg", "-y", "-loglevel", "error"]
+    for p in paths:
+        cmd += ["-i", p]
+    if len(paths) == 1:
+        cmd += ["-c", "copy", out_path]
+    else:
+        cmd += ["-filter_complex",
+                f"amix=inputs={len(paths)}:duration=longest:dropout_transition=0,"
+                f"volume={len(paths)}", out_path]  # amix auto-attenuates; compensate
+    subprocess.run(cmd, check=True)
+
+
 def get_sfx(scenes, out_dir):
     """Returns list aligned with scenes: mp3 path or None.
     A cute cat sound (meow/purr/chirp) is always blended in, since that reads as
     warm and "mast" - not just whatever mechanical sfx the scene action implies."""
     CAT_SOUNDS = [
-        "one single cute short cat meow, high pitched and adorable",
-        "a soft happy cat purring for a moment",
-        "a playful curious cat chirp/trill, friendly and cute",
+        "one single cute short cat meow, high pitched and adorable, clean isolated sound effect, no music, no speech",
+        "a soft happy cat purring for a moment, clean isolated sound effect, no music, no speech",
+        "a playful curious cat chirp/trill, friendly and cute, clean isolated sound effect, no music, no speech",
     ]
     out = []
     for i, sc in enumerate(scenes):
         action_text = (sc.get("sfx") or "").strip()
         cat_text = CAT_SOUNDS[i % len(CAT_SOUNDS)]
+        cat_path = os.path.join(out_dir, f"sfx_{i}_cat.mp3")
+        parts = [cat_path] if eleven_sound(cat_text, 1.5, cat_path) else []
         if action_text:
-            text = f"{cat_text}, layered with {action_text}, clean isolated sound effect, no music, no speech"
-        else:
-            text = f"{cat_text}, clean isolated sound effect, no music, no speech"
-        path = os.path.join(out_dir, f"sfx_{i}.mp3")
-        out.append(path if eleven_sound(text, 2.5, path) else None)
+            action_full = f"{action_text}, clean isolated sound effect, no music, no speech"
+            action_path = os.path.join(out_dir, f"sfx_{i}_action.mp3")
+            if eleven_sound(action_full, 2.0, action_path):
+                parts.append(action_path)
+        if not parts:
+            out.append(None)
+            continue
+        final = os.path.join(out_dir, f"sfx_{i}.mp3")
+        try:
+            _mix(parts, final)
+            out.append(final)
+        except Exception as exc:  # noqa: BLE001
+            print(f"  sfx mix failed, using first part only: {str(exc)[:150]}")
+            out.append(parts[0])
     return out
