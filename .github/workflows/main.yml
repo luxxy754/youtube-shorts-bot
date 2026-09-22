@@ -36,9 +36,9 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Generate and upload Short
+        timeout-minutes: 20
         env:
           # ---- fal.ai (free 5/day per signed-in account) ----
-          # Get keys at https://fal.ai -> sign in -> API Keys
           FAL_KEY_1: ${{ secrets.FAL_KEY_1 }}
           FAL_KEY_2: ${{ secrets.FAL_KEY_2 }}
 
@@ -58,7 +58,7 @@ jobs:
           # ---- Image fallback ----
           POLLINATIONS_API_KEY: ${{ secrets.POLLINATIONS_API_KEY }}
 
-          # ---- Audio (ElevenLabs keys rotate) ----
+          # ---- Audio ----
           ELEVEN_KEY_1: ${{ secrets.ELEVEN_KEY_1 }}
           ELEVEN_KEY_2: ${{ secrets.ELEVEN_KEY_2 }}
           ELEVEN_KEY_3: ${{ secrets.ELEVEN_KEY_3 }}
@@ -94,4 +94,4 @@ jobs:
           path: |
             output/final_short.mp4
             output/meta.json
-          if-no-files-found: warns
+          if-no-files-found: warn
