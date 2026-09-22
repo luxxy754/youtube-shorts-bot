@@ -2,6 +2,7 @@
 import json
 import os
 import random
+import time
 
 from scripts.assemble import join_clips, mix
 from scripts.audio import get_music, get_sfx, music_credit
@@ -10,7 +11,7 @@ from scripts.upload_youtube import have_credentials, upload_to_youtube
 from scripts.video import CLIP_SECONDS, make_clip
 
 OUT = "output"
-NUM_SCENES = int(os.getenv("NUM_SCENES", "3"))
+NUM_SCENES = int(os.getenv("NUM_SCENES", "2"))
 MUSIC_VOLUME = float(os.getenv("MUSIC_VOLUME", "0.30"))
 
 
@@ -34,15 +35,21 @@ def main():
 
     clips = []
     seed = random.randint(1, 10**6)
+    total_scenes = len(story["scenes"])
     for i, sc in enumerate(story["scenes"]):
-        print(f"Scene {i + 1}/{len(story['scenes'])}: {sc['visual']}")
+        print(f"Scene {i + 1}/{total_scenes}: {sc['visual']}")
         path = os.path.join(OUT, f"clip_{i}.mp4")
         if make_clip(scene_prompt(story, i), path, seed + i):
             clips.append((path, sc))
         else:
             print("  Scene skipped (all providers failed)")
+        # Agnes free tier ke liye gap
+        if i < total_scenes - 1:
+            print("  Waiting 60s for Agnes rate limit...")
+            time.sleep(60)
+
     if not clips:
-        raise RuntimeError("No clip could be generated. Check REPLICATE_API_TOKEN / credits.")
+        raise RuntimeError("No clip could be generated. Check AGNES_API_KEY_1..N / credits.")
 
     scenes = [sc for _, sc in clips]
     joined, durs = join_clips([p for p, _ in clips], OUT, CLIP_SECONDS + 1)
