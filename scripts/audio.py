@@ -56,11 +56,29 @@ def eleven_music(prompt, seconds, path):
     return False
 
 
+def _valid_audio(path):
+    """True if ffprobe can read a real, non-zero duration audio stream from path."""
+    try:
+        out = subprocess.run(
+            ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+             "-of", "default=nk=1:nw=1", path],
+            capture_output=True, text=True, timeout=30)
+        return out.returncode == 0 and float(out.stdout.strip() or 0) > 0.5
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def get_music(prompt, path, seconds=20):
-    # Best option by far: drop 3-5 royalty free mp3s in assets/music/ and they are used directly.
+    # Best option by far: drop royalty free mp3s in assets/music/ (preferred) or straight in
+    # the repo root, and one is used directly - no ElevenLabs call needed.
     own = glob.glob(os.path.join(ROOT, "assets", "music", "*.mp3"))
-    if own:
-        pick = random.choice(own)
+    own += glob.glob(os.path.join(ROOT, "*.mp3"))
+    good = [p for p in own if _valid_audio(p)]
+    bad = [p for p in own if p not in good]
+    for p in bad:
+        print(f"  Skipping own music (unreadable/corrupt file): {os.path.basename(p)}")
+    if good:
+        pick = random.choice(good)
         print(f"  Using own music: {os.path.basename(pick)}")
         return pick
 
@@ -71,6 +89,32 @@ def get_music(prompt, path, seconds=20):
         return path
 
     print("  Music model unavailable - skipping music rather than using noise.")
+    return None
+
+
+def music_credit(path):
+    """Optional attribution line for a locally-provided track (e.g. CC-BY tracks like
+    Incompetech need on-screen/description credit). Reads credits.txt from assets/music/
+    or the repo root (wherever the track itself lives) if present - one line per file:
+    `filename.mp3 = credit text`. Returns None if no credits.txt or track isn't listed
+    (e.g. Pixabay/Mixkit tracks need no credit)."""
+    if not path:
+        return None
+    name = os.path.basename(path)
+    for credits_file in (os.path.join(ROOT, "assets", "music", "credits.txt"),
+                          os.path.join(ROOT, "credits.txt")):
+        if not os.path.exists(credits_file):
+            continue
+        try:
+            with open(credits_file, encoding="utf-8") as f:
+                for line in f:
+                    if "=" not in line:
+                        continue
+                    fname, credit = line.split("=", 1)
+                    if fname.strip() == name:
+                        return credit.strip()
+        except OSError:
+            pass
     return None
 
 
