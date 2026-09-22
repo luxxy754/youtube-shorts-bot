@@ -1,4 +1,8 @@
-"""Story idea generator: Gemini first, Groq second, built-in story last."""
+"""Viral animal Shorts story generator.
+
+Keeps the existing upload/automation pipeline intact. Only story + visual prompt
+logic lives here, so the same generator can keep producing new videos automatically.
+"""
 import json
 import os
 import random
@@ -6,110 +10,109 @@ import re
 
 import requests
 
+# Topics are deliberately visual: they can be understood without dialogue/voiceover.
 THEMES = [
-    "a cute cat takes a duck for a motorcycle ride",
-    "a cute cat tries to sneak a baby chick into a fancy hat shop",
-    "a cute cat and a puppy race tiny go-karts",
-    "a cute cat pretends to be a chef and a hamster is the customer",
-    "a cute cat drives a tiny taxi with a penguin passenger",
-    "a cute cat and a bunny try to steal a giant fish from a kitchen",
-    "a cute cat teaches a baby duck how to skateboard",
-]
-"""Story idea generator: Gemini first, Groq second, built-in story last."""
-import json
-import os
-import random
-import re
-
-import requests
-
-THEMES = [
-    "a cute cat takes a duck for a motorcycle ride",
-    "a cute cat tries to sneak a baby chick into a fancy hat shop",
-    "a cute cat and a puppy race tiny go-karts",
-    "a cute cat pretends to be a chef and a hamster is the customer",
-    "a cute cat drives a tiny taxi with a penguin passenger",
-    "a cute cat and a bunny try to steal a giant fish from a kitchen",
-    "a cute cat teaches a baby duck how to skateboard",
+    "a tiny orange cat secretly takes a sleepy duckling on a wild shopping-cart ride",
+    "a tiny orange cat tries to hide a giant strawberry from a hungry puppy",
+    "a tiny orange cat finds a baby penguin stuck inside a cardboard box and tries to help",
+    "a tiny orange cat challenges a clever squirrel to a ridiculous cookie race",
+    "a tiny orange cat steals a giant balloon and accidentally gets pulled into the sky",
+    "a tiny orange cat tries to rescue a baby chick from a runaway toy car",
+    "a tiny orange cat discovers a tiny door in the garden and opens it to a funny surprise",
+    "a tiny orange cat tries to impress a duckling with a tiny red scooter",
+    "a tiny orange cat guards a giant fish while a sneaky puppy keeps trying to grab it",
+    "a tiny orange cat finds a mysterious glowing egg and gets a hilarious surprise",
+    "a tiny orange cat tries to become a delivery driver with a sleepy puppy passenger",
+    "a tiny orange cat and a baby duck discover a giant watermelon that starts rolling downhill",
 ]
 
-# Render-engine wording matters far more than the words "Pixar style".
-# Model needs to be told it is looking at a RENDER, not a drawing.
+# The visual language is intentionally more cinematic/realistic than the old generic
+# cartoon prompts. This is applied after the AI writes each individual shot.
 STYLE = (
-    "3D CGI animated short film, Pixar / DreamWorks feature film quality, semi-realistic "
-    "creature design (natural animal body proportions, not exaggerated toy-like big-head "
-    "cartoon proportions), realistic detailed fur and skin texture, "
-    "Unreal Engine 5 cinematic render, octane render, subsurface scattering on skin, "
-    "physically based rendering, ray traced global illumination, soft volumetric light, "
-    "shallow depth of field, detailed fur simulation with individual strands, "
-    "glossy expressive realistic eyes with catchlights and reflections, "
-    "vibrant natural colour grading, "
-    "smooth fluid character animation with clear body acting, "
-    "medium shot, both characters fully inside frame with headroom and margin on both sides, "
-    "nothing touching or cropped by the frame edges, centred composition, "
-    "vertical 9:16 portrait framing, full body visible, 24fps cinematic motion, "
-    "NOT flat 2D, not a drawing, not an illustration, not anime, not a cartoon sketch, "
-    "no text, no watermark, no subtitles, no dialogue, no human characters"
+    "high-end cinematic 3D CGI animated short, polished modern viral social-media animation, "
+    "semi-realistic cute animals with believable anatomy, detailed soft fur and feathers, "
+    "expressive glossy eyes with natural catchlights, physically based materials, "
+    "soft global illumination, cinematic rim light, rich but natural colors, subtle depth of field, "
+    "smooth believable character motion, strong readable poses, dynamic camera movement, "
+    "professional feature-animation lighting, crisp details, vertical 9:16 composition, "
+    "full characters visible and safely inside frame, subject centered with clean background, "
+    "no text, no captions, no logo, no watermark, no humans, no dialogue, no speech bubbles, "
+    "not anime, not flat 2D, not a drawing, not a sketch, not a poster"
+)
+
+NEGATIVE = (
+    "avoid deformed anatomy, extra limbs, duplicate animals, changing fur color, changing clothes, "
+    "cropped heads, cropped feet, extreme close-up, frozen pose, blurry face, text, watermark, logo"
 )
 
 FALLBACK = {
-    "title": "Never Trust A Cat! 🐱🏍️ #shorts",
-    "description": "The ultimate betrayal! Watch what happens when a cute cat takes a duck for a ride...",
-    "hashtags": ["#cat", "#funny", "#3danimation", "#pixar", "#viral", "#shorts", "#funnyanimals"],
-    "keywords": ["funny cat video", "3D animation shorts", "cat and duck",
-                 "cute animal animation", "viral shorts"],
+    "title": "The Cat Had ONE Job... 😳🐱 #shorts",
+    "description": "A tiny cat tries to help a duckling... but the plan goes completely wrong. Wait for the ending!",
+    "hashtags": ["#cat", "#animals", "#funny", "#ai", "#animation", "#viral", "#shorts"],
+    "keywords": [
+        "funny cat short", "cute animal animation", "viral ai animals",
+        "3d animated short", "funny animal story", "cat and duck", "youtube shorts",
+    ],
     "character": (
-        "a chubby fluffy orange tabby cat with huge round green eyes, white chest fur and a tiny "
-        "red crash helmet, and a small round yellow duckling with an orange beak and big shiny "
-        "black eyes, in a sunny colourful cartoon village with pastel houses"
+        "A tiny fluffy orange tabby kitten with a white muzzle, white chest, emerald-green eyes and a small red collar; "
+        "a tiny round yellow duckling with a bright orange beak and glossy black eyes; the kitten is about twice the duckling's height; "
+        "both live in a colorful sunny village garden with warm morning light."
     ),
     "scenes": [
-        {"visual": "the orange cat grins and pats the seat of a small red motorcycle, "
-                   "camera slowly pushes in on it",
-         "sfx": "cute cat meow"},
-        {"visual": "the cat and the duckling speed down a sunny village road on the red "
-                   "motorcycle, fur and feathers blowing back, camera tracks alongside "
-                   "them at low angle",
-         "sfx": "small motorcycle engine revving and driving fast"},
-        {"visual": "the motorcycle screeches to a stop and the duckling's eyes go wide "
-                   "and shocked, camera pushes in fast on its face",
-         "sfx": "tyre screech then a panicked duck quack"},
+        {
+            "visual": "the orange kitten notices the duckling beside a huge strawberry, freezes with wide worried eyes, then points toward the strawberry with one paw; camera slowly pushes toward the kitten's face",
+            "sfx": "tiny surprised gasp and soft sparkle chime",
+        },
+        {
+            "visual": "the orange kitten grabs the strawberry and struggles to pull it across the garden while the duckling watches with a shocked open-beak expression; camera tracks sideways with the kitten",
+            "sfx": "cartoon dragging squeak and quick footsteps",
+        },
+        {
+            "visual": "the strawberry suddenly rolls downhill and the orange kitten chases after it with panicked wide eyes while the duckling looks stunned; camera rapidly follows the rolling strawberry at a low angle",
+            "sfx": "fast rolling rumble, tiny paws running, comedic pop",
+        },
     ],
-    "music": "playful cheerful upbeat cartoon score, ukulele, pizzicato strings, marimba and light "
-             "percussion, comedic and bouncy, instrumental only, no vocals",
+    "music": "fast playful instrumental cartoon score, pizzicato strings, marimba, light drums and bouncy bass, energetic 125 BPM, no vocals",
 }
 
 
 def _prompt(n_scenes):
     theme = random.choice(THEMES)
-    return f"""Create ONE funny viral YouTube Short idea, 3D CGI Pixar-style animation, about: {theme}.
-It has NO speech and NO voiceover. It is told only through visuals, sound effects and music.
-Structure: {n_scenes} scenes of ~5 seconds each: friendly setup, fun moment, surprising funny twist at the end.
-Keep it family friendly, no violence, no gore, no text on screen, no human characters.
+    return f"""Create ONE highly engaging viral YouTube Short concept for a family-friendly AI animated animal video.
+Core idea: {theme}.
 
-IMPORTANT for each scene "visual":
-- Describe ONE continuous 5 second shot, present tense.
-- Always name the characters by their colour/look (e.g. "the orange tabby cat"), never "he"/"it".
-- ONE dominant physical ACTION only, done by ONE character. The other character may be
-  present and reacting (a held expression, a glance) but must NOT be doing its own
-  separate independent action at the same time - free/lightweight video models blur or
-  ignore whichever action isn't primary when two things happen at once in one shot.
-- ONE CAMERA move (push in, track alongside, low angle, slow orbit).
-- Include a readable facial expression (grinning, shocked wide eyes, proud smirk).
-- Mention at most ONE prop/object - more than that is often rendered wrong or dropped.
-- Do NOT mention style, render or "3D" - that is added separately.
+The video must work WITHOUT dialogue, voiceover or on-screen text. The story must be understandable from body language, facial expressions, camera movement, sound effects and music alone.
+Use a simple escalating structure: INSTANT HOOK -> clear goal/problem -> escalation -> surprising funny payoff.
+The first scene must make the viewer curious immediately. The final scene must contain the strongest visual surprise and should feel loop-friendly.
 
-Return ONLY JSON with exactly these keys:
+Create exactly {n_scenes} shots. Each shot is approximately 5 seconds.
+
+SHOT RULES:
+- Each visual is ONE continuous shot in present tense.
+- Use concrete physical actions that a video model can animate.
+- ONE dominant action per shot. Do not give both animals separate complicated actions.
+- Always identify the animal by its exact appearance, not pronouns such as he/it.
+- Keep the same characters, colors, clothing/accessories and location throughout all shots.
+- Include one clear facial emotion in every shot.
+- Include exactly ONE main camera movement per shot: push-in, tracking, orbit, crane, pan, low-angle follow, etc.
+- Keep important characters fully visible; avoid actions near frame edges.
+- Do not describe rendering style in the visual field; it is added separately.
+- No humans, dialogue, subtitles, captions or text.
+- Keep props simple: maximum one important prop per shot.
+
+Return ONLY valid JSON with exactly these keys:
 {{
- "title": "curiosity title under 80 chars with 1-2 emojis and ending with #shorts",
- "description": "1-2 short engaging sentences",
- "hashtags": ["#cat", "... 6-8 hashtags incl. #shorts"],
- "keywords": ["6-8 search keyword phrases people would search on YouTube"],
- "character": "ONE detailed sentence describing the exact look of the main characters - species, body shape, fur/feather colour, eye colour, clothing, size difference, and the setting. This exact sentence is reused in every scene for consistency, so be very specific.",
- "scenes": [{{"visual": "one sentence, concrete action + camera + expression", "sfx": "short sound effect description e.g. cat meow"}}],
- "music": "short description of funny instrumental background music, name real instruments and tempo"
+  "title": "curiosity-driven title under 70 characters, 1-2 emojis, ending with #shorts",
+  "description": "one or two short natural sentences that create curiosity",
+  "hashtags": ["7 relevant hashtags including #shorts"],
+  "keywords": ["7 natural YouTube search phrases"],
+  "character": "one detailed reusable sentence defining exact animal appearance, colors, accessories, size relationship and environment",
+  "scenes": [
+    {{"visual": "one concrete 5-second action + one camera move + one facial emotion", "sfx": "short sound effect description"}}
+  ],
+  "music": "short description of energetic instrumental background music with real instruments and approximate BPM, no vocals"
 }}
-The scenes array must have exactly {n_scenes} items."""
+The scenes array MUST contain exactly {n_scenes} items."""
 
 
 def _clean(text):
@@ -127,8 +130,13 @@ def _gemini(prompt):
     r = requests.post(
         url,
         params={"key": key},
-        json={"contents": [{"parts": [{"text": prompt}]}],
-              "generationConfig": {"responseMimeType": "application/json", "temperature": 1.0}},
+        json={
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {
+                "responseMimeType": "application/json",
+                "temperature": 1.0,
+            },
+        },
         timeout=90,
     )
     r.raise_for_status()
@@ -142,19 +150,27 @@ def _groq(prompt):
     r = requests.post(
         "https://api.groq.com/openai/v1/chat/completions",
         headers={"Authorization": f"Bearer {key}"},
-        json={"model": os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
-              "messages": [{"role": "user", "content": prompt}],
-              "response_format": {"type": "json_object"}, "temperature": 1.0},
+        json={
+            "model": os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
+            "messages": [{"role": "user", "content": prompt}],
+            "response_format": {"type": "json_object"},
+            "temperature": 1.0,
+        },
         timeout=90,
     )
     r.raise_for_status()
     return json.loads(_clean(r.json()["choices"][0]["message"]["content"]))
 
 
-def _valid(s, n):
-    return (isinstance(s, dict) and s.get("title") and s.get("character")
-            and isinstance(s.get("scenes"), list) and len(s["scenes"]) >= 1
-            and all(isinstance(x, dict) and x.get("visual") for x in s["scenes"]))
+def _valid(story, n):
+    return (
+        isinstance(story, dict)
+        and bool(story.get("title"))
+        and bool(story.get("character"))
+        and isinstance(story.get("scenes"), list)
+        and len(story["scenes"]) >= n
+        and all(isinstance(s, dict) and s.get("visual") for s in story["scenes"][:n])
+    )
 
 
 def generate_story(n_scenes=3):
@@ -168,6 +184,7 @@ def generate_story(n_scenes=3):
                 return story
         except Exception as exc:  # noqa: BLE001
             print(f"{name} failed: {exc}")
+
     print("Using built-in fallback story.")
     story = dict(FALLBACK)
     story["scenes"] = FALLBACK["scenes"][:n_scenes]
@@ -175,145 +192,10 @@ def generate_story(n_scenes=3):
 
 
 def scene_prompt(story, scene):
-    """Character description FIRST - video models weight the start of the prompt most."""
-    return (f"{story['character']}. {scene['visual']}. {STYLE}.")
-
-# Render-engine wording matters far more than the words "Pixar style".
-# Model needs to be told it is looking at a RENDER, not a drawing.
-STYLE = (
-    "3D CGI animated short film, Pixar / DreamWorks feature film quality, semi-realistic "
-    "creature design (natural animal body proportions, not exaggerated toy-like big-head "
-    "cartoon proportions), realistic detailed fur and skin texture, "
-    "Unreal Engine 5 cinematic render, octane render, subsurface scattering on skin, "
-    "physically based rendering, ray traced global illumination, soft volumetric light, "
-    "shallow depth of field, detailed fur simulation with individual strands, "
-    "glossy expressive realistic eyes with catchlights and reflections, "
-    "vibrant natural colour grading, "
-    "smooth fluid character animation with clear body acting, "
-    "medium shot, both characters fully inside frame with headroom and margin on both sides, "
-    "nothing touching or cropped by the frame edges, centred composition, "
-    "vertical 9:16 portrait framing, full body visible, 24fps cinematic motion, "
-    "NOT flat 2D, not a drawing, not an illustration, not anime, not a cartoon sketch, "
-    "no text, no watermark, no subtitles, no dialogue, no human characters"
-)
-
-FALLBACK = {
-    "title": "Never Trust A Cat! 🐱🏍️ #shorts",
-    "description": "The ultimate betrayal! Watch what happens when a cute cat takes a duck for a ride...",
-    "hashtags": ["#cat", "#funny", "#3danimation", "#pixar", "#viral", "#shorts", "#funnyanimals"],
-    "keywords": ["funny cat video", "3D animation shorts", "cat and duck",
-                 "cute animal animation", "viral shorts"],
-    "character": (
-        "a chubby fluffy orange tabby cat with huge round green eyes, white chest fur and a tiny "
-        "red crash helmet, and a small round yellow duckling with an orange beak and big shiny "
-        "black eyes, in a sunny colourful cartoon village with pastel houses"
-    ),
-    "scenes": [
-        {"visual": "the orange cat grins and pats the seat of a small red motorcycle, the yellow "
-                   "duckling waddles up excitedly and hops on, camera slowly pushes in on them",
-         "sfx": "cute cat meow and a small happy duck quack"},
-        {"visual": "the cat and the duckling speed down a sunny village road on the red motorcycle, "
-                   "fur and feathers blowing back, camera tracks alongside them at low angle",
-         "sfx": "small motorcycle engine revving and driving fast"},
-        {"visual": "the motorcycle screeches to a stop in front of a giant steaming cooking pot, the "
-                   "cat slowly puts on a white chef hat with a sneaky grin, camera pushes in fast on "
-                   "the duckling's shocked wide-eyed face",
-         "sfx": "tyre screech then a panicked duck quack"},
-    ],
-    "music": "playful cheerful upbeat cartoon score, ukulele, pizzicato strings, marimba and light "
-             "percussion, comedic and bouncy, instrumental only, no vocals",
-}
-
-
-def _prompt(n_scenes):
-    theme = random.choice(THEMES)
-    return f"""Create ONE funny viral YouTube Short idea, 3D CGI Pixar-style animation, about: {theme}.
-It has NO speech and NO voiceover. It is told only through visuals, sound effects and music.
-Structure: {n_scenes} scenes of ~5 seconds each: friendly setup, fun moment, surprising funny twist at the end.
-Keep it family friendly, no violence, no gore, no text on screen, no human characters.
-
-IMPORTANT for each scene "visual":
-- Describe ONE continuous 5 second shot, present tense.
-- Always name the characters by their colour/look (e.g. "the orange tabby cat"), never "he"/"it".
-- Include one clear physical ACTION and one CAMERA move (push in, track alongside, low angle, slow orbit).
-- Include a readable facial expression (grinning, shocked wide eyes, proud smirk).
-- Do NOT mention style, render or "3D" - that is added separately.
-
-Return ONLY JSON with exactly these keys:
-{{
- "title": "curiosity title under 80 chars with 1-2 emojis and ending with #shorts",
- "description": "1-2 short engaging sentences",
- "hashtags": ["#cat", "... 6-8 hashtags incl. #shorts"],
- "keywords": ["6-8 search keyword phrases people would search on YouTube"],
- "character": "ONE detailed sentence describing the exact look of the main characters - species, body shape, fur/feather colour, eye colour, clothing, size difference, and the setting. This exact sentence is reused in every scene for consistency, so be very specific.",
- "scenes": [{{"visual": "one sentence, concrete action + camera + expression", "sfx": "short sound effect description e.g. cat meow"}}],
- "music": "short description of funny instrumental background music, name real instruments and tempo"
-}}
-The scenes array must have exactly {n_scenes} items."""
-
-
-def _clean(text):
-    text = text.strip()
-    text = re.sub(r"^```(?:json)?\s*", "", text, flags=re.I)
-    return re.sub(r"\s*```$", "", text).strip()
-
-
-def _gemini(prompt):
-    key = os.getenv("GEMINI_API_KEY", "").strip()
-    if not key:
-        return None
-    model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-    r = requests.post(
-        url,
-        params={"key": key},
-        json={"contents": [{"parts": [{"text": prompt}]}],
-              "generationConfig": {"responseMimeType": "application/json", "temperature": 1.0}},
-        timeout=90,
+    """Put character continuity first because many video/image models weight early text."""
+    return (
+        f"CHARACTER AND WORLD CONTINUITY: {story['character']} "
+        f"SHOT: {scene['visual']} "
+        f"VISUAL STYLE: {STYLE}. "
+        f"NEGATIVE CONSTRAINTS: {NEGATIVE}."
     )
-    r.raise_for_status()
-    return json.loads(_clean(r.json()["candidates"][0]["content"]["parts"][0]["text"]))
-
-
-def _groq(prompt):
-    key = os.getenv("GROQ_API_KEY", "").strip()
-    if not key:
-        return None
-    r = requests.post(
-        "https://api.groq.com/openai/v1/chat/completions",
-        headers={"Authorization": f"Bearer {key}"},
-        json={"model": os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
-              "messages": [{"role": "user", "content": prompt}],
-              "response_format": {"type": "json_object"}, "temperature": 1.0},
-        timeout=90,
-    )
-    r.raise_for_status()
-    return json.loads(_clean(r.json()["choices"][0]["message"]["content"]))
-
-
-def _valid(s, n):
-    return (isinstance(s, dict) and s.get("title") and s.get("character")
-            and isinstance(s.get("scenes"), list) and len(s["scenes"]) >= 1
-            and all(isinstance(x, dict) and x.get("visual") for x in s["scenes"]))
-
-
-def generate_story(n_scenes=3):
-    prompt = _prompt(n_scenes)
-    for name, fn in (("Gemini", _gemini), ("Groq", _groq)):
-        try:
-            story = fn(prompt)
-            if _valid(story, n_scenes):
-                story["scenes"] = story["scenes"][:n_scenes]
-                print(f"Story idea from {name}: {story['title']}")
-                return story
-        except Exception as exc:  # noqa: BLE001
-            print(f"{name} failed: {exc}")
-    print("Using built-in fallback story.")
-    story = dict(FALLBACK)
-    story["scenes"] = FALLBACK["scenes"][:n_scenes]
-    return story
-
-
-def scene_prompt(story, scene):
-    """Character description FIRST - video models weight the start of the prompt most."""
-    return (f"{story['character']}. {scene['visual']}. {STYLE}.")
