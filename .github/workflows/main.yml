@@ -36,29 +36,19 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Generate and upload Short
-        timeout-minutes: 20
+        timeout-minutes: 25
         env:
-          # ---- fal.ai (free 5/day per signed-in account) ----
-          FAL_KEY_1: ${{ secrets.FAL_KEY_1 }}
-          FAL_KEY_2: ${{ secrets.FAL_KEY_2 }}
-
-          # ---- Agnes AI fallback (free) ----
-          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          # ---- Agnes AI keys (free, no card, multi-account rotation) ----
+          AGNES_API_KEY_1: ${{ secrets.AGNES_API_KEY_1 }}
+          AGNES_API_KEY_2: ${{ secrets.AGNES_API_KEY_2 }}
+          AGNES_API_KEY_3: ${{ secrets.AGNES_API_KEY_3 }}
           AGNES_MODEL: "agnes-video-2.5-flash"
 
           # ---- Story generation ----
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
 
-          # ---- HuggingFace fallback tokens ----
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
-          HF_TOKEN_2: ${{ secrets.HF_TOKEN_2 }}
-          HF_TOKEN_3: ${{ secrets.HF_TOKEN_3 }}
-
-          # ---- Image fallback ----
-          POLLINATIONS_API_KEY: ${{ secrets.POLLINATIONS_API_KEY }}
-
-          # ---- Audio ----
+          # ---- Audio (ElevenLabs keys rotate) ----
           ELEVEN_KEY_1: ${{ secrets.ELEVEN_KEY_1 }}
           ELEVEN_KEY_2: ${{ secrets.ELEVEN_KEY_2 }}
           ELEVEN_KEY_3: ${{ secrets.ELEVEN_KEY_3 }}
@@ -69,16 +59,7 @@ jobs:
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
           YT_PRIVACY_STATUS: ${{ vars.YT_PRIVACY_STATUS || 'public' }}
 
-          # Scheduled runs have no inputs, so this is empty and the video gets uploaded.
-          # Manual runs with dry_run ticked pass "true" and skip the upload.
           DRY_RUN: ${{ inputs.dry_run }}
-
-          # 0 = Replicate paid (best quality, needs card)
-          # 1 = free mode: fal.ai -> Agnes -> HuggingFace -> image+zoom
-          FREE_MODE: "1"
-
-          # Real video models (only used if FREE_MODE=0)
-          VIDEO_MODELS: "bytedance/seedance-1-lite,minimax/video-01"
 
           # Story / clip settings
           NUM_SCENES: "3"
