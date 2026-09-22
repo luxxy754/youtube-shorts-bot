@@ -78,7 +78,7 @@ def replicate_clip(prompt, path):
 # LTX stays as a lighter/faster last resort if Wan2.2's queue is full.
 HF_SPACES = [x.strip() for x in os.getenv(
     "HF_VIDEO_SPACES",
-    "zerogpu-aoti/wan2-2-fp8da-aoti,Lightricks/ltx-video-distilled").split(",") if x.strip()]
+    "Lightricks/ltx-video-distilled,zerogpu-aoti/wan2-2-fp8da-aoti").split(",") if x.strip()]
 _hf_dead = set()  # (space, token_index) that ran out of quota
 
 
@@ -252,7 +252,7 @@ SHOTS = [
     "close-up shot of the characters' faces and funny reactions",
     "dynamic low angle action shot",
 ]
-IMAGES_PER_SCENE = int(os.getenv("IMAGES_PER_SCENE", "1"))
+IMAGES_PER_SCENE = int(os.getenv("IMAGES_PER_SCENE", "3"))
 FREE_MODE = os.getenv("FREE_MODE", "0").lower() in {"1", "true", "yes"}
 
 
