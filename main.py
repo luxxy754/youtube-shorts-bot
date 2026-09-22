@@ -4,7 +4,7 @@ import os
 import random
 
 from scripts.assemble import join_clips, mix
-from scripts.audio import get_music, get_sfx
+from scripts.audio import get_music, get_sfx, music_credit
 from scripts.story import generate_story, scene_prompt
 from scripts.upload_youtube import have_credentials, upload_to_youtube
 from scripts.video import CLIP_SECONDS, make_clip
@@ -14,7 +14,7 @@ NUM_SCENES = int(os.getenv("NUM_SCENES", "3"))
 MUSIC_VOLUME = float(os.getenv("MUSIC_VOLUME", "0.30"))
 
 
-def build_metadata(story):
+def build_metadata(story, credit=None):
     tags = [h.lstrip("#") for h in story.get("hashtags", [])]
     tags += [k for k in story.get("keywords", [])]
     title = story["title"].strip()
@@ -23,6 +23,8 @@ def build_metadata(story):
     desc = story.get("description", "").strip()
     desc += "\n\n" + " ".join(story.get("hashtags", []))
     desc += "\n\nKeywords: " + ", ".join(story.get("keywords", []))
+    if credit:
+        desc += f"\n\n{credit}"
     return title, desc, tags[:25]
 
 
@@ -51,10 +53,20 @@ def main():
                       os.path.join(OUT, "music.mp3"),
                       seconds=max(8, int(sum(durs)) + 2))
     final = os.path.join(OUT, "final_short.mp4")
-    mix(joined, durs, sfx, music, final, music_volume=MUSIC_VOLUME)
+    try:
+        mix(joined, durs, sfx, music, final, music_volume=MUSIC_VOLUME)
+    except Exception as exc:  # noqa: BLE001
+        print(f"  Mix with music failed ({str(exc)[:200]}), retrying without music")
+        music = None
+        try:
+            mix(joined, durs, sfx, music, final, music_volume=MUSIC_VOLUME)
+        except Exception as exc2:  # noqa: BLE001
+            print(f"  Mix with sfx failed too ({str(exc2)[:200]}), retrying silent")
+            sfx = [None] * len(sfx)
+            mix(joined, durs, sfx, music, final, music_volume=MUSIC_VOLUME)
     print(f"Video ready: {final} ({sum(durs):.1f}s)")
 
-    title, desc, tags = build_metadata(story)
+    title, desc, tags = build_metadata(story, music_credit(music))
     with open(os.path.join(OUT, "meta.json"), "w", encoding="utf-8") as f:
         json.dump({"title": title, "description": desc, "tags": tags}, f, ensure_ascii=False, indent=2)
 
