@@ -7,10 +7,10 @@ on:
         description: "Only make the video, do not upload to YouTube"
         type: boolean
         default: false
-  # Auto-run 2 times daily (UTC time)
-  # 04:00 UTC = 09:00 AM PKT | 14:00 UTC = 07:00 PM PKT
+  # Auto-run 2 times daily (UTC time) — off-peak hours for Agnes AI
+  # 20:00 UTC = 01:00 AM PKT | 08:00 UTC = 01:00 PM PKT
   schedule:
-    - cron: "0 4,14 * * *"
+    - cron: "0 20,8 * * *"
 
 permissions:
   contents: read
@@ -62,7 +62,7 @@ jobs:
           DRY_RUN: ${{ inputs.dry_run }}
 
           # Story / clip settings
-          NUM_SCENES: "3"
+          NUM_SCENES: "2"
           CLIP_SECONDS: "5"
           MUSIC_VOLUME: "0.16"
         run: python main.py
