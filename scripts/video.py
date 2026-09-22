@@ -1,12 +1,12 @@
 """Video generation for the YouTube Shorts bot.
 
 Priority:
-1. Agnes AI free text-to-video (agnes-video-2.5-flash)
-2. HuggingFace Spaces fallback
-3. Image-motion fallback (last resort)
+1. fal.ai MiniMax H3 Max (free 5/day per signed-in account)
+2. Agnes AI (free fallback)
+3. HuggingFace Spaces fallback
+4. Image-motion fallback (last resort)
 
-Agnes AI: permanently free, no credit card.
-Get key at: https://platform.agnes-ai.com
+fal.ai: Get key at https://fal.ai → sign in → API Keys
 """
 
 import os
@@ -18,14 +18,12 @@ from urllib.parse import quote
 
 import requests
 
-
 CLIP_SECONDS = int(os.getenv("CLIP_SECONDS", "4"))
 
 FREE_MODE = os.getenv("FREE_MODE", "1").lower() in {"1", "true", "yes"}
 
 IMAGES_PER_SCENE = max(1, int(os.getenv("IMAGES_PER_SCENE", "4")))
 
-# Agnes AI model (free)
 AGNES_MODEL = os.getenv("AGNES_MODEL", "agnes-video-2.5-flash")
 AGNES_BASE = "https://apihub.agnes-ai.com/v1"
 
@@ -37,49 +35,74 @@ HF_SPACES = [
 _HF_DEAD = set()
 
 
-def _hf_tokens():
-    names = ["HF_TOKEN", "HF_TOKEN_2", "HF_TOKEN_3", "HF_TOKEN_4"]
-    return [os.getenv(name, "").strip() for name in names if os.getenv(name, "").strip()]
+# ---------------------------------------------------------
+# fal.ai MiniMax H3 Max (free 5/day per key)
+# ---------------------------------------------------------
 
+def fal_video(prompt, path):
+    """fal.ai MiniMax H3 Max — free 5 generations/day per signed-in account."""
+    keys = [os.getenv(f"FAL_KEY_{i}", "").strip() for i in range(1, 4)]
+    keys = [k for k in keys if k]
 
-def _find_video(obj):
-    if isinstance(obj, str):
-        if obj.lower().endswith((".mp4", ".webm", ".mov")) and os.path.exists(obj):
-            return obj
-        return None
-    if isinstance(obj, dict):
-        for key in ("video", "path", "value", "name"):
-            if key in obj:
-                result = _find_video(obj[key])
-                if result:
-                    return result
-        for value in obj.values():
-            result = _find_video(value)
-            if result:
-                return result
-    if isinstance(obj, (list, tuple)):
-        for value in obj:
-            result = _find_video(value)
-            if result:
-                return result
-    return None
+    if not keys:
+        print("  FAL_KEY_1/FAL_KEY_2 not set")
+        return False
+
+    try:
+        import fal_client
+    except ImportError:
+        print("  fal_client not installed. Add 'fal-client' to requirements.txt")
+        return False
+
+    for idx, key in enumerate(keys):
+        try:
+            os.environ["FAL_KEY"] = key
+            print(f"  fal.ai (key {idx + 1}) generating...")
+
+            result = fal_client.subscribe(
+                "minimax/h3-max/text-to-video",
+                arguments={
+                    "prompt": prompt,
+                    "resolution": "768P",
+                    "aspect_ratio": "9:16",
+                    "duration": CLIP_SECONDS,
+                },
+                with_logs=False,
+            )
+
+            video_url = result["video"]["url"]
+            data = requests.get(video_url, timeout=180)
+            with open(path, "wb") as f:
+                f.write(data.content)
+
+            print(f"  fal.ai success (key {idx + 1})")
+            return True
+
+        except Exception as exc:
+            msg = str(exc).lower()
+            if any(w in msg for w in ("quota", "rate", "429", "exceeded", "limit")):
+                print(f"  fal.ai key {idx + 1} exhausted, trying next...")
+                continue
+            print(f"  fal.ai error: {str(exc)[:200]}")
+            continue
+
+    return False
 
 
 # ---------------------------------------------------------
-# Agnes AI (free, real text-to-video)
+# Agnes AI (free fallback)
 # ---------------------------------------------------------
 
 def agnes_video(prompt, path):
-    """Agnes AI free text-to-video. Returns True on success."""
+    """Agnes AI free text-to-video."""
     key = os.getenv("AGNES_API_KEY", "").strip()
     if not key:
-        print("  AGNES_API_KEY not set, skipping Agnes AI")
+        print("  AGNES_API_KEY not set")
         return False
 
     try:
         print(f"  Creating Agnes task (model={AGNES_MODEL})...")
 
-        # Create task
         create = requests.post(
             f"{AGNES_BASE}/videos",
             headers={
@@ -109,8 +132,7 @@ def agnes_video(prompt, path):
 
         print(f"  Agnes task created: {video_id}")
 
-        # Poll for completion
-        max_wait = 600  # 10 minutes
+        max_wait = 600
         start = time.time()
         while time.time() - start < max_wait:
             time.sleep(5)
@@ -159,6 +181,34 @@ def agnes_video(prompt, path):
 # ---------------------------------------------------------
 # HuggingFace fallback
 # ---------------------------------------------------------
+
+def _hf_tokens():
+    names = ["HF_TOKEN", "HF_TOKEN_2", "HF_TOKEN_3", "HF_TOKEN_4"]
+    return [os.getenv(name, "").strip() for name in names if os.getenv(name, "").strip()]
+
+
+def _find_video(obj):
+    if isinstance(obj, str):
+        if obj.lower().endswith((".mp4", ".webm", ".mov")) and os.path.exists(obj):
+            return obj
+        return None
+    if isinstance(obj, dict):
+        for key in ("video", "path", "value", "name"):
+            if key in obj:
+                result = _find_video(obj[key])
+                if result:
+                    return result
+        for value in obj.values():
+            result = _find_video(value)
+            if result:
+                return result
+    if isinstance(obj, (list, tuple)):
+        for value in obj:
+            result = _find_video(value)
+            if result:
+                return result
+    return None
+
 
 def _pick_endpoint(api):
     endpoints = api.get("named_endpoints", {})
@@ -426,21 +476,28 @@ def make_clip(prompt, path, seed=0):
     if FREE_MODE:
         print("  FREE_MODE enabled.")
 
-        # Priority 1: Agnes AI (real text-to-video, free)
+        # Priority 1: fal.ai MiniMax H3 Max
+        if fal_video(prompt, path):
+            print("  Generated with fal.ai.")
+            return True
+
+        print("  fal.ai unavailable, trying Agnes...")
+
+        # Priority 2: Agnes AI
         if agnes_video(prompt, path):
             print("  Generated with Agnes AI.")
             return True
 
         print("  Agnes unavailable, trying HuggingFace...")
 
-        # Priority 2: HuggingFace Spaces
+        # Priority 3: HuggingFace
         if hf_clip(prompt, path):
             print("  Generated with HF video.")
             return True
 
-        print("  HF unavailable, using image-motion fallback...")
+        print("  All providers failed, using image-motion fallback...")
 
-        # Priority 3: image + zoom (last resort)
+        # Priority 4: image + zoom
         return image_motion_clip(prompt, path, seed)
 
     # Non-free mode (Replicate)
