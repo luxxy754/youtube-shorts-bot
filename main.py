@@ -37,7 +37,7 @@ def main():
     for i, sc in enumerate(story["scenes"]):
         print(f"Scene {i + 1}/{len(story['scenes'])}: {sc['visual']}")
         path = os.path.join(OUT, f"clip_{i}.mp4")
-        if make_clip(scene_prompt(story, sc), path, seed + i):
+        if make_clip(scene_prompt(story, i), path, seed + i):
             clips.append((path, sc))
         else:
             print("  Scene skipped (all providers failed)")
