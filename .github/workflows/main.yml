@@ -7,6 +7,8 @@ on:
         description: "Only make the video, do not upload to YouTube"
         type: boolean
         default: false
+  # Auto-run 2 times daily (UTC time)
+  # 04:00 UTC = 09:00 AM PKT | 14:00 UTC = 07:00 PM PKT
   schedule:
     - cron: "0 4,14 * * *"
 
@@ -35,37 +37,50 @@ jobs:
 
       - name: Generate and upload Short
         env:
-          # Agnes AI (free, no credit card) — GET KEY: https://platform.agnes-ai.com
-          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          # ---- fal.ai (free 5/day per signed-in account) ----
+          # Get keys at https://fal.ai -> sign in -> API Keys
+          FAL_KEY_1: ${{ secrets.FAL_KEY_1 }}
+          FAL_KEY_2: ${{ secrets.FAL_KEY_2 }}
 
-          # Story generation
+          # ---- Agnes AI fallback (free) ----
+          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          AGNES_MODEL: "agnes-video-2.5-flash"
+
+          # ---- Story generation ----
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
 
-          # HF fallback tokens
+          # ---- HuggingFace fallback tokens ----
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           HF_TOKEN_2: ${{ secrets.HF_TOKEN_2 }}
           HF_TOKEN_3: ${{ secrets.HF_TOKEN_3 }}
 
-          # Image fallback
+          # ---- Image fallback ----
           POLLINATIONS_API_KEY: ${{ secrets.POLLINATIONS_API_KEY }}
 
-          # Audio
+          # ---- Audio (ElevenLabs keys rotate) ----
           ELEVEN_KEY_1: ${{ secrets.ELEVEN_KEY_1 }}
           ELEVEN_KEY_2: ${{ secrets.ELEVEN_KEY_2 }}
           ELEVEN_KEY_3: ${{ secrets.ELEVEN_KEY_3 }}
 
-          # YouTube
+          # ---- YouTube upload ----
           YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
           YT_PRIVACY_STATUS: ${{ vars.YT_PRIVACY_STATUS || 'public' }}
 
+          # Scheduled runs have no inputs, so this is empty and the video gets uploaded.
+          # Manual runs with dry_run ticked pass "true" and skip the upload.
           DRY_RUN: ${{ inputs.dry_run }}
 
+          # 0 = Replicate paid (best quality, needs card)
+          # 1 = free mode: fal.ai -> Agnes -> HuggingFace -> image+zoom
           FREE_MODE: "1"
-          AGNES_MODEL: "agnes-video-2.5-flash"
 
+          # Real video models (only used if FREE_MODE=0)
+          VIDEO_MODELS: "bytedance/seedance-1-lite,minimax/video-01"
+
+          # Story / clip settings
           NUM_SCENES: "3"
           CLIP_SECONDS: "5"
           MUSIC_VOLUME: "0.16"
@@ -79,4 +94,4 @@ jobs:
           path: |
             output/final_short.mp4
             output/meta.json
-          if-no-files-found: warn
+          if-no-files-found: warns
