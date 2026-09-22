@@ -7,8 +7,6 @@ on:
         description: "Only make the video, do not upload to YouTube"
         type: boolean
         default: false
-  # Auto-run 2 times daily (UTC time)
-  # 04:00 UTC = 09:00 AM PKT | 14:00 UTC = 07:00 PM PKT
   schedule:
     - cron: "0 4,14 * * *"
 
@@ -37,33 +35,37 @@ jobs:
 
       - name: Generate and upload Short
         env:
-          REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
+          # Agnes AI (free, no credit card) — GET KEY: https://platform.agnes-ai.com
+          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+
+          # Story generation
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+
+          # HF fallback tokens
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           HF_TOKEN_2: ${{ secrets.HF_TOKEN_2 }}
           HF_TOKEN_3: ${{ secrets.HF_TOKEN_3 }}
+
+          # Image fallback
           POLLINATIONS_API_KEY: ${{ secrets.POLLINATIONS_API_KEY }}
+
+          # Audio
           ELEVEN_KEY_1: ${{ secrets.ELEVEN_KEY_1 }}
           ELEVEN_KEY_2: ${{ secrets.ELEVEN_KEY_2 }}
           ELEVEN_KEY_3: ${{ secrets.ELEVEN_KEY_3 }}
+
+          # YouTube
           YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
           YT_PRIVACY_STATUS: ${{ vars.YT_PRIVACY_STATUS || 'public' }}
-          # Scheduled runs have no inputs, so this is empty and the video gets uploaded.
-          # Manual runs with dry_run ticked pass "true" and skip the upload.
+
           DRY_RUN: ${{ inputs.dry_run }}
 
-          # ---- THE IMPORTANT ONE ----
-          # 0 = Replicate real text-to-video (best quality, costs money, needs card)
-          # 1 = free mode: Wan2.2 free GPU Space first, LTX second, image+zoom last resort.
-          #     No card, no cost. Quality is good but NOT guaranteed identical to a paid
-          #     model every run - free GPU queue can be busy or a Space can be down.
           FREE_MODE: "1"
+          AGNES_MODEL: "agnes-video-2.5-flash"
 
-          # Real video models, tried in order.
-          VIDEO_MODELS: "bytedance/seedance-1-lite,minimax/video-01"
           NUM_SCENES: "3"
           CLIP_SECONDS: "5"
           MUSIC_VOLUME: "0.16"
