@@ -6,7 +6,7 @@ Priority:
 3. HuggingFace Spaces fallback
 4. Image-motion fallback (last resort)
 
-fal.ai: Get key at https://fal.ai → sign in → API Keys
+fal.ai: Get key at https://fal.ai -> sign in -> API Keys
 """
 
 import os
@@ -40,7 +40,7 @@ _HF_DEAD = set()
 # ---------------------------------------------------------
 
 def fal_video(prompt, path):
-    """fal.ai MiniMax H3 Max — free 5 generations/day per signed-in account."""
+    """fal.ai MiniMax H3 Max - free 5 generations/day per signed-in account."""
     keys = [os.getenv(f"FAL_KEY_{i}", "").strip() for i in range(1, 4)]
     keys = [k for k in keys if k]
 
@@ -68,6 +68,7 @@ def fal_video(prompt, path):
                     "duration": CLIP_SECONDS,
                 },
                 with_logs=False,
+                client_timeout=120,
             )
 
             video_url = result["video"]["url"]
@@ -80,8 +81,8 @@ def fal_video(prompt, path):
 
         except Exception as exc:
             msg = str(exc).lower()
-            if any(w in msg for w in ("quota", "rate", "429", "exceeded", "limit")):
-                print(f"  fal.ai key {idx + 1} exhausted, trying next...")
+            if any(w in msg for w in ("quota", "rate", "429", "exceeded", "limit", "timeout")):
+                print(f"  fal.ai key {idx + 1} failed ({str(exc)[:100]}), trying next...")
                 continue
             print(f"  fal.ai error: {str(exc)[:200]}")
             continue
