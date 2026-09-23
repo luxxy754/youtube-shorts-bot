@@ -39,18 +39,17 @@ jobs:
         run: |
           pip install -r requirements.txt
 
-      # ---- Wav2Lip repo + model cache ----
       - name: Cache Wav2Lip repo
         uses: actions/cache@v4
         with:
           path: Wav2Lip
-          key: wav2lip-repo-v1
+          key: wav2lip-repo-v2
 
       - name: Cache Wav2Lip model
         uses: actions/cache@v4
         with:
           path: Wav2Lip/checkpoints
-          key: wav2lip-gan-v1
+          key: wav2lip-gan-v2
 
       - name: Clone Wav2Lip
         run: |
@@ -61,19 +60,20 @@ jobs:
       - name: Download Wav2Lip checkpoint
         run: |
           mkdir -p Wav2Lip/checkpoints
-          if [ ! -f Wav2Lip/checkpoints/wav2lip_gan.pth ]; then
+          if [ ! -s Wav2Lip/checkpoints/wav2lip_gan.pth ]; then
             wget -q --show-progress -O Wav2Lip/checkpoints/wav2lip_gan.pth \
-              "https://huggingface.co/spaces/wav2lip/wav2lip/resolve/main/checkpoints/wav2lip_gan.pth"
+              "https://huggingface.co/camenduru/Wav2Lip/resolve/main/checkpoints/wav2lip_gan.pth"
           fi
           ls -lh Wav2Lip/checkpoints/
 
       - name: Download face detection model
         run: |
           mkdir -p Wav2Lip/face_detection/detection/sfd
-          if [ ! -f Wav2Lip/face_detection/detection/sfd/s3fd.pth ]; then
-            wget -q -O Wav2Lip/face_detection/detection/sfd/s3fd.pth \
-              "https://www.adrianbulat.com/downloads/python-fan/s3fd-619a316812.pth"
+          if [ ! -s Wav2Lip/face_detection/detection/sfd/s3fd.pth ]; then
+            wget -q --show-progress -O Wav2Lip/face_detection/detection/sfd/s3fd.pth \
+              "https://huggingface.co/camenduru/Wav2Lip/resolve/main/face_detection/detection/sfd/s3fd.pth"
           fi
+          ls -lh Wav2Lip/face_detection/detection/sfd/
 
       - name: Install Wav2Lip deps
         run: |
