@@ -36,7 +36,7 @@ def build_metadata(story, credit=None):
 
 def main():
     print("=" * 60)
-    print("CAT SHORTS BOT - STARTING (Agnes v2.0)")
+    print("CAT SHORTS BOT - STARTING (Agnes)")
     print("=" * 60)
     os.makedirs(OUT, exist_ok=True)
 
@@ -64,15 +64,16 @@ def main():
         print("Agnes failed - using static fallback")
         silent = os.path.join(OUT, "silent.mp3")
         try:
+            # FIXED: -t AFTER -i, and use WAV format for reliability
+            silent_wav = os.path.join(OUT, "silent.wav")
             subprocess.run([
                 "ffmpeg", "-y", "-loglevel", "error",
                 "-f", "lavfi",
                 "-i", "anullsrc=r=44100:cl=stereo",
                 "-t", "15",
-                "-c:a", "aac",
-                silent,
+                silent_wav,
             ], check=True, timeout=60)
-            if not static_video(img_path, silent, video_path):
+            if not static_video(img_path, silent_wav, video_path):
                 print("FAILED: Fallback also failed")
                 return
         except Exception as exc:
@@ -106,7 +107,6 @@ def main():
     except Exception as exc:
         print(f"  Mix failed: {str(exc)[:200]}")
         shutil.copy(video_path, final)
-        print(f"  Using raw video: {final}")
 
     print("\n[6/6] Saving metadata + uploading...")
     title, desc, tags = build_metadata(story, music_credit(music))
@@ -131,8 +131,5 @@ if __name__ == "__main__":
         main()
     except Exception:
         import traceback
-        print("=" * 60)
-        print("FATAL ERROR:")
-        print("=" * 60)
         traceback.print_exc()
         raise SystemExit(1)
