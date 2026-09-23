@@ -1,27 +1,21 @@
-"""Cat Shorts: story -> frames -> animation -> Wav2Lip -> mix -> upload."""
+"""Cat Shorts: story -> frames -> animation -> cat sounds + music -> upload."""
 import json
 import os
 import random
+import subprocess
 
-from scripts.assemble import (
-    frames_to_video, add_blink, apply_breathing,
-    join_clips, mix,
-)
-from scripts.audio import eleven_dialogue, get_music, get_sfx, music_credit
-from scripts.story import (
-    generate_story, frame_prompt, scene_dialogue, scene_sfx,
-)
+from scripts.assemble import frames_to_video, join_clips, mix
+from scripts.audio import get_music, get_sfx, music_credit
+from scripts.story import generate_story, frame_prompt, scene_sfx
 from scripts.upload_youtube import have_credentials, upload_to_youtube
-from scripts.video import (
-    generate_scene_frames, pollinations_image,
-    static_video, wav2lip_sync,
-)
+from scripts.video import generate_scene_frames
 
 OUT = "output"
 NUM_SCENES = int(os.getenv("NUM_SCENES", "4"))
 FRAMES_PER_SCENE = int(os.getenv("FRAMES_PER_SCENE", "6"))
 FPS = int(os.getenv("FPS", "8"))
 MUSIC_VOLUME = float(os.getenv("MUSIC_VOLUME", "0.16"))
+SCENE_SECONDS = float(os.getenv("SCENE_SECONDS", "4.0"))
 
 
 def build_metadata(story, credit=None):
@@ -49,8 +43,9 @@ def main():
     for i, sc in enumerate(story["scenes"]):
         print(f"\n=== Scene {i+1}/{len(story['scenes'])} ===")
 
-        # 1. Generate N frames
+        # 1. Generate frames
         print(f"Generating {FRAMES_PER_SCENE} frames...")
+
         def make_prompt(fi):
             return frame_prompt(story, i, fi, FRAMES_PER_SCENE)
 
@@ -61,45 +56,28 @@ def main():
             print("  SKIP: no frames generated")
             continue
 
-        # 2. Compile frames to video
+        # 2. Frames -> animation video
         anim_vid = os.path.join(OUT, f"scene_{i}_anim.mp4")
         if not frames_to_video(frames, anim_vid, fps=FPS):
             print("  SKIP: frame compilation failed")
             continue
 
-        # 3. Generate dialogue audio
-        aud_path = os.path.join(OUT, f"scene_{i}.mp3")
-        dialogue = scene_dialogue(story, i)
-        if not eleven_dialogue(dialogue, aud_path):
-            print("  SKIP: dialogue audio failed")
-            continue
-
-        # 4. Wav2Lip on first frame (for lipsync)
-        main_img = frames[0]
-        talk_vid = os.path.join(OUT, f"scene_{i}_talk.mp4")
-        if wav2lip_sync(main_img, aud_path, talk_vid):
-            # Replace animation's first frame with talking version? No -
-            # simpler: just use the animation + audio, Wav2Lip is too slow per frame.
-            # Instead, use animation video + audio track separately.
-            pass
-
-        # 5. Combine animation video with audio
-        final_scene = os.path.join(OUT, f"scene_{i}_final.mp4")
+        # 3. Add silent audio track (so concat works)
+        silent_vid = os.path.join(OUT, f"scene_{i}_silent.mp4")
         try:
-            import subprocess
             subprocess.run([
                 "ffmpeg", "-y", "-loglevel", "error",
-                "-i", anim_vid, "-i", aud_path,
+                "-i", anim_vid,
+                "-f", "lavfi", "-t", str(SCENE_SECONDS), "-i", "anullsrc=r=44100:cl=stereo",
                 "-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
-                "-shortest",
-                "-movflags", "+faststart",
-                final_scene,
+                "-shortest", "-movflags", "+faststart",
+                silent_vid,
             ], check=True, timeout=120)
-            scene_videos.append(final_scene)
+            scene_videos.append(silent_vid)
             scenes_used.append(sc)
             print(f"  Scene {i+1} DONE")
         except Exception as exc:
-            print(f"  Scene {i+1} merge failed: {str(exc)[:200]}")
+            print(f"  Scene {i+1} silent merge failed: {str(exc)[:200]}")
             continue
 
     if not scene_videos:
@@ -109,7 +87,7 @@ def main():
     print(f"\nConcatenating {len(scene_videos)} scenes...")
     joined, durs = join_clips(scene_videos, OUT)
 
-    print("Adding music + sfx...")
+    print("Adding cat sounds + music...")
     sfx = get_sfx(scenes_used, OUT)
     music = get_music(
         story.get("music", "playful cartoon background music"),
@@ -126,7 +104,7 @@ def main():
         try:
             mix(joined, durs, sfx, music, final, music_volume=MUSIC_VOLUME)
         except Exception as exc2:
-            print(f"  Mix without music failed too: {str(exc2)[:200]}")
+            print(f"  Mix without music failed: {str(exc2)[:200]}")
             return
 
     print(f"Video ready: {final} ({sum(durs):.1f}s)")
