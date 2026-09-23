@@ -83,13 +83,22 @@ jobs:
       - name: Generate and upload Short
         timeout-minutes: 100
         env:
+          # ---- Story generation ----
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
 
+          # ---- ElevenLabs keys ----
           ELEVEN_KEY_1: ${{ secrets.ELEVEN_KEY_1 }}
           ELEVEN_KEY_2: ${{ secrets.ELEVEN_KEY_2 }}
           ELEVEN_KEY_3: ${{ secrets.ELEVEN_KEY_3 }}
 
+          # ---- Hindi Voice settings ----
+          ELEVEN_TTS_MODEL: "eleven_multilingual_v2"
+          ELEVEN_VOICE_HINDI_1: ${{ secrets.ELEVEN_VOICE_HINDI_1 }}
+          ELEVEN_VOICE_HINDI_2: ${{ secrets.ELEVEN_VOICE_HINDI_2 }}
+          ELEVEN_VOICE_HINDI_3: ${{ secrets.ELEVEN_VOICE_HINDI_3 }}
+
+          # ---- YouTube upload ----
           YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
@@ -97,13 +106,16 @@ jobs:
 
           DRY_RUN: ${{ inputs.dry_run }}
 
+          # ---- Story / scene settings ----
           NUM_SCENES: "4"
           MUSIC_VOLUME: "0.16"
 
+          # ---- Image generation ----
           IMAGE_MODEL: "flux"
-          IMAGE_TIMEOUT: "180"
-          IMAGE_RETRIES: "3"
+          IMAGE_TIMEOUT: "240"
+          IMAGE_RETRIES: "4"
 
+          # ---- Wav2Lip ----
           WAV2LIP_CHECKPOINT: ${{ github.workspace }}/Wav2Lip/checkpoints/wav2lip_gan.pth
         run: python main.py
 
