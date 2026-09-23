@@ -1,4 +1,9 @@
-"""ffmpeg: normalise clips to 1080x1920, join them, mix sfx + music."""
+"""ffmpeg: turn each scene IMAGE into a motion clip, join, mix sfx + music.
+
+Motion is a "Ken Burns" effect: slowly push in or pull out while panning
+slightly, so the still image feels alive. Scene index determines direction
+so consecutive scenes have varied motion.
+"""
 import os
 import subprocess
 
@@ -14,40 +19,91 @@ def _duration(path):
     return float(out.strip())
 
 
-def join_clips(clips, out_dir, max_len):
-    """Returns (joined_video_path, [duration per clip]).
-    Uses a blurred-background letterbox instead of a hard crop: whatever aspect
-    ratio the source clip comes in at, the WHOLE frame is kept (nothing cut off
-    the sides/top), just scaled to fit inside 1080x1920 and centred. A cropped
-    fill was cutting characters standing near the edges out of frame."""
-    vf = (
-        "split=2[bg][fg];"
-        "[bg]scale=1080:1920:force_original_aspect_ratio=increase,"
-        "crop=1080:1920,gblur=sigma=25,eq=brightness=-0.05[bgblur];"
-        "[fg]scale=1080:1920:force_original_aspect_ratio=decrease[fgfit];"
-        "[bgblur][fgfit]overlay=(W-w)/2:(H-h)/2,"
-        "setsar=1,fps=30,format=yuv420p"
+# (zoom direction, pan direction) per scene index
+_MOTIONS = [
+    ("in",  "right"),   # push in + slight pan right
+    ("out", "left"),    # pull out + slight pan left
+    ("in",  "up"),      # push in + slight pan up
+    ("out", "down"),    # pull out + slight pan down
+]
+
+
+def _ken_burns_filter(scene_index: int, seconds: int, fps: int = 30) -> str:
+    """Return the ffmpeg -vf chain that turns a still into motion.
+
+    Input is assumed 1080x1920 already (Pollinations generates at that size).
+    We scale slightly larger to give zoompan room, then apply zoompan.
+    """
+    zoom_dir, pan_dir = _MOTIONS[scene_index % len(_MOTIONS)]
+
+    if zoom_dir == "in":
+        z_expr = "min(zoom+0.0012,1.25)"
+    else:
+        z_expr = "max(1.25-0.0012*on,1.0)"
+
+    # panning offsets in normalized units
+    if pan_dir == "right":
+        x_expr = "iw/2-(iw/zoom/2)+on*0.6"
+        y_expr = "ih/2-(ih/zoom/2)"
+    elif pan_dir == "left":
+        x_expr = "iw/2-(iw/zoom/2)-on*0.6"
+        y_expr = "ih/2-(ih/zoom/2)"
+    elif pan_dir == "up":
+        x_expr = "iw/2-(iw/zoom/2)"
+        y_expr = "ih/2-(ih/zoom/2)-on*0.6"
+    else:  # down
+        x_expr = "iw/2-(iw/zoom/2)"
+        y_expr = "ih/2-(ih/zoom/2)+on*0.6"
+
+    frames = seconds * fps
+
+    return (
+        # scale up slightly (safe area for zoompan), then zoompan, then fit
+        "scale=1188:2112:force_original_aspect_ratio=increase,"
+        f"zoompan=z='{z_expr}':x='{x_expr}':y='{y_expr}'"
+        f":d={frames}:s=1080x1920:fps={fps},"
+        "setsar=1,format=yuv420p"
     )
+
+
+def join_clips(clips, out_dir, max_len):
+    """clips: list of IMAGE paths (jpg). Returns (joined_video, [durations]).
+
+    Each image becomes a max_len-second motion clip. Then all clips are
+    concatenated into a single 1080x1920 mp4.
+    """
     norm, durs = [], []
-    for i, c in enumerate(clips):
+    for i, img in enumerate(clips):
         n = os.path.join(out_dir, f"norm_{i}.mp4")
-        _run(["ffmpeg", "-y", "-loglevel", "error", "-i", c, "-an", "-t", str(max_len),
-              "-vf", vf, "-c:v", "libx264", "-preset", "veryfast", "-crf", "22", n])
+        vf = _ken_burns_filter(i, max_len)
+        _run([
+            "ffmpeg", "-y", "-loglevel", "error",
+            "-loop", "1", "-i", img,
+            "-t", str(max_len),
+            "-vf", vf,
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "22",
+            "-pix_fmt", "yuv420p", "-movflags", "+faststart",
+            n,
+        ])
         norm.append(n)
         durs.append(_duration(n))
+
     lst = os.path.join(out_dir, "list.txt")
     with open(lst, "w") as f:
         for n in norm:
             f.write(f"file '{os.path.abspath(n)}'\n")
+
     joined = os.path.join(out_dir, "joined.mp4")
-    _run(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0",
-          "-i", lst, "-c", "copy", joined])
+    _run([
+        "ffmpeg", "-y", "-loglevel", "error",
+        "-f", "concat", "-safe", "0", "-i", lst,
+        "-c", "copy", joined,
+    ])
     return joined, durs
 
 
 def mix(joined, durs, sfx, music, output, music_volume=0.16, sfx_volume=0.85):
-    """Mix: SFX on top, music underneath and DUCKED whenever an SFX plays,
-    then loudness-normalised so nothing is harsh or clipping."""
+    """Mix SFX on top of ducked music, loudness-normalized."""
     total = sum(durs)
     cmd = ["ffmpeg", "-y", "-loglevel", "error", "-i", joined]
     filters, sfx_labels, idx = [], [], 1
@@ -71,7 +127,6 @@ def mix(joined, durs, sfx, music, output, music_volume=0.16, sfx_volume=0.85):
                            f"amix=inputs={len(sfx_labels)}:normalize=0:duration=longest[sfxraw]")
         else:
             filters.append(f"{sfx_labels[0]}anull[sfxraw]")
-        # pad to full length so the sidechain key covers the whole video
         filters.append(f"[sfxraw]apad,atrim=0:{total:.2f},asetpts=N/SR/TB[sfxpad]")
 
     has_music = bool(music)
@@ -93,14 +148,15 @@ def mix(joined, durs, sfx, music, output, music_volume=0.16, sfx_volume=0.85):
     elif has_music:
         filters.append("[mus]anull[pre]")
     else:
-        _run(["ffmpeg", "-y", "-loglevel", "error", "-i", joined, "-c", "copy",
-              "-movflags", "+faststart", output])
+        _run(["ffmpeg", "-y", "-loglevel", "error", "-i", joined,
+              "-c", "copy", "-movflags", "+faststart", output])
         return
 
-    # This is what stops the "ganda / loud / distorted" sound.
     filters.append("[pre]loudnorm=I=-14:TP=-1.5:LRA=11,alimiter=limit=0.95[a]")
 
-    cmd += ["-filter_complex", ";".join(filters), "-map", "0:v", "-map", "[a]",
-            "-t", f"{total:.2f}", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
+    cmd += ["-filter_complex", ";".join(filters),
+            "-map", "0:v", "-map", "[a]",
+            "-t", f"{total:.2f}",
+            "-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
             "-ar", "44100", "-movflags", "+faststart", output]
     _run(cmd)
