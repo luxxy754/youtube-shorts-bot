@@ -40,10 +40,7 @@ jobs:
 
       - name: Debug - verify main.py structure
         run: |
-          echo "=== Last 15 lines of main.py ==="
           tail -15 main.py
-          echo ""
-          echo "=== Verify main.py imports ==="
           python -c "import main; print('main.py imports OK')"
 
       - name: Generate and upload Short
@@ -52,11 +49,10 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
 
-          # ---- Agnes API keys (3 accounts) ----
           AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
           AGNES_API_KEY_2: ${{ secrets.AGNES_API_KEY_2 }}
           AGNES_API_KEY_3: ${{ secrets.AGNES_API_KEY_3 }}
-          AGNES_MODEL: "agnes-video-v2.0"
+          AGNES_MODEL: "agnes-video-2.5"
 
           ELEVEN_KEY_1: ${{ secrets.ELEVEN_KEY_1 }}
           ELEVEN_KEY_2: ${{ secrets.ELEVEN_KEY_2 }}
@@ -73,11 +69,8 @@ jobs:
           NUM_CLIPS: "3"
           CLIP_SECONDS: "5"
           MUSIC_VOLUME: "0.16"
-
-          # ---- FAST Agnes settings ----
           AGNES_POLL_TIMEOUT: "600"
           AGNES_POLL_INTERVAL: "3"
-          AGNES_ROUND_WAIT: "10"
         run: python -u main.py
 
       - name: Keep a copy of the video
