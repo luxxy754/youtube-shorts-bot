@@ -21,7 +21,7 @@ concurrency:
 jobs:
   build-and-post:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 
@@ -47,7 +47,7 @@ jobs:
           python -c "import main; print('main.py imports OK')"
 
       - name: Generate and upload Short
-        timeout-minutes: 35
+        timeout-minutes: 50
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
@@ -69,10 +69,12 @@ jobs:
           DRY_RUN: ${{ inputs.dry_run }}
 
           NUM_SCENES: "1"
+          NUM_CLIPS: "3"
+          CLIP_DURATION: "5"
           MUSIC_VOLUME: "0.16"
           MAGIC_HOUR_MODEL: "wan-2.2"
           VIDEO_RESOLUTION: "480p"
-          MAGIC_HOUR_POLL_TIMEOUT: "600"
+          MAGIC_HOUR_POLL_TIMEOUT: "1800"
         run: python -u main.py
 
       - name: Keep a copy of the video
