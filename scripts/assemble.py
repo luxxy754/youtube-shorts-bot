@@ -1,13 +1,4 @@
-"""ffmpeg: subtle motion (breathing + head bob + arm sway) + concat + audio mix.
-
-Motion technique:
-  1. Breathing pulse: whole image zooms 1% sinusoidally
-  2. Head bob: top 40% of image is nudged horizontally ~4px in a slow wave
-  3. Arm sway: outer 20% strips (left + right) shift vertically ~3px in opposite phase
-
-Result: character feels "alive" without AI video generation.
-The mouth area stays stable so Wav2Lip lipsync is not disturbed.
-"""
+"""ffmpeg: frames -> animation, blink, breathing, concat, audio mix."""
 import os
 import subprocess
 
@@ -23,109 +14,116 @@ def _duration(path):
     return float(out.strip())
 
 
-def _motion_filter(fps: int = 30) -> str:
-    """Build the full FFmpeg -vf chain for one scene.
+def frames_to_video(frames, out_path, fps=8):
+    """Combine frames into a choppy animation video.
 
-    Layers (all combined via a single filtergraph):
-      - base:      whole image breathing zoom  (1.000 <-> 1.010)
-      - head band: top 40% nudged horizontally +/-4px at slow speed
-      - left arm:  leftmost 22% strip shifted vertically +/-3px
-      - right arm: rightmost 22% strip shifted vertically -/+3px (opposite)
+    fps=8 gives classic cartoon feel.
+    Each frame is held for 1/fps seconds, creating the animation effect.
     """
-    # Breathing: zoom oscillates over ~90 frames (3s at 30fps)
-    # z = 1.005 + 0.005*sin(on/45)  ->  range 1.000 .. 1.010
-    return (
-        # 1) Normalize input size first
-        "scale=1080:1920:force_original_aspect_ratio=increase,"
-        "crop=1080:1920,"
-        # 2) Split into base, head, left arm, right arm
-        "split=4[base][head][larm][rarm];"
+    if not frames:
+        return False
+    # Build filter: concat all frames
+    lst = out_path + ".txt"
+    with open(lst, "w") as f:
+        for fp in frames:
+            # Each frame held for 1/fps sec
+            f.write(f"file '{os.path.abspath(fp)}'\n")
+            f.write(f"duration {1.0 / fps}\n")
+        # Repeat last frame once more (ffmpeg requirement)
+        f.write(f"file '{os.path.abspath(frames[-1])}'\n")
 
-        # 3) BASE: breathing zoom
-        "[base]zoompan="
-        "z='1.005+0.005*sin(on/45)':"
-        "x='iw/2-(iw/zoom/2)':"
-        "y='ih/2-(ih/zoom/2)':"
-        f"d=1:s=1080x1920:fps={fps},"
-        "setsar=1[basez];"
-
-        # 4) HEAD BAND: top 40%, slight horizontal nudge
-        "[head]crop=1080:768:0:0[headc];"
-        "[headc]crop=1080:768:0:0,"
-        "pad=1180:768:50:0:color=black@0[headp];"
-        # shift the padded head crop left/right by +/-4px using overlay x expression
-        # We'll re-overlay it on basez later with x expression = (W-w)/2 + 4*sin(t*2)
-
-        # 5) LEFT ARM: leftmost 22% strip, vertical nudge
-        "[larm]crop=238:1920:0:0[larmc];"
-
-        # 6) RIGHT ARM: rightmost 22% strip, vertical nudge (opposite phase)
-        "[rarm]crop=238:1920:842:0[rarmc];"
-
-        # 7) Compose: base -> overlay head -> overlay left arm -> overlay right arm
-        "[basez][headp]overlay="
-        "x='(W-w)/2+4*sin(t*2)':"
-        "y=0:shortest=1[withhead];"
-
-        "[withhead][larmc]overlay="
-        "x=0:"
-        "y='3*sin(t*2+0.5)':"
-        "shortest=1[withlarm];"
-
-        "[withlarm][rarmc]overlay="
-        "x=842:"
-        "y='-3*sin(t*2+0.5)':"
-        "shortest=1[final];"
-
-        "[final]format=yuv420p"
-    )
+    try:
+        _run([
+            "ffmpeg", "-y", "-loglevel", "error",
+            "-f", "concat", "-safe", "0", "-i", lst,
+            "-vf", f"fps={fps},scale=1080:1920:force_original_aspect_ratio=decrease,"
+                   f"pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1",
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "22",
+            "-pix_fmt", "yuv420p", "-movflags", "+faststart",
+            out_path,
+        ])
+        os.remove(lst)
+        return True
+    except Exception as exc:
+        print(f"  frames_to_video fail: {str(exc)[:200]}")
+        return False
 
 
-def apply_motion(input_video: str, output_video: str) -> bool:
-    """Wrap one scene video with breathing + head bob + arm sway."""
+def add_blink(video_path, blink_image, out_path):
+    """Overlay blink image every ~2.5 seconds for a natural blink."""
+    try:
+        dur = _duration(video_path)
+        blink_interval = 2.5
+        blink_dur = 0.05
+        n_blinks = max(1, int(dur / blink_interval))
+        enable_expr = "+".join(
+            f"between(t,{i*blink_interval},{i*blink_interval + blink_dur})"
+            for i in range(1, n_blinks + 1)
+        )
+        _run([
+            "ffmpeg", "-y", "-loglevel", "error",
+            "-i", video_path,
+            "-i", blink_image,
+            "-filter_complex",
+            f"[1:v]scale=1080:1920[blink];"
+            f"[0:v][blink]overlay=0:0:enable='{enable_expr}'[out]",
+            "-map", "[out]", "-map", "0:a?",
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "22",
+            "-c:a", "copy",
+            "-movflags", "+faststart",
+            out_path,
+        ], timeout=300)
+        return True
+    except Exception as exc:
+        print(f"  add_blink fail: {str(exc)[:200]}")
+        import shutil
+        shutil.copy(video_path, out_path)
+        return False
+
+
+def apply_breathing(input_video, output_video, fps=30):
+    """Subtle breathing zoom."""
     try:
         _run([
             "ffmpeg", "-y", "-loglevel", "error",
             "-i", input_video,
-            "-vf", _motion_filter(),
+            "-vf", (
+                "scale=1080:1920:force_original_aspect_ratio=increase,"
+                "crop=1080:1920,"
+                "zoompan=z='1.005+0.005*sin(on/45)':"
+                "x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':"
+                f"d=1:s=1080x1920:fps={fps},"
+                "setsar=1,format=yuv420p"
+            ),
             "-c:v", "libx264", "-preset", "veryfast", "-crf", "22",
             "-c:a", "copy",
             "-movflags", "+faststart",
             output_video,
         ])
         return True
-    except Exception as exc:  # noqa: BLE001
-        print(f"  Motion filter failed: {str(exc)[:200]}")
+    except Exception as exc:
+        print(f"  breathing fail: {str(exc)[:200]}")
         return False
 
 
 def join_clips(clips, out_dir):
-    """clips: list of scene video paths. Returns (joined_video, [durations])."""
-    norm, durs = [], []
-    for i, c in enumerate(clips):
-        n = os.path.join(out_dir, f"norm_{i}.mp4")
-        if apply_motion(c, n):
-            norm.append(n)
-        else:
-            norm.append(c)
-        durs.append(_duration(norm[-1]))
-
+    """Concatenate scene videos."""
     lst = os.path.join(out_dir, "list.txt")
     with open(lst, "w") as f:
-        for n in norm:
-            f.write(f"file '{os.path.abspath(n)}'\n")
-
+        for c in clips:
+            f.write(f"file '{os.path.abspath(c)}'\n")
     joined = os.path.join(out_dir, "joined.mp4")
     _run([
         "ffmpeg", "-y", "-loglevel", "error",
         "-f", "concat", "-safe", "0", "-i", lst,
         "-c", "copy", joined,
     ])
+    durs = [_duration(c) for c in clips]
     return joined, durs
 
 
 def mix(joined, durs, sfx, music, output, music_volume=0.16, sfx_volume=0.85):
-    """SFX on top, music ducked. Preserves dialogue from joined track."""
+    """Mix SFX + ducked music + dialogue."""
     total = sum(durs)
     cmd = ["ffmpeg", "-y", "-loglevel", "error", "-i", joined]
     filters, sfx_labels, idx = [], [], 1
@@ -183,3 +181,4 @@ def mix(joined, durs, sfx, music, output, music_volume=0.16, sfx_volume=0.85):
             "-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
             "-ar", "44100", "-movflags", "+faststart", output]
     _run(cmd)
+  
