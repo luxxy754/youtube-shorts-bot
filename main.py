@@ -1,22 +1,28 @@
-"""Cat Shorts: story -> base image -> Agnes video -> upload."""
+"""AI Pet Drama Shorts: story -> images -> motion -> voice -> upload."""
 import json
 import os
 import shutil
 import subprocess
 import time
 
-from scripts.assemble import mix
-from scripts.audio import get_music, get_sfx, music_credit
-from scripts.story import generate_story
-from scripts.upload_youtube import have_credentials, upload_to_youtube
-from scripts.video import (
-    generate_15s_video,
-    pollinations_image,
-    static_video,
+from scripts.assemble import join_clips, mix
+from scripts.audio import (
+    generate_dialogue_audio,
+    get_music,
+    get_sfx,
+    music_credit,
 )
+from scripts.story import (
+    generate_story,
+    scene_dialogue,
+    scene_prompt,
+    scene_sfx,
+)
+from scripts.upload_youtube import have_credentials, upload_to_youtube
+from scripts.video import CLIP_SECONDS, make_motion_clip, pollinations_image
 
 OUT = "output"
-NUM_SCENES = int(os.getenv("NUM_SCENES", "1"))
+NUM_SCENES = int(os.getenv("NUM_SCENES", "4"))
 MUSIC_VOLUME = float(os.getenv("MUSIC_VOLUME", "0.16"))
 
 
@@ -36,79 +42,82 @@ def build_metadata(story, credit=None):
 
 def main():
     print("=" * 60)
-    print("CAT SHORTS BOT - STARTING (Agnes)")
+    print("PET DRAMA SHORTS - STARTING")
     print("=" * 60)
     os.makedirs(OUT, exist_ok=True)
 
-    print("\n[1/6] Generating story...")
-    story = generate_story(NUM_SCENES, frames_per_scene=6)
+    print("\n[1/5] Generating story...")
+    story = generate_story(NUM_SCENES)
 
-    scene = story["scenes"][0]
-    print(f"\n[2/6] Generating 15-second video")
-    print(f"Prompt: {scene['visual'][:100]}...")
+    print("\n[2/5] Generating scene images + motion clips...")
+    scene_clips = []
+    scenes_used = []
 
-    img_path = os.path.join(OUT, "hero.jpg")
-    print("\nGenerating base image...")
-    if not pollinations_image(scene["visual"], img_path):
-        print("FAILED: Base image generation")
-        return
-    print(f"  Image saved: {img_path}")
+    for i, sc in enumerate(story["scenes"]):
+        print(f"\n--- Scene {i + 1}/{len(story['scenes'])} ---")
 
-    print("\n[3/6] Agnes video generation (parallel)...")
-    t0 = time.time()
-    video_path = os.path.join(OUT, "hero_15s.mp4")
+        img_path = os.path.join(OUT, f"scene_{i}.jpg")
+        print(f"  Image: {sc['visual'][:60]}...")
+        if not pollinations_image(scene_prompt(story, i), img_path, seed=int(time.time()) + i):
+            print("  SKIP: image failed")
+            continue
 
-    agnes_ok = generate_15s_video(img_path, scene["visual"], video_path)
+        # Dialogue audio (edge-tts)
+        aud_path = os.path.join(OUT, f"scene_{i}_voice.mp3")
+        dialogue = scene_dialogue(story, i)
+        print(f"  Dialogue: {dialogue}")
+        if not generate_dialogue_audio(dialogue, aud_path):
+            print("  SKIP: voice failed")
+            continue
 
-    if not agnes_ok:
-        print("Agnes failed - using static fallback")
-        silent = os.path.join(OUT, "silent.mp3")
+        # Motion clip from image
+        clip_path = os.path.join(OUT, f"scene_{i}_motion.mp4")
+        if not make_motion_clip(img_path, clip_path, scene_idx=i, duration=CLIP_SECONDS):
+            print("  SKIP: motion clip failed")
+            continue
+
+        # Merge audio with video
+        final_clip = os.path.join(OUT, f"scene_{i}_final.mp4")
         try:
-            # FIXED: -t AFTER -i, and use WAV format for reliability
-            silent_wav = os.path.join(OUT, "silent.wav")
             subprocess.run([
                 "ffmpeg", "-y", "-loglevel", "error",
-                "-f", "lavfi",
-                "-i", "anullsrc=r=44100:cl=stereo",
-                "-t", "15",
-                silent_wav,
-            ], check=True, timeout=60)
-            if not static_video(img_path, silent_wav, video_path):
-                print("FAILED: Fallback also failed")
-                return
+                "-i", clip_path, "-i", aud_path,
+                "-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
+                "-shortest", "-movflags", "+faststart",
+                final_clip,
+            ], check=True, timeout=120)
+            scene_clips.append(final_clip)
+            scenes_used.append(sc)
+            print(f"  Scene {i + 1} DONE")
         except Exception as exc:
-            print(f"FAILED: Fallback error - {str(exc)[:200]}")
-            return
+            print(f"  Merge failed: {str(exc)[:150]}")
 
-    print(f"  Video ready in {time.time() - t0:.1f}s")
+    if not scene_clips:
+        print("\nFAILED: No scene clips created")
+        return
 
-    print("\n[4/6] Getting duration...")
-    try:
-        dur = float(subprocess.check_output([
-            "ffprobe", "-v", "error", "-show_entries", "format=duration",
-            "-of", "default=nk=1:nw=1", video_path], text=True).strip())
-    except Exception:
-        dur = 15.0
-    print(f"  Duration: {dur:.1f}s")
+    print(f"\n[3/5] Concatenating {len(scene_clips)} scenes...")
+    joined, durs = join_clips(scene_clips, OUT)
 
-    print("\n[5/6] Adding cat sounds + music...")
-    scenes_list = [scene]
-    sfx = get_sfx(scenes_list, OUT)
+    print("\n[4/5] Adding pet sounds + music...")
+    sfx = get_sfx(scenes_used, OUT)
     music = get_music(
         story.get("music", "playful cartoon music"),
         os.path.join(OUT, "music.mp3"),
-        seconds=int(dur) + 2,
+        seconds=int(sum(durs)) + 2,
     )
 
     final = os.path.join(OUT, "final_short.mp4")
     try:
-        mix(video_path, [dur], sfx, music, final, music_volume=MUSIC_VOLUME)
-        print(f"  Final video: {final}")
+        mix(joined, durs, sfx, music, final, music_volume=MUSIC_VOLUME)
+        print(f"  Final: {final}")
     except Exception as exc:
         print(f"  Mix failed: {str(exc)[:200]}")
-        shutil.copy(video_path, final)
+        shutil.copy(joined, final)
 
-    print("\n[6/6] Saving metadata + uploading...")
+    print(f"  Duration: {sum(durs):.1f}s")
+
+    print("\n[5/5] Uploading to YouTube...")
     title, desc, tags = build_metadata(story, music_credit(music))
     with open(os.path.join(OUT, "meta.json"), "w", encoding="utf-8") as f:
         json.dump({"title": title, "description": desc, "tags": tags},
