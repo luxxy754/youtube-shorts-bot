@@ -1,32 +1,27 @@
-name: AI Shorts Bot
+name: Talking Veggies Shorts
 
 on:
   workflow_dispatch:
     inputs:
       dry_run:
-        description: "Only make the video, do not upload to YouTube"
+        description: "Only build the video, do not upload"
         type: boolean
         default: false
-  # 4 runs daily, 6 hours apart. Each run produces ONE Short.
-  # 2 shorts/day requirement => 2 of these will actually upload a video,
-  # the other 2 act as retries if a previous run failed.
   schedule:
-    - cron: "0 2 * * *"    # 02:00 UTC (07:00 AM PKT)
-    - cron: "0 8 * * *"    # 08:00 UTC (01:00 PM PKT)
-    - cron: "0 14 * * *"   # 14:00 UTC (07:00 PM PKT)
-    - cron: "0 20 * * *"   # 20:00 UTC (01:00 AM PKT)
+    - cron: "0 2 * * *"    # 02:00 UTC
+    - cron: "0 14 * * *"   # 14:00 UTC
 
 permissions:
   contents: read
 
 concurrency:
-  group: ai-shorts-bot
+  group: talking-veggies
   cancel-in-progress: false
 
 jobs:
   build-and-post:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
 
@@ -35,27 +30,66 @@ jobs:
           python-version: "3.11"
           cache: pip
 
-      - name: Install ffmpeg
+      - name: Install system deps
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg
+          sudo apt-get install -y ffmpeg wget
 
-      - name: Install dependencies
-        run: pip install -r requirements.txt
+      - name: Install Python deps
+        run: |
+          pip install -r requirements.txt
+
+      # ---- Wav2Lip repo + model cache ----
+      - name: Cache Wav2Lip repo
+        uses: actions/cache@v4
+        with:
+          path: Wav2Lip
+          key: wav2lip-repo-v1
+
+      - name: Cache Wav2Lip model
+        uses: actions/cache@v4
+        with:
+          path: Wav2Lip/checkpoints
+          key: wav2lip-gan-v1
+
+      - name: Clone Wav2Lip
+        run: |
+          if [ ! -d "Wav2Lip" ]; then
+            git clone https://github.com/Rudrabha/Wav2Lip.git
+          fi
+
+      - name: Download Wav2Lip checkpoint
+        run: |
+          mkdir -p Wav2Lip/checkpoints
+          if [ ! -f Wav2Lip/checkpoints/wav2lip_gan.pth ]; then
+            wget -q --show-progress -O Wav2Lip/checkpoints/wav2lip_gan.pth \
+              "https://huggingface.co/spaces/wav2lip/wav2lip/resolve/main/checkpoints/wav2lip_gan.pth"
+          fi
+          ls -lh Wav2Lip/checkpoints/
+
+      - name: Download face detection model
+        run: |
+          mkdir -p Wav2Lip/face_detection/detection/sfd
+          if [ ! -f Wav2Lip/face_detection/detection/sfd/s3fd.pth ]; then
+            wget -q -O Wav2Lip/face_detection/detection/sfd/s3fd.pth \
+              "https://www.adrianbulat.com/downloads/python-fan/s3fd-619a316812.pth"
+          fi
+
+      - name: Install Wav2Lip deps
+        run: |
+          pip install librosa==0.9.2 numpy==1.23.5 opencv-python-headless \
+                      tqdm numba==0.56.4
 
       - name: Generate and upload Short
-        timeout-minutes: 20
+        timeout-minutes: 100
         env:
-          # ---- Story generation ----
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
 
-          # ---- Audio (ElevenLabs keys rotate) ----
           ELEVEN_KEY_1: ${{ secrets.ELEVEN_KEY_1 }}
           ELEVEN_KEY_2: ${{ secrets.ELEVEN_KEY_2 }}
           ELEVEN_KEY_3: ${{ secrets.ELEVEN_KEY_3 }}
 
-          # ---- YouTube upload ----
           YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
@@ -63,15 +97,14 @@ jobs:
 
           DRY_RUN: ${{ inputs.dry_run }}
 
-          # ---- Story / scene settings ----
           NUM_SCENES: "4"
-          CLIP_SECONDS: "5"
           MUSIC_VOLUME: "0.16"
 
-          # ---- Image generation ----
           IMAGE_MODEL: "flux"
           IMAGE_TIMEOUT: "180"
           IMAGE_RETRIES: "3"
+
+          WAV2LIP_CHECKPOINT: ${{ github.workspace }}/Wav2Lip/checkpoints/wav2lip_gan.pth
         run: python main.py
 
       - name: Keep a copy of the video
