@@ -21,7 +21,7 @@ concurrency:
 jobs:
   build-and-post:
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 
@@ -33,54 +33,13 @@ jobs:
       - name: Install system deps
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg wget
+          sudo apt-get install -y ffmpeg
 
       - name: Install Python deps
         run: pip install -r requirements.txt
 
-      - name: Cache Wav2Lip repo
-        uses: actions/cache@v4
-        with:
-          path: Wav2Lip
-          key: wav2lip-repo-v4
-
-      - name: Cache Wav2Lip model
-        uses: actions/cache@v4
-        with:
-          path: Wav2Lip/checkpoints
-          key: wav2lip-gan-v4
-
-      - name: Clone Wav2Lip
-        run: |
-          if [ ! -d "Wav2Lip" ]; then
-            git clone https://github.com/Rudrabha/Wav2Lip.git
-          fi
-
-      - name: Download Wav2Lip checkpoint
-        run: |
-          mkdir -p Wav2Lip/checkpoints
-          if [ ! -s Wav2Lip/checkpoints/wav2lip_gan.pth ]; then
-            wget -q --show-progress -O Wav2Lip/checkpoints/wav2lip_gan.pth \
-              "https://huggingface.co/camenduru/Wav2Lip/resolve/main/checkpoints/wav2lip_gan.pth"
-          fi
-          ls -lh Wav2Lip/checkpoints/
-
-      - name: Download face detection model
-        run: |
-          mkdir -p Wav2Lip/face_detection/detection/sfd
-          if [ ! -s Wav2Lip/face_detection/detection/sfd/s3fd.pth ]; then
-            wget -q --show-progress -O Wav2Lip/face_detection/detection/sfd/s3fd.pth \
-              "https://huggingface.co/camenduru/Wav2Lip/resolve/main/face_detection/detection/sfd/s3fd.pth"
-          fi
-          ls -lh Wav2Lip/face_detection/detection/sfd/
-
-      - name: Install Wav2Lip deps
-        run: |
-          pip install "numpy<2.0" "numba>=0.58,<0.60" \
-                      librosa==0.10.2 opencv-python-headless tqdm
-
       - name: Generate and upload Short
-        timeout-minutes: 150
+        timeout-minutes: 40
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
@@ -89,11 +48,6 @@ jobs:
           ELEVEN_KEY_2: ${{ secrets.ELEVEN_KEY_2 }}
           ELEVEN_KEY_3: ${{ secrets.ELEVEN_KEY_3 }}
 
-          TTS_LANG: "hi"
-          TTS_GENDER: "female"
-          TTS_RATE: "-8%"
-          TTS_PITCH: "+2Hz"
-
           YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
@@ -101,17 +55,15 @@ jobs:
 
           DRY_RUN: ${{ inputs.dry_run }}
 
-          # ---- Animation settings ----
           NUM_SCENES: "4"
           FRAMES_PER_SCENE: "6"
           FPS: "8"
+          SCENE_SECONDS: "4.0"
           MUSIC_VOLUME: "0.16"
 
           IMAGE_MODEL: "flux"
           IMAGE_TIMEOUT: "240"
           IMAGE_RETRIES: "3"
-
-          WAV2LIP_CHECKPOINT: ${{ github.workspace }}/Wav2Lip/checkpoints/wav2lip_gan.pth
         run: python main.py
 
       - name: Keep a copy of the video
