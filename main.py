@@ -1,4 +1,4 @@
-"""Cat Shorts: story -> base image -> Magic Hour 15s video -> upload."""
+"""Cat Shorts: story -> base image -> Agnes video -> upload."""
 import json
 import os
 import shutil
@@ -36,7 +36,7 @@ def build_metadata(story, credit=None):
 
 def main():
     print("=" * 60)
-    print("CAT SHORTS BOT - STARTING")
+    print("CAT SHORTS BOT - STARTING (Agnes v2.0)")
     print("=" * 60)
     os.makedirs(OUT, exist_ok=True)
 
@@ -54,14 +54,14 @@ def main():
         return
     print(f"  Image saved: {img_path}")
 
-    print("\n[3/6] Magic Hour video generation (parallel)...")
+    print("\n[3/6] Agnes video generation (parallel)...")
     t0 = time.time()
     video_path = os.path.join(OUT, "hero_15s.mp4")
 
-    magic_hour_ok = generate_15s_video(img_path, scene["visual"], video_path)
+    agnes_ok = generate_15s_video(img_path, scene["visual"], video_path)
 
-    if not magic_hour_ok:
-        print("Magic Hour failed - using static fallback")
+    if not agnes_ok:
+        print("Agnes failed - using static fallback")
         silent = os.path.join(OUT, "silent.mp3")
         try:
             subprocess.run([
@@ -127,4 +127,12 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception:
+        import traceback
+        print("=" * 60)
+        print("FATAL ERROR:")
+        print("=" * 60)
+        traceback.print_exc()
+        raise SystemExit(1)
