@@ -38,26 +38,13 @@ jobs:
       - name: Install Python deps
         run: pip install -r requirements.txt
 
-      - name: Debug - list files and test imports
+      - name: Debug - verify main.py structure
         run: |
-          echo "=== Root files ==="
-          ls -la
+          echo "=== Last 15 lines of main.py ==="
+          tail -15 main.py
           echo ""
-          echo "=== scripts/ folder ==="
-          ls -la scripts/ || echo "NO scripts/ FOLDER!"
-          echo ""
-          echo "=== Python version ==="
-          python --version
-          echo ""
-          echo "=== Test imports ==="
-          python -c "import scripts.video; print('video.py OK')" || echo "video.py FAILED"
-          python -c "import scripts.audio; print('audio.py OK')" || echo "audio.py FAILED"
-          python -c "import scripts.story; print('story.py OK')" || echo "story.py FAILED"
-          python -c "import scripts.assemble; print('assemble.py OK')" || echo "assemble.py FAILED"
-          python -c "import scripts.upload_youtube; print('upload_youtube.py OK')" || echo "upload_youtube.py FAILED"
-          echo ""
-          echo "=== Test main.py import ==="
-          python -c "import main; print('main.py imports OK')" || echo "main.py IMPORTS FAILED"
+          echo "=== Verify main.py imports ==="
+          python -c "import main; print('main.py imports OK')"
 
       - name: Generate and upload Short
         timeout-minutes: 35
@@ -86,7 +73,7 @@ jobs:
           MAGIC_HOUR_MODEL: "wan-2.2"
           VIDEO_RESOLUTION: "480p"
           MAGIC_HOUR_POLL_TIMEOUT: "600"
-        run: python main.py
+        run: python -u main.py
 
       - name: Keep a copy of the video
         if: always()
