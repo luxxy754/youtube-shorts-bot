@@ -5,6 +5,8 @@ import random
 import subprocess
 import time
 
+import requests
+
 from scripts.assemble import join_clips, mix
 from scripts.audio import get_music, get_sfx, music_credit
 from scripts.story import generate_story
@@ -16,7 +18,7 @@ from scripts.video import (
 )
 
 OUT = "output"
-NUM_SCENES = int(os.getenv("NUM_SCENES", "1"))  # One hero scene -> one 15s video
+NUM_SCENES = int(os.getenv("NUM_SCENES", "1"))
 MUSIC_VOLUME = float(os.getenv("MUSIC_VOLUME", "0.16"))
 
 
@@ -35,23 +37,68 @@ def build_metadata(story, credit=None):
 
 
 def upload_image_to_public(image_path):
-    """Magic Hour needs a public URL. Upload to 0x0.st (free)."""
+    """Upload image to a free public host. Tries 3 services in order."""
+    # ---- Option 1: catbox.moe (most reliable, permanent) ----
     try:
+        print("  Trying catbox.moe...")
         with open(image_path, "rb") as f:
             r = requests.post(
-                "https://0x0.st",
-                files={"file": f},
-                headers={"User-Agent": "cat-shorts-bot/1.0"},
+                "https://catbox.moe/user/api.php",
+                data={"reqtype": "fileupload"},
+                files={"fileToUpload": f},
                 timeout=60,
             )
-        if r.status_code == 200 and r.text.startswith("http"):
-            return r.text.strip()
+        if r.status_code == 200 and r.text.strip().startswith("http"):
+            url = r.text.strip()
+            print(f"  catbox.moe OK: {url}")
+            return url
+        print(f"  catbox.moe HTTP {r.status_code}: {r.text[:120]}")
     except Exception as exc:
-        print(f"  Image upload failed: {str(exc)[:150]}")
+        print(f"  catbox.moe failed: {str(exc)[:120]}")
+
+    # ---- Option 2: tmpfiles.org ----
+    try:
+        print("  Trying tmpfiles.org...")
+        with open(image_path, "rb") as f:
+            r = requests.post(
+                "https://tmpfiles.org/api/v1/upload",
+                files={"file": f},
+                timeout=60,
+            )
+        if r.status_code == 200:
+            data = r.json()
+            url = data.get("data", {}).get("url", "")
+            if url:
+                # Convert to direct download link
+                direct = url.replace("tmpfiles.org/", "tmpfiles.org/dl/")
+                print(f"  tmpfiles.org OK: {direct}")
+                return direct
+        print(f"  tmpfiles.org HTTP {r.status_code}")
+    except Exception as exc:
+        print(f"  tmpfiles.org failed: {str(exc)[:120]}")
+
+    # ---- Option 3: uguu.se ----
+    try:
+        print("  Trying uguu.se...")
+        with open(image_path, "rb") as f:
+            r = requests.post(
+                "https://uguu.se/upload.php",
+                files={"files[]": f},
+                timeout=60,
+            )
+        if r.status_code == 200:
+            data = r.json()
+            files = data.get("files", [])
+            if files and files[0].get("url"):
+                url = files[0]["url"]
+                print(f"  uguu.se OK: {url}")
+                return url
+        print(f"  uguu.se HTTP {r.status_code}")
+    except Exception as exc:
+        print(f"  uguu.se failed: {str(exc)[:120]}")
+
+    print("  All image hosts failed")
     return None
-
-
-import requests  # noqa: E402
 
 
 def main():
@@ -69,6 +116,7 @@ def main():
     if not pollinations_image(scene["visual"], img_path):
         print("Base image failed - aborting")
         return
+    print(f"  Image: {img_path}")
 
     # 2. Upload image to get public URL
     print("Uploading image to public host...")
@@ -76,7 +124,7 @@ def main():
     if not image_url:
         print("Public URL failed - aborting")
         return
-    print(f"  URL: {image_url}")
+    print(f"  Public URL: {image_url}")
 
     # 3. Generate 15-second video via Magic Hour
     print("Generating 15s video via Magic Hour...")
@@ -84,22 +132,28 @@ def main():
     video_path = os.path.join(OUT, "hero_15s.mp4")
     if not generate_15s_video(image_url, scene["visual"], video_path):
         print("Magic Hour failed - using static fallback")
-        # Fallback: static image + 15s silence
         silent = os.path.join(OUT, "silent.mp3")
-        subprocess.run([
-            "ffmpeg", "-y", "-loglevel", "error",
-            "-f", "lavfi", "-t", "15", "-i", "anullsrc=r=44100:cl=stereo",
-            "-c:a", "aac", silent,
-        ], check=True)
-        if not static_video(img_path, silent, video_path):
-            print("Fallback also failed - aborting")
+        try:
+            subprocess.run([
+                "ffmpeg", "-y", "-loglevel", "error",
+                "-f", "lavfi", "-t", "15", "-i", "anullsrc=r=44100:cl=stereo",
+                "-c:a", "aac", silent,
+            ], check=True, timeout=60)
+            if not static_video(img_path, silent, video_path):
+                print("Fallback also failed - aborting")
+                return
+        except Exception as exc:
+            print(f"Fallback error: {str(exc)[:150]}")
             return
     print(f"  Video generated in {time.time() - t0:.1f}s")
 
     # 4. Get duration
-    dur = float(subprocess.check_output([
-        "ffprobe", "-v", "error", "-show_entries", "format=duration",
-        "-of", "default=nk=1:nw=1", video_path], text=True).strip())
+    try:
+        dur = float(subprocess.check_output([
+            "ffprobe", "-v", "error", "-show_entries", "format=duration",
+            "-of", "default=nk=1:nw=1", video_path], text=True).strip())
+    except Exception:
+        dur = 15.0
     print(f"  Duration: {dur:.1f}s")
 
     # 5. Add cat sounds + music
@@ -117,7 +171,9 @@ def main():
         mix(video_path, [dur], sfx, music, final, music_volume=MUSIC_VOLUME)
     except Exception as exc:
         print(f"  Mix failed: {str(exc)[:200]}")
-        return
+        # If mix fails, just use the raw video
+        import shutil
+        shutil.copy(video_path, final)
     print(f"Final video: {final}")
 
     # 6. Metadata + upload
