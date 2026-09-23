@@ -38,19 +38,38 @@ jobs:
       - name: Install Python deps
         run: pip install -r requirements.txt
 
+      - name: Debug - list files and test imports
+        run: |
+          echo "=== Root files ==="
+          ls -la
+          echo ""
+          echo "=== scripts/ folder ==="
+          ls -la scripts/ || echo "NO scripts/ FOLDER!"
+          echo ""
+          echo "=== Python version ==="
+          python --version
+          echo ""
+          echo "=== Test imports ==="
+          python -c "import scripts.video; print('video.py OK')" || echo "video.py FAILED"
+          python -c "import scripts.audio; print('audio.py OK')" || echo "audio.py FAILED"
+          python -c "import scripts.story; print('story.py OK')" || echo "story.py FAILED"
+          python -c "import scripts.assemble; print('assemble.py OK')" || echo "assemble.py FAILED"
+          python -c "import scripts.upload_youtube; print('upload_youtube.py OK')" || echo "upload_youtube.py FAILED"
+          echo ""
+          echo "=== Test main.py import ==="
+          python -c "import main; print('main.py imports OK')" || echo "main.py IMPORTS FAILED"
+
       - name: Generate and upload Short
         timeout-minutes: 35
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
 
-          # Magic Hour - 4 accounts
           VIDEO_KEY_1: ${{ secrets.VIDEO_KEY_1 }}
           VIDEO_KEY_2: ${{ secrets.VIDEO_KEY_2 }}
           VIDEO_KEY_3: ${{ secrets.VIDEO_KEY_3 }}
           VIDEO_KEY_4: ${{ secrets.VIDEO_KEY_4 }}
 
-          # Cat sounds + music
           ELEVEN_KEY_1: ${{ secrets.ELEVEN_KEY_1 }}
           ELEVEN_KEY_2: ${{ secrets.ELEVEN_KEY_2 }}
           ELEVEN_KEY_3: ${{ secrets.ELEVEN_KEY_3 }}
