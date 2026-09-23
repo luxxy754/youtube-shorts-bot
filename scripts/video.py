@@ -6,11 +6,13 @@ import urllib.parse
 
 import requests
 
+# ---- Better image settings ----
 IMAGE_WIDTH = 1080
 IMAGE_HEIGHT = 1920
+# Try "flux-realism" or "flux-pro" if available; fallback to "flux"
 IMAGE_MODEL = os.getenv("IMAGE_MODEL", "flux")
-IMAGE_TIMEOUT = int(os.getenv("IMAGE_TIMEOUT", "180"))
-IMAGE_RETRIES = int(os.getenv("IMAGE_RETRIES", "3"))
+IMAGE_TIMEOUT = int(os.getenv("IMAGE_TIMEOUT", "240"))
+IMAGE_RETRIES = int(os.getenv("IMAGE_RETRIES", "4"))
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WAV2LIP_DIR = os.path.join(ROOT, "Wav2Lip")
@@ -21,13 +23,23 @@ WAV2LIP_CHECKPOINT = os.getenv(
 
 
 def pollinations_image(prompt: str, out_path: str) -> bool:
-    """Generate one 1080x1920 Pixar-style image via Pollinations (free)."""
-    clean = " ".join(prompt.split())[:900]
+    """Generate one 1080x1920 Pixar-style image via Pollinations.
+
+    Enhancements:
+      - enhance=true (Pollinations rewrites prompt for better detail)
+      - safe=true (kids-safe)
+      - model=flux (best quality free model)
+      - seed randomized for variety
+    """
+    clean = " ".join(prompt.split())[:1500]
     encoded = urllib.parse.quote(clean)
     url = (
         f"https://image.pollinations.ai/prompt/{encoded}"
         f"?width={IMAGE_WIDTH}&height={IMAGE_HEIGHT}"
-        f"&model={IMAGE_MODEL}&nologo=true&enhance=true"
+        f"&model={IMAGE_MODEL}"
+        f"&nologo=true"
+        f"&enhance=true"
+        f"&safe=true"
         f"&seed={int(time.time())}"
     )
     for attempt in range(1, IMAGE_RETRIES + 1):
@@ -42,7 +54,7 @@ def pollinations_image(prompt: str, out_path: str) -> bool:
             print(f"  HTTP {r.status_code}, retrying...")
         except Exception as exc:  # noqa: BLE001
             print(f"  Image error: {str(exc)[:150]}")
-        time.sleep(5)
+        time.sleep(6)
     return False
 
 
@@ -92,7 +104,6 @@ def wav2lip_sync(image_path: str, audio_path: str, out_path: str) -> bool:
 def static_video(image_path: str, audio_path: str, out_path: str) -> bool:
     """Fallback: static image + audio as video (no lipsync)."""
     try:
-        # Get audio duration
         dur = subprocess.check_output([
             "ffprobe", "-v", "error", "-show_entries", "format=duration",
             "-of", "default=nk=1:nw=1", audio_path], text=True).strip()
