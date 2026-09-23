@@ -1,8 +1,4 @@
-"""Cat story generator - VISUALS ONLY, no dialogue.
-
-Cat meows, doesn't talk. So story is told through actions + expressions.
-Each scene has 6 frame descriptions for choppy animation.
-"""
+"""Pet Drama story generator - Hindi/Urdu, kids-friendly, dramatic."""
 import json
 import os
 import random
@@ -12,165 +8,116 @@ import requests
 
 
 THEMES = [
-    "ek choti billi apni khoyi hui gend dhoondti hai",
-    "ek kitten apni maa ke saath pehli baar dhoop mein khelti hai",
-    "ek bhookhi billi khana dhoondte hue rasoi mein ghus jati hai",
-    "ek sharmili billi naye puppy se dosti karti hai",
-    "ek chhoti billi apni dum pakadne ki koshish karti hai",
-    "ek kitten pehli baar barish dekhti hai",
-    "ek billi apni favorite jagah pe soney ki koshish karti hai",
-    "ek kitten titli pakadne ki koshish karti hai",
-    "ek billi apne dost ke saath doodh peeti hai",
-    "ek chhoti billi chhat pe baith ke duniya dekhti hai",
+    "ek billi apne dost ko dhoka deti hai aur baad mein pachtati hai",
+    "ek puppy apni maa ki baat nahi maanta aur mushkil mein phas jata hai",
+    "do billiyan ek gend ke liye ladti hain, phir dosti karti hain",
+    "ek billi apne ghar se bhaag jati hai aur wapas aana chahti hai",
+    "ek puppy apne bhai ke saath khana share karna seekhta hai",
+    "ek billi apni behen se jealous hoti hai phir maafi mangti hai",
+    "ek chota puppy pehli baar barish dekhta hai aur darta hai",
+    "do dost billiyan ek saath kho jati hain aur raasta dhoondti hain",
+    "ek billi apne maalik ki nayi billi se dosti karti hai",
+    "ek puppy apni favorite toy khone par udaas hota hai",
 ]
 
+
 STYLE = (
-    "Ultra-detailed 3D Pixar-style animated movie still, "
-    "cinematic render, shot on virtual ARRI Alexa camera, "
-    "subsurface skin scattering on fur, "
-    "ray-traced soft shadows, ambient occlusion, "
-    "volumetric warm sunlight with dust particles, "
-    "physically-based rendering (PBR), 8K hyper-detailed fur texture, "
-    "VERY CUTE fluffy kitten with BIG glossy expressive eyes, "
-    "small pink nose, chubby rounded soft body, "
-    "soft fluffy detailed fur with individual strands visible, "
-    "expressive face showing clear emotion (happy / curious / surprised / warm), "
-    "bright cheerful color palette, "
+    "Pixar-style 3D animated movie still, cinematic quality, "
+    "cute stylized animals with BIG expressive glossy eyes, "
+    "soft rounded shapes, warm detailed fur, "
+    "bright cheerful colors, dramatic emotional lighting, "
     "shallow depth of field with creamy bokeh, "
-    "detailed clean background (sunny living room, cozy garden, warm kitchen), "
-    "cinematic composition with rule of thirds, "
-    "vertical 9:16 portrait framing, "
-    "FRONT-FACING character centered in frame, face clearly visible, "
-    "well lit, looking at camera, "
-    "absolutely no text, no subtitles, no watermark, no logo, "
+    "simple clean background (living room, garden, kitchen), "
+    "vertical 9:16 composition, front-facing, full subject visible, "
+    "absolutely no text, no watermark, no logo, "
     "no humans, no scary elements, no violence, "
-    "no 2D illustration, no anime, no sketch, no low-poly"
+    "no 2D illustration, no anime, no sketch"
 )
 
 NEGATIVE = (
-    "blurry, low quality, low resolution, jpeg artifacts, "
-    "flat lighting, flat shading, plasticky, waxy, doll-like, "
-    "extra limbs, extra arms, extra legs, extra eyes, extra tails, "
-    "deformed face, distorted mouth, crooked eyes, "
-    "cropped head, cropped body, off-center, "
-    "text, watermark, logo, signature, "
-    "human, person, hand, realistic photo, "
-    "scary, dark, blood, violence, "
-    "2d, cartoon flat, anime, manga, sketch, "
-    "abstract, glitch, artifact, noise"
+    "blurry, low quality, extra limbs, extra eyes, "
+    "deformed face, distorted mouth, cropped, "
+    "text, watermark, logo, human, scary, dark, "
+    "2d, cartoon flat, anime, sketch"
 )
 
+
 FALLBACK = {
-    "title": "Choti Billi ki Gend 🐱🧶 #shorts",
-    "description": "Ek choti billi apni khoyi hui gend dhoondti hai.",
-    "hashtags": ["#cat", "#kitten", "#cute", "#animation", "#shorts", "#kids"],
-    "keywords": ["cute cat animation", "kitten cartoon", "3d cat", "funny cat"],
+    "title": "Billi ki Dosti 🐱🐶 #shorts",
+    "description": "Ek billi aur puppy ki dosti ki kahani.",
+    "hashtags": ["#cat", "#dog", "#pets", "#cute", "#drama", "#shorts", "#kids"],
+    "keywords": ["cute pet drama", "cat dog story", "pet animation", "kids story"],
     "character": (
-        "a tiny fluffy orange tabby kitten with soft orange-and-white fur, "
-        "BIG glossy black Pixar-style cartoon eyes with sparkly highlights, "
-        "small pink nose, chubby rounded soft body, "
-        "tiny stubby paws and small tail with white tip, "
-        "expressive face showing wonder and curiosity, "
-        "in a warm cozy sunlit living room with wooden floor and soft rug"
+        "a tiny fluffy orange tabby kitten with BIG glossy expressive eyes, "
+        "small pink nose, chubby soft body, tiny paws, "
+        "standing next to a small brown puppy with big sad eyes and floppy ears, "
+        "in a warm cozy living room with wooden floor"
     ),
     "scenes": [
         {
-            "visual": "The tiny orange kitten sits on a wooden floor, looking at a red yarn ball with BIG curious eyes. Medium shot, eye-level, FRONT-FACING, warm morning sunlight.",
-            "sfx": "curious meow",
-            "motions": [
-                "sitting still, looking at ball",
-                "head tilting slightly left",
-                "leaning forward a bit",
-                "one paw lifted",
-                "paw reaching toward ball",
-                "paw touching ball",
-            ],
+            "visual": "The tiny orange kitten looks at the puppy with sad eyes, both sitting apart. Medium shot, front-facing, warm morning light.",
+            "dialogue": "Tumne mujhe kyun chhoda?",
+            "sfx": "sad soft meow"
         },
         {
-            "visual": "The tiny kitten reaches one paw toward the yarn ball, tilting head slightly. Close-up, FRONT-FACING, warm golden light.",
-            "sfx": "playful meow",
-            "motions": [
-                "paw extended forward",
-                "paw touching ball",
-                "ball starting to move",
-                "ball rolling slightly",
-                "kitten leaning further",
-                "both paws on ball",
-            ],
+            "visual": "The puppy turns away with angry face, ears down. Close-up, front-facing, soft shadows.",
+            "dialogue": "Main tumse naraz hoon!",
+            "sfx": "angry puppy whimper"
         },
         {
-            "visual": "The tiny kitten playfully bats the yarn ball with both front paws, eyes wide, tail up. Medium shot, FRONT-FACING, warm afternoon light.",
-            "sfx": "playful chirp",
-            "motions": [
-                "batting ball with left paw",
-                "ball flying left",
-                "kitten head turned left",
-                "batting ball with right paw",
-                "ball flying right",
-                "kitten standing, alert",
-            ],
+            "visual": "The kitten holds out a small toy as a gift, hopeful eyes. Close-up, front-facing, golden light.",
+            "dialogue": "Yeh lo, dosti kar lo!",
+            "sfx": "hopeful chirp"
         },
         {
-            "visual": "The tiny kitten happily hugs the yarn ball, eyes closed in joy, small smile. Close-up, FRONT-FACING, golden hour warm light.",
-            "sfx": "happy purr",
-            "motions": [
-                "both paws on ball",
-                "hugging ball close",
-                "eyes starting to close",
-                "eyes half closed",
-                "eyes fully closed, smiling",
-                "purring, hugging tight",
-            ],
+            "visual": "The puppy and kitten hug happily, both smiling big. Medium shot, front-facing, warm golden hour light.",
+            "dialogue": "Hum hamesha dost rahenge!",
+            "sfx": "happy bark and purr"
         },
     ],
     "music": "playful cinematic instrumental with ukulele, marimba, light drums, no vocals",
 }
 
 
-def _prompt(n_scenes, frames_per_scene):
+def _prompt(n_scenes):
     theme = random.choice(THEMES)
     return f"""
-You are writing a SHORT, kids-friendly YouTube Shorts story about a
-CUTE KITTEN in ultra-detailed Pixar 3D style.
+You are writing a SHORT, dramatic YouTube Shorts story about PETS
+(cats and dogs) in Pixar 3D style.
 
-IMPORTANT: The kitten does NOT talk. There is NO dialogue.
-The story is told through ACTIONS and EXPRESSIONS only.
-The kitten only makes natural sounds (meow, purr, chirp).
+TARGET AUDIENCE: kids and young adults in Pakistan/India.
+LANGUAGE: Roman Hindi/Urdu (like "Tumne mujhe kyun chhoda?").
+Use ONLY simple everyday words. NO difficult words.
 
 THEME: {theme}
 
-Each scene is animated with {frames_per_scene} still frames showing
-SLIGHT pose changes.
+Each scene has 3 parts:
+  1. "visual": English description of ONE frozen moment - pose,
+                expression, framing, lighting. Front-facing.
+  2. "dialogue": ONE short Hindi/Urdu line (max 8 words) - dramatic!
+                 Use Roman script.
+  3. "sfx": short animal sound (meow, bark, whimper, etc.)
 
-For each scene provide:
-  1. "visual": ONE main description of the scene moment.
-                Front-facing, face centered, cinematic framing.
-  2. "sfx":    short cat sound description (meow, purr, chirp, etc.)
-  3. "motions": list of {frames_per_scene} SHORT motion descriptions,
-                each a TINY pose change from the previous frame.
-                Example: ["sitting still", "head tilting", "leaning forward",
-                          "paw lifting", "paw extended", "touching ball"]
-                Keep the kitten EXACTLY the same, only pose changes.
-
-CRITICAL RULES:
-- ONLY the kitten. No humans. No dialogue. No text.
+CRITICAL:
+- Only cats/dogs as characters. No humans.
 - Family friendly. No violence, no scary elements.
-- Kitten appearance MUST stay identical across all frames.
-- Simple clean background (living room, garden, kitchen).
+- Pet appearance MUST stay identical across all scenes.
+- Dramatic emotions: sad, angry, happy, hopeful.
+- Dialogue must be understandable by kids.
 
 Return ONLY valid JSON:
 
 {{
-  "title": "warm curiosity-driven title under 80 chars ending with #shorts",
-  "description": "one or two short English sentences",
-  "hashtags": ["#cat", "#kitten", "#cute", "#animation", "#shorts", "#kids"],
+  "title": "warm dramatic Hindi/Urdu title under 80 chars ending with #shorts",
+  "description": "one or two short Hindi/Urdu sentences",
+  "hashtags": ["#cat", "#dog", "#pets", "#cute", "#drama", "#shorts", "#kids"],
   "keywords": ["6-8 YouTube search phrases"],
-  "character": "one VERY detailed English sentence about the kitten's exact appearance AND the setting",
+  "character": "one VERY detailed English sentence about the pets' appearance AND setting",
   "scenes": [
     {{
-      "visual": "English: main frozen moment with framing + lighting. 2 sentences.",
-      "sfx": "short cat sound description",
-      "motions": ["motion 1", "motion 2", ... {frames_per_scene} items total]
+      "visual": "English: ONE frozen moment with framing + lighting. 2 sentences.",
+      "dialogue": "Roman Hindi/Urdu line, max 8 words",
+      "sfx": "short animal sound description"
     }}
   ],
   "music": "short description of warm playful instrumental music"
@@ -197,7 +144,7 @@ def _gemini(prompt):
         url, params={"key": key},
         json={"contents": [{"parts": [{"text": prompt}]}],
               "generationConfig": {"responseMimeType": "application/json",
-                                    "temperature": 1.0}},
+                                    "temperature": 1.1}},
         timeout=90,
     )
     response.raise_for_status()
@@ -215,7 +162,7 @@ def _groq(prompt):
         json={"model": os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
               "messages": [{"role": "user", "content": prompt}],
               "response_format": {"type": "json_object"},
-              "temperature": 1.0},
+              "temperature": 1.1},
         timeout=90,
     )
     response.raise_for_status()
@@ -223,7 +170,7 @@ def _groq(prompt):
     return json.loads(_clean(text))
 
 
-def _valid(story, n_scenes, frames_per_scene):
+def _valid(story, n_scenes):
     if not isinstance(story, dict):
         return False
     if not story.get("title") or not story.get("character"):
@@ -234,22 +181,17 @@ def _valid(story, n_scenes, frames_per_scene):
     for scene in scenes[:n_scenes]:
         if not isinstance(scene, dict):
             return False
-        if not scene.get("visual"):
+        if not scene.get("visual") or not scene.get("dialogue"):
             return False
-        motions = scene.get("motions")
-        if not isinstance(motions, list):
-            scene["motions"] = []
-        while len(scene["motions"]) < frames_per_scene:
-            scene["motions"].append("same pose, tiny variation")
     return True
 
 
-def generate_story(n_scenes=4, frames_per_scene=6):
-    prompt = _prompt(n_scenes, frames_per_scene)
+def generate_story(n_scenes=4):
+    prompt = _prompt(n_scenes)
     for name, function in (("Gemini", _gemini), ("Groq", _groq)):
         try:
             story = function(prompt)
-            if _valid(story, n_scenes, frames_per_scene):
+            if _valid(story, n_scenes):
                 story["scenes"] = story["scenes"][:n_scenes]
                 print(f"Story idea from {name}: {story['title']}")
                 return story
@@ -259,48 +201,43 @@ def generate_story(n_scenes=4, frames_per_scene=6):
     print("Using built-in fallback story.")
     story = dict(FALLBACK)
     story["scenes"] = FALLBACK["scenes"][:n_scenes]
-    for sc in story["scenes"]:
-        if "motions" not in sc:
-            sc["motions"] = [f"pose variant {i+1}" for i in range(frames_per_scene)]
     return story
 
 
-def frame_prompt(story, scene_index, frame_index, total_frames):
-    """Build image prompt for ONE frame of a scene."""
+def scene_prompt(story, index):
     scenes = story.get("scenes", [])
     if not scenes:
         return ""
-    scene = scenes[scene_index % len(scenes)]
+    scene = scenes[index % len(scenes)]
     character = story.get("character", "")
-    base = scene.get("visual", "")
-    motions = scene.get("motions", [])
-    motion = motions[frame_index % len(motions)] if motions else ""
+    visual = scene.get("visual", "")
 
     prompt = f"""
 {STYLE}
 
-CHARACTER (must match EXACTLY in every frame):
+CHARACTER (must match EXACTLY in every image):
 {character}
 
-SCENE (base composition):
-{base}
+THIS SCENE:
+{visual}
 
-FRAME {frame_index + 1} of {total_frames}:
-Tiny pose change: {motion}
-
-IMPORTANT:
-- Character must look IDENTICAL to all other frames (same fur, eyes, color)
-- Only the POSE changes slightly
-- Same camera angle, same lighting, same background
-- Face FRONT-FACING, centered, well lit
+Shot {index + 1}. Character must look IDENTICAL to other frames.
+Face FRONT-FACING, centered, well lit.
 
 NEGATIVE: {NEGATIVE}
 """
     return " ".join(prompt.split())
 
 
+def scene_dialogue(story, index):
+    scenes = story.get("scenes", [])
+    if not scenes:
+        return ""
+    return scenes[index % len(scenes)].get("dialogue", "")
+
+
 def scene_sfx(story, index):
     scenes = story.get("scenes", [])
     if not scenes:
-        return "cute cat meow"
-    return scenes[index % len(scenes)].get("sfx", "cute cat meow")
+        return ""
+    return scenes[index % len(scenes)].get("sfx", "cute pet sound")
