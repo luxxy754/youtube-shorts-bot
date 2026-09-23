@@ -1,9 +1,4 @@
-"""ffmpeg: turn each scene IMAGE into a motion clip, join, mix sfx + music.
-
-Motion is a "Ken Burns" effect: slowly push in or pull out while panning
-slightly, so the still image feels alive. Scene index determines direction
-so consecutive scenes have varied motion.
-"""
+"""ffmpeg: subtle breathing motion + concatenate + audio mix."""
 import os
 import subprocess
 
@@ -19,74 +14,51 @@ def _duration(path):
     return float(out.strip())
 
 
-# (zoom direction, pan direction) per scene index
-_MOTIONS = [
-    ("in",  "right"),   # push in + slight pan right
-    ("out", "left"),    # pull out + slight pan left
-    ("in",  "up"),      # push in + slight pan up
-    ("out", "down"),    # pull out + slight pan down
-]
+def _breathing_filter(fps: int = 30) -> str:
+    """Subtle pulse: scale oscillates 1.00 <-> 1.015, no pan, no drift.
 
-
-def _ken_burns_filter(scene_index: int, seconds: int, fps: int = 30) -> str:
-    """Return the ffmpeg -vf chain that turns a still into motion.
-
-    Input is assumed 1080x1920 already (Pollinations generates at that size).
-    We scale slightly larger to give zoompan room, then apply zoompan.
+    Uses zoompan with sin-based z expression to give the picture
+    a "living" feel without pulling the viewer's eyes around.
     """
-    zoom_dir, pan_dir = _MOTIONS[scene_index % len(_MOTIONS)]
-
-    if zoom_dir == "in":
-        z_expr = "min(zoom+0.0012,1.25)"
-    else:
-        z_expr = "max(1.25-0.0012*on,1.0)"
-
-    # panning offsets in normalized units
-    if pan_dir == "right":
-        x_expr = "iw/2-(iw/zoom/2)+on*0.6"
-        y_expr = "ih/2-(ih/zoom/2)"
-    elif pan_dir == "left":
-        x_expr = "iw/2-(iw/zoom/2)-on*0.6"
-        y_expr = "ih/2-(ih/zoom/2)"
-    elif pan_dir == "up":
-        x_expr = "iw/2-(iw/zoom/2)"
-        y_expr = "ih/2-(ih/zoom/2)-on*0.6"
-    else:  # down
-        x_expr = "iw/2-(iw/zoom/2)"
-        y_expr = "ih/2-(ih/zoom/2)+on*0.6"
-
-    frames = seconds * fps
-
+    # z = 1.005 + 0.005*sin(on/45) => ranges ~1.00 to ~1.01
     return (
-        # scale up slightly (safe area for zoompan), then zoompan, then fit
-        "scale=1188:2112:force_original_aspect_ratio=increase,"
-        f"zoompan=z='{z_expr}':x='{x_expr}':y='{y_expr}'"
-        f":d={frames}:s=1080x1920:fps={fps},"
+        "scale=1080:1920:force_original_aspect_ratio=increase,"
+        "crop=1080:1920,"
+        "zoompan=z='1.005+0.005*sin(on/45)':"
+        "x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':"
+        f"d=1:s=1080x1920:fps={fps},"
         "setsar=1,format=yuv420p"
     )
 
 
-def join_clips(clips, out_dir, max_len):
-    """clips: list of IMAGE paths (jpg). Returns (joined_video, [durations]).
-
-    Each image becomes a max_len-second motion clip. Then all clips are
-    concatenated into a single 1080x1920 mp4.
-    """
-    norm, durs = [], []
-    for i, img in enumerate(clips):
-        n = os.path.join(out_dir, f"norm_{i}.mp4")
-        vf = _ken_burns_filter(i, max_len)
+def apply_breathing(input_video: str, output_video: str) -> bool:
+    """Wrap one scene video with subtle breathing motion."""
+    try:
         _run([
             "ffmpeg", "-y", "-loglevel", "error",
-            "-loop", "1", "-i", img,
-            "-t", str(max_len),
-            "-vf", vf,
+            "-i", input_video,
+            "-vf", _breathing_filter(),
             "-c:v", "libx264", "-preset", "veryfast", "-crf", "22",
-            "-pix_fmt", "yuv420p", "-movflags", "+faststart",
-            n,
+            "-c:a", "copy",
+            "-movflags", "+faststart",
+            output_video,
         ])
-        norm.append(n)
-        durs.append(_duration(n))
+        return True
+    except Exception as exc:  # noqa: BLE001
+        print(f"  Breathing filter failed: {str(exc)[:200]}")
+        return False
+
+
+def join_clips(clips, out_dir):
+    """clips: list of scene video paths. Returns (joined_video, [durations])."""
+    norm, durs = [], []
+    for i, c in enumerate(clips):
+        n = os.path.join(out_dir, f"norm_{i}.mp4")
+        if apply_breathing(c, n):
+            norm.append(n)
+        else:
+            norm.append(c)
+        durs.append(_duration(norm[-1]))
 
     lst = os.path.join(out_dir, "list.txt")
     with open(lst, "w") as f:
@@ -103,7 +75,7 @@ def join_clips(clips, out_dir, max_len):
 
 
 def mix(joined, durs, sfx, music, output, music_volume=0.16, sfx_volume=0.85):
-    """Mix SFX on top of ducked music, loudness-normalized."""
+    """SFX on top, music ducked. Preserves original dialogue from joined track."""
     total = sum(durs)
     cmd = ["ffmpeg", "-y", "-loglevel", "error", "-i", joined]
     filters, sfx_labels, idx = [], [], 1
@@ -119,6 +91,10 @@ def mix(joined, durs, sfx, music, output, music_volume=0.16, sfx_volume=0.85):
             sfx_labels.append(f"[s{idx}]")
             idx += 1
         start += d
+
+    # joined track (0:a) contains dialogue from Wav2Lip
+    filters.append(f"[0:a]aformat=sample_rates=44100:channel_layouts=stereo,"
+                   f"volume=1.0[dlg]")
 
     has_sfx = bool(sfx_labels)
     if has_sfx:
@@ -138,19 +114,18 @@ def mix(joined, durs, sfx, music, output, music_volume=0.16, sfx_volume=0.85):
             f"atrim=0:{total:.2f},asetpts=N/SR/TB,volume={music_volume},"
             f"afade=t=in:st=0:d=0.7,afade=t=out:st={fade:.2f}:d=1.2[mus]")
 
+    # Duck music under SFX (and dialogue is always present)
     if has_sfx and has_music:
         filters.append("[sfxpad]asplit=2[sfxout][sfxkey]")
         filters.append("[mus][sfxkey]sidechaincompress="
                        "threshold=0.02:ratio=8:attack=15:release=400:makeup=1[musd]")
-        filters.append("[musd][sfxout]amix=inputs=2:normalize=0:duration=longest[pre]")
+        filters.append("[dlg][sfxout][musd]amix=inputs=3:normalize=0:duration=longest[pre]")
     elif has_sfx:
-        filters.append("[sfxpad]anull[pre]")
+        filters.append("[dlg][sfxpad]amix=inputs=2:normalize=0:duration=longest[pre]")
     elif has_music:
-        filters.append("[mus]anull[pre]")
+        filters.append("[dlg][mus]amix=inputs=2:normalize=0:duration=longest[pre]")
     else:
-        _run(["ffmpeg", "-y", "-loglevel", "error", "-i", joined,
-              "-c", "copy", "-movflags", "+faststart", output])
-        return
+        filters.append("[dlg]anull[pre]")
 
     filters.append("[pre]loudnorm=I=-14:TP=-1.5:LRA=11,alimiter=limit=0.95[a]")
 
