@@ -38,7 +38,6 @@ def main():
     os.makedirs(OUT, exist_ok=True)
     story = generate_story(NUM_SCENES, frames_per_scene=6)
 
-    # Hero scene = first scene
     scene = story["scenes"][0]
     print(f"\n=== Generating 15-second video ===")
     print(f"Prompt: {scene['visual'][:100]}...")
@@ -62,7 +61,6 @@ def main():
         print("Magic Hour failed - using static fallback")
         silent = os.path.join(OUT, "silent.mp3")
         try:
-            # FIXED: -t goes AFTER -i for anullsrc
             subprocess.run([
                 "ffmpeg", "-y", "-loglevel", "error",
                 "-f", "lavfi",
@@ -71,7 +69,6 @@ def main():
                 "-c:a", "aac",
                 silent,
             ], check=True, timeout=60)
-
             if not static_video(img_path, silent, video_path):
                 print("Fallback also failed - aborting")
                 return
@@ -106,7 +103,6 @@ def main():
         print(f"Final video: {final}")
     except Exception as exc:
         print(f"  Mix failed: {str(exc)[:200]}")
-        # Fallback: use raw video without SFX/music
         shutil.copy(video_path, final)
         print(f"  Using raw video: {final}")
 
