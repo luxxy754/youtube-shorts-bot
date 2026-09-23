@@ -52,7 +52,6 @@ def main():
     print(f"  Image saved: {img_path}")
 
     # 2. Generate 15-second video via Magic Hour
-    #    (Magic Hour uploads the image internally - no public URL needed)
     print("Generating 15s video via Magic Hour...")
     t0 = time.time()
     video_path = os.path.join(OUT, "hero_15s.mp4")
@@ -63,17 +62,21 @@ def main():
         print("Magic Hour failed - using static fallback")
         silent = os.path.join(OUT, "silent.mp3")
         try:
+            # FIXED: -t goes AFTER -i for anullsrc
             subprocess.run([
                 "ffmpeg", "-y", "-loglevel", "error",
-                "-f", "lavfi", "-t", "15",
+                "-f", "lavfi",
                 "-i", "anullsrc=r=44100:cl=stereo",
-                "-c:a", "aac", silent,
+                "-t", "15",
+                "-c:a", "aac",
+                silent,
             ], check=True, timeout=60)
+
             if not static_video(img_path, silent, video_path):
                 print("Fallback also failed - aborting")
                 return
         except Exception as exc:
-            print(f"Fallback error: {str(exc)[:150]}")
+            print(f"Fallback error: {str(exc)[:200]}")
             return
 
     print(f"  Video ready in {time.time() - t0:.1f}s")
