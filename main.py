@@ -42,7 +42,6 @@ def main():
     print(f"\n=== Generating 15-second video ===")
     print(f"Prompt: {scene['visual'][:100]}...")
 
-    # 1. Generate base image via Pollinations
     img_path = os.path.join(OUT, "hero.jpg")
     print("Generating base image...")
     if not pollinations_image(scene["visual"], img_path):
@@ -50,7 +49,6 @@ def main():
         return
     print(f"  Image saved: {img_path}")
 
-    # 2. Generate 15-second video via Magic Hour
     print("Generating 15s video via Magic Hour...")
     t0 = time.time()
     video_path = os.path.join(OUT, "hero_15s.mp4")
@@ -78,7 +76,6 @@ def main():
 
     print(f"  Video ready in {time.time() - t0:.1f}s")
 
-    # 3. Get duration
     try:
         dur = float(subprocess.check_output([
             "ffprobe", "-v", "error", "-show_entries", "format=duration",
@@ -87,7 +84,6 @@ def main():
         dur = 15.0
     print(f"  Duration: {dur:.1f}s")
 
-    # 4. Add cat sounds + music
     print("Adding cat sounds + music...")
     scenes_list = [scene]
     sfx = get_sfx(scenes_list, OUT)
@@ -106,13 +102,11 @@ def main():
         shutil.copy(video_path, final)
         print(f"  Using raw video: {final}")
 
-    # 5. Save metadata
     title, desc, tags = build_metadata(story, music_credit(music))
     with open(os.path.join(OUT, "meta.json"), "w", encoding="utf-8") as f:
         json.dump({"title": title, "description": desc, "tags": tags},
                   f, ensure_ascii=False, indent=2)
 
-    # 6. Upload to YouTube
     if os.getenv("DRY_RUN", "").lower() in {"1", "true", "yes"}:
         print("DRY_RUN: skipping upload.")
     elif not have_credentials():
