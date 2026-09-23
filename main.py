@@ -43,10 +43,10 @@ def main():
             clips.append((path, sc))
         else:
             print("  Scene skipped (all providers failed)")
-        # Agnes free tier ke liye gap
+        # Small gap between scenes for Agnes rate limits.
         if i < total_scenes - 1:
-            print("  Waiting 60s for Agnes rate limit...")
-            time.sleep(60)
+            print("  Waiting 15s before next scene...")
+            time.sleep(15)
 
     if not clips:
         raise RuntimeError("No clip could be generated. Check AGNES_API_KEY_1..N / credits.")
