@@ -1,7 +1,8 @@
 """Video generation via Magic Hour API (wan-2.2 model).
 
-Rotates 4 API keys to build a 15-second video from 3x 5-second clips.
-Falls back to next key on failure.
+Two-step process:
+  1. Upload image to Magic Hour -> get file_path
+  2. Submit video job with file_path -> poll -> download
 """
 import os
 import subprocess
@@ -9,11 +10,13 @@ import time
 
 import requests
 
-MAGIC_HOUR_API_URL = "https://api.magichour.ai/v1/image-to-video"
-MAGIC_HOUR_MODEL = os.getenv("MAGIC_HOUR_MODEL", "wan-2.2")
+# Magic Hour endpoints
+MH_UPLOAD_URL = "https://api.magichour.ai/v1/files/upload"
+MH_VIDEO_URL = "https://api.magichour.ai/v1/image-to-video"
+MH_MODEL = os.getenv("MAGIC_HOUR_MODEL", "wan-2.2")
 RESOLUTION = os.getenv("VIDEO_RESOLUTION", "480p")
 ASPECT_RATIO = "9:16"
-POLL_TIMEOUT = int(os.getenv("MAGIC_HOUR_POLL_TIMEOUT", "600"))  # 10 min
+POLL_TIMEOUT = int(os.getenv("MAGIC_HOUR_POLL_TIMEOUT", "900"))
 POLL_INTERVAL = 5
 
 
@@ -27,26 +30,56 @@ def _get_keys():
     return keys
 
 
-def _submit_job(image_url, prompt, duration, api_key):
-    """Submit one generation job. Returns job_id or None."""
+def _upload_image_to_magichour(image_path, api_key):
+    """Upload image to Magic Hour, get file_path (not URL).
+
+    Returns the file_path string or None.
+    """
+    try:
+        with open(image_path, "rb") as f:
+            files = {"file": (os.path.basename(image_path), f, "image/jpeg")}
+            headers = {"Authorization": f"Bearer {api_key}"}
+            r = requests.post(
+                MH_UPLOAD_URL,
+                headers=headers,
+                files=files,
+                timeout=120,
+            )
+        if r.status_code in (200, 201):
+            data = r.json()
+            # Try multiple possible field names
+            for field in ("file_path", "path", "id", "url", "file_url"):
+                if data.get(field):
+                    print(f"    Upload OK ({field}): {data[field]}")
+                    return data[field]
+            print(f"    Upload OK but no path field: {data}")
+            return None
+        print(f"    Upload HTTP {r.status_code}: {r.text[:200]}")
+    except Exception as exc:
+        print(f"    Upload error: {str(exc)[:150]}")
+    return None
+
+
+def _submit_job(image_file_path, prompt, duration, api_key):
+    """Submit video generation job with file_path."""
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
     }
     payload = {
-        "model": MAGIC_HOUR_MODEL,
-        "assets": {"image_url": image_url},
+        "model": MH_MODEL,
+        "assets": {"image_file_path": image_file_path},
         "end_seconds": duration,
         "resolution": RESOLUTION,
         "aspect_ratio": ASPECT_RATIO,
         "prompt": prompt,
     }
     try:
-        r = requests.post(MAGIC_HOUR_API_URL, headers=headers, json=payload, timeout=30)
+        r = requests.post(MH_VIDEO_URL, headers=headers, json=payload, timeout=30)
         if r.status_code in (200, 201):
             data = r.json()
             return data.get("id") or data.get("job_id")
-        print(f"    Submit HTTP {r.status_code}: {r.text[:150]}")
+        print(f"    Submit HTTP {r.status_code}: {r.text[:200]}")
     except Exception as exc:
         print(f"    Submit error: {str(exc)[:120]}")
     return None
@@ -59,13 +92,18 @@ def _poll_job(job_id, api_key):
     while time.time() - start < POLL_TIMEOUT:
         time.sleep(POLL_INTERVAL)
         try:
-            r = requests.get(f"{MAGIC_HOUR_API_URL}/{job_id}", headers=headers, timeout=30)
+            r = requests.get(f"{MH_VIDEO_URL}/{job_id}", headers=headers, timeout=30)
             if r.status_code != 200:
                 continue
             data = r.json()
             status = data.get("status", "").lower()
-            if status in ("complete", "completed", "succeeded"):
-                return data.get("url") or data.get("download_url")
+            if status in ("complete", "completed", "succeeded", "done"):
+                url = data.get("url") or data.get("download_url")
+                if not url:
+                    downloads = data.get("downloads", [])
+                    if downloads and isinstance(downloads, list):
+                        url = downloads[0].get("url")
+                return url
             if status in ("error", "failed"):
                 print(f"    Job failed: {data.get('error', 'unknown')}")
                 return None
@@ -79,7 +117,7 @@ def _poll_job(job_id, api_key):
 
 
 def _download(url, out_path):
-    """Download video file."""
+    """Download video."""
     try:
         r = requests.get(url, timeout=300, stream=True)
         if r.status_code == 200:
@@ -87,46 +125,41 @@ def _download(url, out_path):
                 for chunk in r.iter_content(8192):
                     f.write(chunk)
             return True
+        print(f"    Download HTTP {r.status_code}")
     except Exception as exc:
         print(f"    Download error: {str(exc)[:120]}")
     return False
 
 
-def generate_clip(image_url, prompt, duration, out_path, key_index=None):
-    """Generate ONE clip. If key_index given, use that key only.
-    Otherwise rotate through all keys until success.
+def generate_clip(image_path, prompt, duration, out_path, api_key):
+    """Generate ONE clip via Magic Hour:
+       1. Upload image
+       2. Submit video job
+       3. Poll + download
     """
-    keys = _get_keys()
-    if not keys:
-        print("  No VIDEO_KEY_* found")
+    # Step 1: Upload
+    print(f"    [1/3] Uploading image...")
+    file_path = _upload_image_to_magichour(image_path, api_key)
+    if not file_path:
         return False
 
-    # If specific key requested
-    if key_index is not None:
-        keys = [(i, k) for i, k in keys if i == key_index]
+    # Step 2: Submit video job
+    print(f"    [2/3] Submitting video job...")
+    job_id = _submit_job(file_path, prompt, duration, api_key)
+    if not job_id:
+        return False
 
-    for i, key in keys:
-        print(f"  Trying VIDEO_KEY_{i}...")
-        job_id = _submit_job(image_url, prompt, duration, key)
-        if not job_id:
-            continue
-        video_url = _poll_job(job_id, key)
-        if not video_url:
-            continue
-        if _download(video_url, out_path):
-            print(f"  Clip OK via KEY_{i}: {out_path}")
-            return True
-    print("  All keys failed for this clip")
-    return False
+    # Step 3: Poll
+    print(f"    [3/3] Generating ({duration}s)...")
+    video_url = _poll_job(job_id, api_key)
+    if not video_url:
+        return False
+
+    return _download(video_url, out_path)
 
 
-def generate_15s_video(image_url, prompt, out_path):
-    """Build a 15-second video from 3x 5-second clips.
-
-    Uses different keys for each clip to spread credit usage.
-    Keys rotate: clip 1 -> key 1, clip 2 -> key 2, clip 3 -> key 3.
-    If a key fails, the next key is tried automatically.
-    """
+def generate_15s_video(image_path, prompt, out_path):
+    """Build 15-second video from 3x 5-second clips using 4 keys."""
     keys = _get_keys()
     if not keys:
         print("  No VIDEO_KEY_* found")
@@ -134,37 +167,27 @@ def generate_15s_video(image_url, prompt, out_path):
 
     print(f"  Found {len(keys)} keys")
 
-    # 3 clips of 5 seconds each
     clip_paths = []
     for clip_idx in range(3):
         clip_path = out_path.replace(".mp4", f"_clip{clip_idx}.mp4")
-        # Rotate key: clip 0 -> key 1, clip 1 -> key 2, clip 2 -> key 3
-        # If only 4 keys, key 4 goes back to clip 0 on retry
         key_idx = (clip_idx % len(keys)) + 1
 
-        # Try the assigned key first, then fall back to others
-        print(f"  === Clip {clip_idx + 1}/3 ===")
+        print(f"  === Clip {clip_idx + 1}/3 (using KEY_{key_idx}) ===")
+
+        # Try assigned key first, then rotate through others
+        ordered = [(i, k) for i, k in keys if i == key_idx] + \
+                  [(i, k) for i, k in keys if i != key_idx]
+
         success = False
-
-        # Try assigned key first
-        assigned = [(i, k) for i, k in keys if i == key_idx]
-        others = [(i, k) for i, k in keys if i != key_idx]
-
-        for i, key in assigned + others:
-            job_id = _submit_job(image_url, prompt, 5, key)
-            if not job_id:
-                continue
-            video_url = _poll_job(job_id, key)
-            if not video_url:
-                continue
-            if _download(video_url, clip_path):
+        for i, key in ordered:
+            if generate_clip(image_path, prompt, 5, clip_path, key):
                 clip_paths.append(clip_path)
                 success = True
                 print(f"  Clip {clip_idx + 1} OK via KEY_{i}")
                 break
 
         if not success:
-            print(f"  Clip {clip_idx + 1} FAILED completely")
+            print(f"  Clip {clip_idx + 1} FAILED")
 
     if len(clip_paths) < 2:
         print(f"  Only {len(clip_paths)} clips succeeded - need at least 2")
@@ -192,7 +215,7 @@ def generate_15s_video(image_url, prompt, out_path):
 
 
 def pollinations_image(prompt, out_path, seed=None):
-    """Base image for Magic Hour input (free Pollinations)."""
+    """Generate base image (free)."""
     import urllib.parse
     clean = " ".join(prompt.split())[:1200]
     encoded = urllib.parse.quote(clean)
