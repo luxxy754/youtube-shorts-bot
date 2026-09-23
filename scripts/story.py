@@ -28,18 +28,42 @@ THEMES = [
     "lehsun aur adrak achhe dost ban jate hain",
 ]
 
+# ---- NEW: Ultra-detailed Pixar cinematic style ----
 STYLE = (
-    "Pixar-style 3D animated movie still, cinematic quality, "
-    "cute stylized vegetables with big expressive cartoon eyes and small smiling mouths, "
-    "soft rounded shapes, warm detailed faces, stubby arms and legs, "
-    "bright cheerful colors, warm golden-hour lighting, "
-    "shallow depth of field with soft bokeh background, "
-    "simple clean background (sunny garden, kitchen counter, market stall), "
-    "vertical 9:16 composition, FRONT-FACING character centered in frame, "
-    "face clearly visible and well lit, looking at camera, "
-    "absolutely no text, no subtitles, no watermark, no logo, "
-    "no humans, no scary elements, no violence, "
-    "no 2D illustration, no anime, no sketch, no realistic photorealism"
+    "Ultra-detailed 3D Pixar-style animated movie still, "
+    "cinematic render, shot on virtual ARRI Alexa camera, "
+    "subsurface skin scattering on vegetable surfaces, "
+    "ray-traced soft shadows, ambient occlusion, "
+    "volumetric warm sunlight with dust particles, "
+    "physically-based rendering (PBR), 8K hyper-detailed texture, "
+    "very cute stylized vegetable characters with BIG glossy expressive eyes, "
+    "small smiling mouths, chubby rounded soft bodies with subtle fur-like fuzz, "
+    "tiny stubby arms and small cute legs, "
+    "delicate micro-expressions showing clear emotion (happy / sad / surprised / warm), "
+    "soft cheesy-bright cheerful color palette, "
+    "shallow depth of field with creamy bokeh, "
+    "detailed clean background (sunny garden / kitchen counter / market stall), "
+    "cinematic composition with rule of thirds, "
+    "vertical 9:16 portrait framing, "
+    "FRONT-FACING character centered in frame, face clearly visible, well lit, looking at camera, "
+    "absolutely no text, no subtitles, no watermark, no logo, no signature, "
+    "no humans, no scary elements, no violence, no gore, "
+    "no 2D illustration, no anime, no sketch, no low-poly, "
+    "no realistic photorealism, no uncanny valley"
+)
+
+# ---- NEW: Strong negative prompt ----
+NEGATIVE = (
+    "blurry, low quality, low resolution, jpeg artifacts, "
+    "flat lighting, flat shading, plasticky, waxy, doll-like, "
+    "extra limbs, extra arms, extra legs, extra eyes, extra fingers, "
+    "deformed face, distorted mouth, crooked eyes, "
+    "cropped head, cropped body, off-center, "
+    "text, watermark, logo, signature, stamp, "
+    "human, person, hand, realistic photo, "
+    "scary, dark, blood, violence, weapon, "
+    "2d, cartoon flat, anime, manga, sketch, pencil drawing, "
+    "abstract, glitch, artifact, noise, grain"
 )
 
 FALLBACK = {
@@ -48,29 +72,31 @@ FALLBACK = {
     "hashtags": ["#vegetables", "#cute", "#animation", "#shorts", "#kids", "#hindi"],
     "keywords": ["cute vegetable animation", "hindi kids story", "talking vegetables", "3d cartoon"],
     "character": (
-        "a tiny round red tomato with big shiny black cartoon eyes, small green leaf on top, "
-        "cute stubby arms and small legs, smiling small mouth; "
-        "standing next to a chubby brown potato with sleepy half-closed eyes and lazy smile, "
-        "small stubby arms, sitting on soft brown soil in a sunny vegetable garden"
+        "a tiny round glossy red tomato with BIG shiny black Pixar-style cartoon eyes, "
+        "a small green leaf on top, cute chubby soft body with subtle fuzz, "
+        "small smiling mouth, tiny stubby arms and legs; "
+        "standing next to a chubby brown potato with sleepy half-closed cartoon eyes, "
+        "lazy warm smile, small stubby arms, sitting on soft dark brown soil, "
+        "in a bright sunny vegetable garden with green grass and small flowers"
     ),
     "scenes": [
         {
-            "visual": "The tiny red tomato stands next to the chubby potato on a sunny garden patch, looking up at him with wide hopeful eyes, small smile. Medium shot, eye-level, front-facing, warm morning sunlight.",
+            "visual": "The tiny glossy red tomato stands beside the chubby potato on a sunlit garden patch, looking up at him with wide hopeful sparkly eyes and small smile. Medium shot, eye-level, FRONT-FACING, warm morning sunlight, cinematic bokeh background.",
             "dialogue": "Aalu bhai, dhoop mein saath baithen?",
             "sfx": "soft hopeful chirp"
         },
         {
-            "visual": "The chubby potato turns slightly away with a lazy grumpy face, eyes half closed, arms folded. Wide shot, front-facing, soft afternoon shadow.",
+            "visual": "The chubby brown potato turns slightly away with a lazy grumpy face, half-closed eyes, arms folded, small pout. Wide shot, FRONT-FACING, soft afternoon shadow, cinematic framing.",
             "dialogue": "Nahi, mujhe neend aa rahi hai.",
             "sfx": "grumpy mumble"
         },
         {
-            "visual": "The tiny tomato holds out a small green leaf like a gift, big sparkly eyes, warm smile. Close-up, front-facing, gentle golden light.",
+            "visual": "The tiny glossy red tomato holds out a small green leaf like a gift, BIG sparkly eyes, warm hopeful smile. Close-up, FRONT-FACING, gentle golden light, creamy bokeh.",
             "dialogue": "Yeh patta tumhare liye laaya hoon!",
             "sfx": "sweet sparkle sound"
         },
         {
-            "visual": "The potato smiles warmly and gently hugs the tomato, both looking happy and cozy. Medium shot, front-facing, golden hour light.",
+            "visual": "The potato smiles warmly and gently hugs the tomato, both looking happy and cozy, BIG smiles. Medium shot, FRONT-FACING, golden hour backlight, warm cozy mood.",
             "dialogue": "Shukriya dost, tum achhe ho!",
             "sfx": "happy giggle and warm chime"
         },
@@ -83,7 +109,7 @@ def _prompt(n_scenes):
     theme = random.choice(THEMES)
     return f"""
 You are writing a SHORT, kids-friendly YouTube Shorts story about
-TALKING VEGETABLES in Pixar 3D style.
+TALKING VEGETABLES in ultra-detailed Pixar 3D style.
 
 TARGET AUDIENCE: 3-6 year old Hindi/Urdu speaking children.
 LANGUAGE: Roman Hindi/Urdu (like "Aalu bhai, kaisay ho?").
@@ -93,8 +119,11 @@ THEME: {theme}
 
 Each scene has THREE parts:
   1. "visual":   ONE frozen moment - vegetable subject, expression, pose,
-                 camera framing (front-facing, face centered), lighting.
+                 camera framing (FRONT-FACING, face centered, looking at camera),
+                 lighting (cinematic, warm, detailed), background details.
                  This will be sent to an IMAGE generator.
+                 Use vivid descriptive words: glossy, sparkly, chubby, warm,
+                 creamy bokeh, subsurface scattering, cinematic.
   2. "dialogue": ONE very short Hindi/Urdu line spoken by a vegetable.
                  Max 8 words. Simple. Funny. Kid-friendly.
                  Use Roman script (e.g. "Yeh kya hai?", "Main bhookha hoon!").
@@ -115,10 +144,10 @@ Return ONLY valid JSON:
   "description": "one or two short Hindi/Urdu sentences",
   "hashtags": ["#vegetables", "#cute", "#animation", "#shorts", "#kids", "#hindi"],
   "keywords": ["6-8 YouTube search phrases"],
-  "character": "one detailed English sentence describing the EXACT appearance of every main vegetable (color, shape, eyes, mouth, arms) AND the setting",
+  "character": "one VERY detailed English sentence describing the EXACT appearance of every main vegetable (color, glossiness, eye style, mouth, arms, body shape, fuzz) AND the setting",
   "scenes": [
     {{
-      "visual": "English: ONE frozen moment with framing + lighting. 2-3 sentences.",
+      "visual": "English: ONE frozen moment with cinematic framing + lighting + background details. 2-3 vivid sentences.",
       "dialogue": "Roman Hindi/Urdu line, max 8 words",
       "sfx": "short sound effect description in English"
     }}
@@ -208,7 +237,7 @@ def generate_story(n_scenes=4):
 
 
 def scene_prompt(story, index):
-    """Image-generation prompt for one scene."""
+    """Image-generation prompt for one scene - ULTRA DETAILED."""
     scenes = story.get("scenes", [])
     if not scenes:
         return ""
@@ -219,18 +248,27 @@ def scene_prompt(story, index):
     prompt = f"""
 {STYLE}
 
-CHARACTER (must appear EXACTLY as described in every image):
+CHARACTER (must appear EXACTLY as described, same in every image):
 {character}
 
 THIS SCENE:
 {visual}
 
-Shot {index + 1}. The vegetable appearance must match previous shots EXACTLY.
-Face must be FRONT-FACING, centered, clearly visible for lip-sync.
+Shot {index + 1} of a continuous short film.
 
-NEGATIVE: text, watermark, logo, human, extra limbs, extra eyes,
-distorted face, deformed mouth, cropped head, 2D drawing, anime,
-sketch, blurry, scary, dark, violence.
+MUST-HAVE in the image:
+- Big glossy expressive cartoon eyes with highlights
+- Small expressive smiling mouth
+- Chubby rounded 3D body with soft subsurface scattering
+- Warm cinematic lighting with soft shadows
+- Shallow depth of field, creamy bokeh background
+- Face FRONT-FACING, centered, well lit, looking at camera
+- Full character visible (not cropped)
+- Ultra-detailed Pixar render quality
+
+NEGATIVE: {NEGATIVE}
+
+Output: ONLY the image. No text overlay.
 """
     return " ".join(prompt.split())
 
