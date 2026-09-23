@@ -1,8 +1,7 @@
-"""Story generator for 'Talking Cat' Hindi/Urdu Shorts.
+"""Cat story generator - VISUALS ONLY, no dialogue.
 
-Each scene generates 6-8 frame descriptions with slight pose changes.
-The AI image generator creates one image per frame, then FFmpeg
-stitches them into a choppy animation.
+Cat meows, doesn't talk. So story is told through actions + expressions.
+Each scene has 6 frame descriptions for choppy animation.
 """
 import json
 import os
@@ -13,12 +12,12 @@ import requests
 
 
 THEMES = [
-    "ek choti billi apni khoyi hui gend ko dhoondti hai",
+    "ek choti billi apni khoyi hui gend dhoondti hai",
     "ek kitten apni maa ke saath pehli baar dhoop mein khelti hai",
     "ek bhookhi billi khana dhoondte hue rasoi mein ghus jati hai",
     "ek sharmili billi naye puppy se dosti karti hai",
     "ek chhoti billi apni dum pakadne ki koshish karti hai",
-    "ek kitten pehli baar barish dekhti hai aur dar jati hai",
+    "ek kitten pehli baar barish dekhti hai",
     "ek billi apni favorite jagah pe soney ki koshish karti hai",
     "ek kitten titli pakadne ki koshish karti hai",
     "ek billi apne dost ke saath doodh peeti hai",
@@ -64,8 +63,8 @@ NEGATIVE = (
 FALLBACK = {
     "title": "Choti Billi ki Gend 🐱🧶 #shorts",
     "description": "Ek choti billi apni khoyi hui gend dhoondti hai.",
-    "hashtags": ["#cat", "#kitten", "#cute", "#animation", "#shorts", "#kids", "#hindi"],
-    "keywords": ["cute cat animation", "hindi kids story", "kitten cartoon", "3d cat"],
+    "hashtags": ["#cat", "#kitten", "#cute", "#animation", "#shorts", "#kids"],
+    "keywords": ["cute cat animation", "kitten cartoon", "3d cat", "funny cat"],
     "character": (
         "a tiny fluffy orange tabby kitten with soft orange-and-white fur, "
         "BIG glossy black Pixar-style cartoon eyes with sparkly highlights, "
@@ -76,24 +75,52 @@ FALLBACK = {
     ),
     "scenes": [
         {
-            "visual": "The tiny orange kitten sits on a wooden floor, looking at a red yarn ball with BIG curious eyes. Medium shot, eye-level, FRONT-FACING, warm morning sunlight through window.",
-            "dialogue": "Yeh gend kahan se aayi?",
-            "sfx": "curious meow"
+            "visual": "The tiny orange kitten sits on a wooden floor, looking at a red yarn ball with BIG curious eyes. Medium shot, eye-level, FRONT-FACING, warm morning sunlight.",
+            "sfx": "curious meow",
+            "motions": [
+                "sitting still, looking at ball",
+                "head tilting slightly left",
+                "leaning forward a bit",
+                "one paw lifted",
+                "paw reaching toward ball",
+                "paw touching ball",
+            ],
         },
         {
-            "visual": "The tiny kitten reaches one paw toward the yarn ball, tilting head slightly. Close-up, FRONT-FACING, warm golden light, creamy bokeh.",
-            "dialogue": "Main ise pakadungi!",
-            "sfx": "playful meow"
+            "visual": "The tiny kitten reaches one paw toward the yarn ball, tilting head slightly. Close-up, FRONT-FACING, warm golden light.",
+            "sfx": "playful meow",
+            "motions": [
+                "paw extended forward",
+                "paw touching ball",
+                "ball starting to move",
+                "ball rolling slightly",
+                "kitten leaning further",
+                "both paws on ball",
+            ],
         },
         {
             "visual": "The tiny kitten playfully bats the yarn ball with both front paws, eyes wide, tail up. Medium shot, FRONT-FACING, warm afternoon light.",
-            "dialogue": "Yeh toh bhaag rahi hai!",
-            "sfx": "playful chirp"
+            "sfx": "playful chirp",
+            "motions": [
+                "batting ball with left paw",
+                "ball flying left",
+                "kitten head turned left",
+                "batting ball with right paw",
+                "ball flying right",
+                "kitten standing, alert",
+            ],
         },
         {
             "visual": "The tiny kitten happily hugs the yarn ball, eyes closed in joy, small smile. Close-up, FRONT-FACING, golden hour warm light.",
-            "dialogue": "Meri nayi gend!",
-            "sfx": "happy purr"
+            "sfx": "happy purr",
+            "motions": [
+                "both paws on ball",
+                "hugging ball close",
+                "eyes starting to close",
+                "eyes half closed",
+                "eyes fully closed, smiling",
+                "purring, hugging tight",
+            ],
         },
     ],
     "music": "playful cinematic instrumental with ukulele, marimba, light drums, no vocals",
@@ -106,49 +133,44 @@ def _prompt(n_scenes, frames_per_scene):
 You are writing a SHORT, kids-friendly YouTube Shorts story about a
 CUTE KITTEN in ultra-detailed Pixar 3D style.
 
-TARGET AUDIENCE: 3-6 year old Hindi/Urdu speaking children.
-LANGUAGE: Roman Hindi/Urdu (like "Yeh kya hai?").
-Use ONLY very simple, everyday words. NO difficult or formal words.
+IMPORTANT: The kitten does NOT talk. There is NO dialogue.
+The story is told through ACTIONS and EXPRESSIONS only.
+The kitten only makes natural sounds (meow, purr, chirp).
 
 THEME: {theme}
 
-Each scene will be animated using {frames_per_scene} still frames that
-show SLIGHT pose changes so it looks like a choppy cartoon animation.
+Each scene is animated with {frames_per_scene} still frames showing
+SLIGHT pose changes.
 
-For each scene, provide:
-  1. "base_visual": ONE main description of the scene moment.
-                    Front-facing, face centered, cinematic framing.
-  2. "dialogue":    ONE very short Hindi/Urdu line (max 8 words).
-                    Simple, funny, kid-friendly. Roman script.
-  3. "sfx":         short non-verbal sound effect (meow, purr, etc.)
-  4. "motions":     list of {frames_per_scene} SHORT motion descriptions,
-                    each describing a TINY change from the previous pose.
-                    Example: ["paw reaching forward", "paw touching ball",
-                              "ball rolling away", "kitten tilting head",
-                              "kitten leaning forward", "kitten sitting up"]
-                    Keep character EXACTLY the same, only pose changes.
+For each scene provide:
+  1. "visual": ONE main description of the scene moment.
+                Front-facing, face centered, cinematic framing.
+  2. "sfx":    short cat sound description (meow, purr, chirp, etc.)
+  3. "motions": list of {frames_per_scene} SHORT motion descriptions,
+                each a TINY pose change from the previous frame.
+                Example: ["sitting still", "head tilting", "leaning forward",
+                          "paw lifting", "paw extended", "touching ball"]
+                Keep the kitten EXACTLY the same, only pose changes.
 
 CRITICAL RULES:
-- Only the kitten as character. No humans. No other animals unless story needs.
-- Family friendly. No violence, no horror, no scary elements.
+- ONLY the kitten. No humans. No dialogue. No text.
+- Family friendly. No violence, no scary elements.
 - Kitten appearance MUST stay identical across all frames.
 - Simple clean background (living room, garden, kitchen).
-- Dialogue must be understandable by a 4-year-old.
 
 Return ONLY valid JSON:
 
 {{
-  "title": "warm curiosity-driven Hindi/Urdu title under 80 chars ending with #shorts",
-  "description": "one or two short Hindi/Urdu sentences",
-  "hashtags": ["#cat", "#kitten", "#cute", "#animation", "#shorts", "#kids", "#hindi"],
+  "title": "warm curiosity-driven title under 80 chars ending with #shorts",
+  "description": "one or two short English sentences",
+  "hashtags": ["#cat", "#kitten", "#cute", "#animation", "#shorts", "#kids"],
   "keywords": ["6-8 YouTube search phrases"],
   "character": "one VERY detailed English sentence about the kitten's exact appearance AND the setting",
   "scenes": [
     {{
-      "base_visual": "English: main frozen moment with framing + lighting. 2 sentences.",
-      "dialogue": "Roman Hindi/Urdu line, max 8 words",
-      "sfx": "short sound effect description",
-      "motions": ["motion frame 1", "motion frame 2", ... {frames_per_scene} items total]
+      "visual": "English: main frozen moment with framing + lighting. 2 sentences.",
+      "sfx": "short cat sound description",
+      "motions": ["motion 1", "motion 2", ... {frames_per_scene} items total]
     }}
   ],
   "music": "short description of warm playful instrumental music"
@@ -212,13 +234,13 @@ def _valid(story, n_scenes, frames_per_scene):
     for scene in scenes[:n_scenes]:
         if not isinstance(scene, dict):
             return False
-        if not scene.get("base_visual") or not scene.get("dialogue"):
+        if not scene.get("visual"):
             return False
         motions = scene.get("motions")
-        if not isinstance(motions, list) or len(motions) < frames_per_scene:
-            # Pad if short
-            scene["motions"] = (motions or []) + [
-                "same pose, tiny change"] * frames_per_scene
+        if not isinstance(motions, list):
+            scene["motions"] = []
+        while len(scene["motions"]) < frames_per_scene:
+            scene["motions"].append("same pose, tiny variation")
     return True
 
 
@@ -237,7 +259,6 @@ def generate_story(n_scenes=4, frames_per_scene=6):
     print("Using built-in fallback story.")
     story = dict(FALLBACK)
     story["scenes"] = FALLBACK["scenes"][:n_scenes]
-    # Add fake motions for fallback
     for sc in story["scenes"]:
         if "motions" not in sc:
             sc["motions"] = [f"pose variant {i+1}" for i in range(frames_per_scene)]
@@ -251,11 +272,10 @@ def frame_prompt(story, scene_index, frame_index, total_frames):
         return ""
     scene = scenes[scene_index % len(scenes)]
     character = story.get("character", "")
-    base = scene.get("base_visual", "")
+    base = scene.get("visual", "")
     motions = scene.get("motions", [])
     motion = motions[frame_index % len(motions)] if motions else ""
 
-    # Emphasize consistency
     prompt = f"""
 {STYLE}
 
@@ -266,7 +286,7 @@ SCENE (base composition):
 {base}
 
 FRAME {frame_index + 1} of {total_frames}:
-Tiny pose change from previous frame: {motion}
+Tiny pose change: {motion}
 
 IMPORTANT:
 - Character must look IDENTICAL to all other frames (same fur, eyes, color)
@@ -279,15 +299,8 @@ NEGATIVE: {NEGATIVE}
     return " ".join(prompt.split())
 
 
-def scene_dialogue(story, index):
-    scenes = story.get("scenes", [])
-    if not scenes:
-        return ""
-    return scenes[index % len(scenes)].get("dialogue", "")
-
-
 def scene_sfx(story, index):
     scenes = story.get("scenes", [])
     if not scenes:
-        return ""
-    return scenes[index % len(scenes)].get("sfx", "light gentle sound effect")
+        return "cute cat meow"
+    return scenes[index % len(scenes)].get("sfx", "cute cat meow")
