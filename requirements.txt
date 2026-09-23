@@ -6,3 +6,4 @@ numpy
 opencv-python-headless
 librosa
 tqdm
+edge-tts
