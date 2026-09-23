@@ -21,7 +21,7 @@ concurrency:
 jobs:
   build-and-post:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
 
@@ -39,7 +39,7 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Generate and upload Short
-        timeout-minutes: 25
+        timeout-minutes: 35
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
@@ -56,15 +56,15 @@ jobs:
           DRY_RUN: ${{ inputs.dry_run }}
 
           NUM_SCENES: "4"
-          CLIP_SECONDS: "4"
+          CLIP_SECONDS: "5"
           MUSIC_VOLUME: "0.16"
 
           TTS_LANG: "hi"
           TTS_GENDER: "female"
-          TTS_RATE: "-5%"
-          TTS_PITCH: "+2Hz"
+          TTS_RATE: "-8%"
+          TTS_PITCH: "+3Hz"
 
-          IMAGE_MODEL: "flux"
+          IMAGE_MODEL: "flux-realism"
         run: python -u main.py
 
       - name: Keep a copy of the video
