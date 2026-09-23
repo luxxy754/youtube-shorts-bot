@@ -1,4 +1,4 @@
-name: Cat Shorts
+name: Pet Drama Shorts
 
 on:
   workflow_dispatch:
@@ -15,13 +15,13 @@ permissions:
   contents: read
 
 concurrency:
-  group: cat-shorts
+  group: pet-drama
   cancel-in-progress: false
 
 jobs:
   build-and-post:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -38,21 +38,11 @@ jobs:
       - name: Install Python deps
         run: pip install -r requirements.txt
 
-      - name: Debug - verify main.py structure
-        run: |
-          tail -15 main.py
-          python -c "import main; print('main.py imports OK')"
-
       - name: Generate and upload Short
-        timeout-minutes: 30
+        timeout-minutes: 25
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-
-          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
-          AGNES_API_KEY_2: ${{ secrets.AGNES_API_KEY_2 }}
-          AGNES_API_KEY_3: ${{ secrets.AGNES_API_KEY_3 }}
-          AGNES_MODEL: "agnes-video-2.5"
 
           ELEVEN_KEY_1: ${{ secrets.ELEVEN_KEY_1 }}
           ELEVEN_KEY_2: ${{ secrets.ELEVEN_KEY_2 }}
@@ -65,12 +55,16 @@ jobs:
 
           DRY_RUN: ${{ inputs.dry_run }}
 
-          NUM_SCENES: "1"
-          NUM_CLIPS: "3"
-          CLIP_SECONDS: "5"
+          NUM_SCENES: "4"
+          CLIP_SECONDS: "4"
           MUSIC_VOLUME: "0.16"
-          AGNES_POLL_TIMEOUT: "600"
-          AGNES_POLL_INTERVAL: "3"
+
+          TTS_LANG: "hi"
+          TTS_GENDER: "female"
+          TTS_RATE: "-5%"
+          TTS_PITCH: "+2Hz"
+
+          IMAGE_MODEL: "flux"
         run: python -u main.py
 
       - name: Keep a copy of the video
