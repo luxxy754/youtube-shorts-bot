@@ -1,11 +1,8 @@
-"""Story generator for 'Talking Vegetables' Hindi/Urdu Shorts.
+"""Story generator for 'Talking Cat' Hindi/Urdu Shorts.
 
-Each scene has:
-  - visual:   Pixar-style image description
-  - dialogue: short Hindi/Urdu line the vegetable speaks (kids-friendly)
-  - sfx:      short sound effect description
-
-Dialogue rules: 3-8 simple words, Roman Hindi/Urdu, no difficult words.
+Each scene generates 6-8 frame descriptions with slight pose changes.
+The AI image generator creates one image per frame, then FFmpeg
+stitches them into a choppy animation.
 """
 import json
 import os
@@ -16,140 +13,142 @@ import requests
 
 
 THEMES = [
-    "tomato aur aalu dhoop mein jagah share karna seekhte hain",
-    "chota matar bade kaddu se dosti karna chahta hai",
-    "gajar bazaar mein kho jata hai, pyaaz uski madad karta hai",
-    "broccoli seekhta hai ke hara hona special hai",
-    "mirchi apna gussa control karna seekhti hai",
-    "kheera aur tamatar makkai ke liye surprise party plan karte hain",
-    "chota aalu pehli baar zameen ke neeche ja kar bahadur banta hai",
-    "nimbu aur mosambi dosti ka maza lete hain",
-    "baingan apna purple rang pasand karna seekhta hai",
-    "lehsun aur adrak achhe dost ban jate hain",
+    "ek choti billi apni khoyi hui gend ko dhoondti hai",
+    "ek kitten apni maa ke saath pehli baar dhoop mein khelti hai",
+    "ek bhookhi billi khana dhoondte hue rasoi mein ghus jati hai",
+    "ek sharmili billi naye puppy se dosti karti hai",
+    "ek chhoti billi apni dum pakadne ki koshish karti hai",
+    "ek kitten pehli baar barish dekhti hai aur dar jati hai",
+    "ek billi apni favorite jagah pe soney ki koshish karti hai",
+    "ek kitten titli pakadne ki koshish karti hai",
+    "ek billi apne dost ke saath doodh peeti hai",
+    "ek chhoti billi chhat pe baith ke duniya dekhti hai",
 ]
 
-# ---- NEW: Ultra-detailed Pixar cinematic style ----
 STYLE = (
     "Ultra-detailed 3D Pixar-style animated movie still, "
     "cinematic render, shot on virtual ARRI Alexa camera, "
-    "subsurface skin scattering on vegetable surfaces, "
+    "subsurface skin scattering on fur, "
     "ray-traced soft shadows, ambient occlusion, "
     "volumetric warm sunlight with dust particles, "
-    "physically-based rendering (PBR), 8K hyper-detailed texture, "
-    "very cute stylized vegetable characters with BIG glossy expressive eyes, "
-    "small smiling mouths, chubby rounded soft bodies with subtle fur-like fuzz, "
-    "tiny stubby arms and small cute legs, "
-    "delicate micro-expressions showing clear emotion (happy / sad / surprised / warm), "
-    "soft cheesy-bright cheerful color palette, "
+    "physically-based rendering (PBR), 8K hyper-detailed fur texture, "
+    "VERY CUTE fluffy kitten with BIG glossy expressive eyes, "
+    "small pink nose, chubby rounded soft body, "
+    "soft fluffy detailed fur with individual strands visible, "
+    "expressive face showing clear emotion (happy / curious / surprised / warm), "
+    "bright cheerful color palette, "
     "shallow depth of field with creamy bokeh, "
-    "detailed clean background (sunny garden / kitchen counter / market stall), "
+    "detailed clean background (sunny living room, cozy garden, warm kitchen), "
     "cinematic composition with rule of thirds, "
     "vertical 9:16 portrait framing, "
-    "FRONT-FACING character centered in frame, face clearly visible, well lit, looking at camera, "
-    "absolutely no text, no subtitles, no watermark, no logo, no signature, "
-    "no humans, no scary elements, no violence, no gore, "
-    "no 2D illustration, no anime, no sketch, no low-poly, "
-    "no realistic photorealism, no uncanny valley"
+    "FRONT-FACING character centered in frame, face clearly visible, "
+    "well lit, looking at camera, "
+    "absolutely no text, no subtitles, no watermark, no logo, "
+    "no humans, no scary elements, no violence, "
+    "no 2D illustration, no anime, no sketch, no low-poly"
 )
 
-# ---- NEW: Strong negative prompt ----
 NEGATIVE = (
     "blurry, low quality, low resolution, jpeg artifacts, "
     "flat lighting, flat shading, plasticky, waxy, doll-like, "
-    "extra limbs, extra arms, extra legs, extra eyes, extra fingers, "
+    "extra limbs, extra arms, extra legs, extra eyes, extra tails, "
     "deformed face, distorted mouth, crooked eyes, "
     "cropped head, cropped body, off-center, "
-    "text, watermark, logo, signature, stamp, "
+    "text, watermark, logo, signature, "
     "human, person, hand, realistic photo, "
-    "scary, dark, blood, violence, weapon, "
-    "2d, cartoon flat, anime, manga, sketch, pencil drawing, "
-    "abstract, glitch, artifact, noise, grain"
+    "scary, dark, blood, violence, "
+    "2d, cartoon flat, anime, manga, sketch, "
+    "abstract, glitch, artifact, noise"
 )
 
 FALLBACK = {
-    "title": "Tamatar aur Aalu ki Dosti 🍅🥔 #shorts",
-    "description": "Ek chota tamatar aur ek sust aalu dhoop mein dosti karte hain.",
-    "hashtags": ["#vegetables", "#cute", "#animation", "#shorts", "#kids", "#hindi"],
-    "keywords": ["cute vegetable animation", "hindi kids story", "talking vegetables", "3d cartoon"],
+    "title": "Choti Billi ki Gend 🐱🧶 #shorts",
+    "description": "Ek choti billi apni khoyi hui gend dhoondti hai.",
+    "hashtags": ["#cat", "#kitten", "#cute", "#animation", "#shorts", "#kids", "#hindi"],
+    "keywords": ["cute cat animation", "hindi kids story", "kitten cartoon", "3d cat"],
     "character": (
-        "a tiny round glossy red tomato with BIG shiny black Pixar-style cartoon eyes, "
-        "a small green leaf on top, cute chubby soft body with subtle fuzz, "
-        "small smiling mouth, tiny stubby arms and legs; "
-        "standing next to a chubby brown potato with sleepy half-closed cartoon eyes, "
-        "lazy warm smile, small stubby arms, sitting on soft dark brown soil, "
-        "in a bright sunny vegetable garden with green grass and small flowers"
+        "a tiny fluffy orange tabby kitten with soft orange-and-white fur, "
+        "BIG glossy black Pixar-style cartoon eyes with sparkly highlights, "
+        "small pink nose, chubby rounded soft body, "
+        "tiny stubby paws and small tail with white tip, "
+        "expressive face showing wonder and curiosity, "
+        "in a warm cozy sunlit living room with wooden floor and soft rug"
     ),
     "scenes": [
         {
-            "visual": "The tiny glossy red tomato stands beside the chubby potato on a sunlit garden patch, looking up at him with wide hopeful sparkly eyes and small smile. Medium shot, eye-level, FRONT-FACING, warm morning sunlight, cinematic bokeh background.",
-            "dialogue": "Aalu bhai, dhoop mein saath baithen?",
-            "sfx": "soft hopeful chirp"
+            "visual": "The tiny orange kitten sits on a wooden floor, looking at a red yarn ball with BIG curious eyes. Medium shot, eye-level, FRONT-FACING, warm morning sunlight through window.",
+            "dialogue": "Yeh gend kahan se aayi?",
+            "sfx": "curious meow"
         },
         {
-            "visual": "The chubby brown potato turns slightly away with a lazy grumpy face, half-closed eyes, arms folded, small pout. Wide shot, FRONT-FACING, soft afternoon shadow, cinematic framing.",
-            "dialogue": "Nahi, mujhe neend aa rahi hai.",
-            "sfx": "grumpy mumble"
+            "visual": "The tiny kitten reaches one paw toward the yarn ball, tilting head slightly. Close-up, FRONT-FACING, warm golden light, creamy bokeh.",
+            "dialogue": "Main ise pakadungi!",
+            "sfx": "playful meow"
         },
         {
-            "visual": "The tiny glossy red tomato holds out a small green leaf like a gift, BIG sparkly eyes, warm hopeful smile. Close-up, FRONT-FACING, gentle golden light, creamy bokeh.",
-            "dialogue": "Yeh patta tumhare liye laaya hoon!",
-            "sfx": "sweet sparkle sound"
+            "visual": "The tiny kitten playfully bats the yarn ball with both front paws, eyes wide, tail up. Medium shot, FRONT-FACING, warm afternoon light.",
+            "dialogue": "Yeh toh bhaag rahi hai!",
+            "sfx": "playful chirp"
         },
         {
-            "visual": "The potato smiles warmly and gently hugs the tomato, both looking happy and cozy, BIG smiles. Medium shot, FRONT-FACING, golden hour backlight, warm cozy mood.",
-            "dialogue": "Shukriya dost, tum achhe ho!",
-            "sfx": "happy giggle and warm chime"
+            "visual": "The tiny kitten happily hugs the yarn ball, eyes closed in joy, small smile. Close-up, FRONT-FACING, golden hour warm light.",
+            "dialogue": "Meri nayi gend!",
+            "sfx": "happy purr"
         },
     ],
     "music": "playful cinematic instrumental with ukulele, marimba, light drums, no vocals",
 }
 
 
-def _prompt(n_scenes):
+def _prompt(n_scenes, frames_per_scene):
     theme = random.choice(THEMES)
     return f"""
-You are writing a SHORT, kids-friendly YouTube Shorts story about
-TALKING VEGETABLES in ultra-detailed Pixar 3D style.
+You are writing a SHORT, kids-friendly YouTube Shorts story about a
+CUTE KITTEN in ultra-detailed Pixar 3D style.
 
 TARGET AUDIENCE: 3-6 year old Hindi/Urdu speaking children.
-LANGUAGE: Roman Hindi/Urdu (like "Aalu bhai, kaisay ho?").
+LANGUAGE: Roman Hindi/Urdu (like "Yeh kya hai?").
 Use ONLY very simple, everyday words. NO difficult or formal words.
 
 THEME: {theme}
 
-Each scene has THREE parts:
-  1. "visual":   ONE frozen moment - vegetable subject, expression, pose,
-                 camera framing (FRONT-FACING, face centered, looking at camera),
-                 lighting (cinematic, warm, detailed), background details.
-                 This will be sent to an IMAGE generator.
-                 Use vivid descriptive words: glossy, sparkly, chubby, warm,
-                 creamy bokeh, subsurface scattering, cinematic.
-  2. "dialogue": ONE very short Hindi/Urdu line spoken by a vegetable.
-                 Max 8 words. Simple. Funny. Kid-friendly.
-                 Use Roman script (e.g. "Yeh kya hai?", "Main bhookha hoon!").
-  3. "sfx":      short non-verbal sound effect (chirp, thud, giggle, etc.)
+Each scene will be animated using {frames_per_scene} still frames that
+show SLIGHT pose changes so it looks like a choppy cartoon animation.
+
+For each scene, provide:
+  1. "base_visual": ONE main description of the scene moment.
+                    Front-facing, face centered, cinematic framing.
+  2. "dialogue":    ONE very short Hindi/Urdu line (max 8 words).
+                    Simple, funny, kid-friendly. Roman script.
+  3. "sfx":         short non-verbal sound effect (meow, purr, etc.)
+  4. "motions":     list of {frames_per_scene} SHORT motion descriptions,
+                    each describing a TINY change from the previous pose.
+                    Example: ["paw reaching forward", "paw touching ball",
+                              "ball rolling away", "kitten tilting head",
+                              "kitten leaning forward", "kitten sitting up"]
+                    Keep character EXACTLY the same, only pose changes.
 
 CRITICAL RULES:
-- Only vegetables as characters. No humans.
+- Only the kitten as character. No humans. No other animals unless story needs.
 - Family friendly. No violence, no horror, no scary elements.
-- Character appearance MUST stay identical across all scenes.
-- Simple clean background (garden, kitchen, market).
+- Kitten appearance MUST stay identical across all frames.
+- Simple clean background (living room, garden, kitchen).
 - Dialogue must be understandable by a 4-year-old.
-- No difficult Urdu/Hindi words. No English words in dialogue.
 
 Return ONLY valid JSON:
 
 {{
   "title": "warm curiosity-driven Hindi/Urdu title under 80 chars ending with #shorts",
   "description": "one or two short Hindi/Urdu sentences",
-  "hashtags": ["#vegetables", "#cute", "#animation", "#shorts", "#kids", "#hindi"],
+  "hashtags": ["#cat", "#kitten", "#cute", "#animation", "#shorts", "#kids", "#hindi"],
   "keywords": ["6-8 YouTube search phrases"],
-  "character": "one VERY detailed English sentence describing the EXACT appearance of every main vegetable (color, glossiness, eye style, mouth, arms, body shape, fuzz) AND the setting",
+  "character": "one VERY detailed English sentence about the kitten's exact appearance AND the setting",
   "scenes": [
     {{
-      "visual": "English: ONE frozen moment with cinematic framing + lighting + background details. 2-3 vivid sentences.",
+      "base_visual": "English: main frozen moment with framing + lighting. 2 sentences.",
       "dialogue": "Roman Hindi/Urdu line, max 8 words",
-      "sfx": "short sound effect description in English"
+      "sfx": "short sound effect description",
+      "motions": ["motion frame 1", "motion frame 2", ... {frames_per_scene} items total]
     }}
   ],
   "music": "short description of warm playful instrumental music"
@@ -202,7 +201,7 @@ def _groq(prompt):
     return json.loads(_clean(text))
 
 
-def _valid(story, n_scenes):
+def _valid(story, n_scenes, frames_per_scene):
     if not isinstance(story, dict):
         return False
     if not story.get("title") or not story.get("character"):
@@ -213,17 +212,22 @@ def _valid(story, n_scenes):
     for scene in scenes[:n_scenes]:
         if not isinstance(scene, dict):
             return False
-        if not scene.get("visual") or not scene.get("dialogue"):
+        if not scene.get("base_visual") or not scene.get("dialogue"):
             return False
+        motions = scene.get("motions")
+        if not isinstance(motions, list) or len(motions) < frames_per_scene:
+            # Pad if short
+            scene["motions"] = (motions or []) + [
+                "same pose, tiny change"] * frames_per_scene
     return True
 
 
-def generate_story(n_scenes=4):
-    prompt = _prompt(n_scenes)
+def generate_story(n_scenes=4, frames_per_scene=6):
+    prompt = _prompt(n_scenes, frames_per_scene)
     for name, function in (("Gemini", _gemini), ("Groq", _groq)):
         try:
             story = function(prompt)
-            if _valid(story, n_scenes):
+            if _valid(story, n_scenes, frames_per_scene):
                 story["scenes"] = story["scenes"][:n_scenes]
                 print(f"Story idea from {name}: {story['title']}")
                 return story
@@ -233,42 +237,44 @@ def generate_story(n_scenes=4):
     print("Using built-in fallback story.")
     story = dict(FALLBACK)
     story["scenes"] = FALLBACK["scenes"][:n_scenes]
+    # Add fake motions for fallback
+    for sc in story["scenes"]:
+        if "motions" not in sc:
+            sc["motions"] = [f"pose variant {i+1}" for i in range(frames_per_scene)]
     return story
 
 
-def scene_prompt(story, index):
-    """Image-generation prompt for one scene - ULTRA DETAILED."""
+def frame_prompt(story, scene_index, frame_index, total_frames):
+    """Build image prompt for ONE frame of a scene."""
     scenes = story.get("scenes", [])
     if not scenes:
         return ""
-    scene = scenes[index % len(scenes)]
+    scene = scenes[scene_index % len(scenes)]
     character = story.get("character", "")
-    visual = scene.get("visual", "")
+    base = scene.get("base_visual", "")
+    motions = scene.get("motions", [])
+    motion = motions[frame_index % len(motions)] if motions else ""
 
+    # Emphasize consistency
     prompt = f"""
 {STYLE}
 
-CHARACTER (must appear EXACTLY as described, same in every image):
+CHARACTER (must match EXACTLY in every frame):
 {character}
 
-THIS SCENE:
-{visual}
+SCENE (base composition):
+{base}
 
-Shot {index + 1} of a continuous short film.
+FRAME {frame_index + 1} of {total_frames}:
+Tiny pose change from previous frame: {motion}
 
-MUST-HAVE in the image:
-- Big glossy expressive cartoon eyes with highlights
-- Small expressive smiling mouth
-- Chubby rounded 3D body with soft subsurface scattering
-- Warm cinematic lighting with soft shadows
-- Shallow depth of field, creamy bokeh background
-- Face FRONT-FACING, centered, well lit, looking at camera
-- Full character visible (not cropped)
-- Ultra-detailed Pixar render quality
+IMPORTANT:
+- Character must look IDENTICAL to all other frames (same fur, eyes, color)
+- Only the POSE changes slightly
+- Same camera angle, same lighting, same background
+- Face FRONT-FACING, centered, well lit
 
 NEGATIVE: {NEGATIVE}
-
-Output: ONLY the image. No text overlay.
 """
     return " ".join(prompt.split())
 
