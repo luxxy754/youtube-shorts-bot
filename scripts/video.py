@@ -1,4 +1,4 @@
-"""Image generation (Pollinations) + Wav2Lip lipsync for talking vegetables."""
+"""Image generation for cat animation + Wav2Lip lipsync."""
 import os
 import subprocess
 import time
@@ -6,13 +6,11 @@ import urllib.parse
 
 import requests
 
-# ---- Better image settings ----
 IMAGE_WIDTH = 1080
 IMAGE_HEIGHT = 1920
-# Try "flux-realism" or "flux-pro" if available; fallback to "flux"
 IMAGE_MODEL = os.getenv("IMAGE_MODEL", "flux")
 IMAGE_TIMEOUT = int(os.getenv("IMAGE_TIMEOUT", "240"))
-IMAGE_RETRIES = int(os.getenv("IMAGE_RETRIES", "4"))
+IMAGE_RETRIES = int(os.getenv("IMAGE_RETRIES", "3"))
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WAV2LIP_DIR = os.path.join(ROOT, "Wav2Lip")
@@ -22,56 +20,62 @@ WAV2LIP_CHECKPOINT = os.getenv(
 )
 
 
-def pollinations_image(prompt: str, out_path: str) -> bool:
-    """Generate one 1080x1920 Pixar-style image via Pollinations.
-
-    Enhancements:
-      - enhance=true (Pollinations rewrites prompt for better detail)
-      - safe=true (kids-safe)
-      - model=flux (best quality free model)
-      - seed randomized for variety
-    """
+def pollinations_image(prompt: str, out_path: str, seed: int = None) -> bool:
+    """Generate one image. Seed helps consistency."""
     clean = " ".join(prompt.split())[:1500]
     encoded = urllib.parse.quote(clean)
+    if seed is None:
+        seed = int(time.time())
     url = (
         f"https://image.pollinations.ai/prompt/{encoded}"
         f"?width={IMAGE_WIDTH}&height={IMAGE_HEIGHT}"
         f"&model={IMAGE_MODEL}"
-        f"&nologo=true"
-        f"&enhance=true"
-        f"&safe=true"
-        f"&seed={int(time.time())}"
+        f"&nologo=true&enhance=true&safe=true"
+        f"&seed={seed}"
     )
     for attempt in range(1, IMAGE_RETRIES + 1):
         try:
-            print(f"  Image attempt {attempt}/{IMAGE_RETRIES}...")
             r = requests.get(url, timeout=IMAGE_TIMEOUT)
             if r.status_code == 200 and r.content and len(r.content) > 5000:
                 with open(out_path, "wb") as f:
                     f.write(r.content)
-                print(f"  Image OK ({len(r.content)//1024} KB)")
                 return True
-            print(f"  HTTP {r.status_code}, retrying...")
-        except Exception as exc:  # noqa: BLE001
-            print(f"  Image error: {str(exc)[:150]}")
-        time.sleep(6)
+            print(f"  HTTP {r.status_code}, retry {attempt}")
+        except Exception as exc:
+            print(f"  Image err: {str(exc)[:100]}")
+        time.sleep(4)
     return False
 
 
-def wav2lip_sync(image_path: str, audio_path: str, out_path: str) -> bool:
-    """Run Wav2Lip to make the vegetable image talk."""
-    if not os.path.exists(WAV2LIP_CHECKPOINT):
-        print(f"  Wav2Lip checkpoint missing: {WAV2LIP_CHECKPOINT}")
-        return False
-    if not os.path.exists(WAV2LIP_DIR):
-        print(f"  Wav2Lip repo missing: {WAV2LIP_DIR}")
-        return False
+def generate_scene_frames(prompt_fn, scene_index, n_frames, out_dir, base_seed=0):
+    """Generate N frames for one scene.
 
+    prompt_fn(frame_index) -> prompt string
+    Returns list of frame paths (only successful ones).
+    """
+    frames = []
+    for f in range(n_frames):
+        fp = os.path.join(out_dir, f"scene_{scene_index}_frame_{f}.jpg")
+        # Same seed + offset ensures similar character across frames
+        seed = base_seed + scene_index * 1000 + f
+        if pollinations_image(prompt_fn(f), fp, seed=seed):
+            frames.append(fp)
+            print(f"  Frame {f+1}/{n_frames} OK")
+        else:
+            print(f"  Frame {f+1}/{n_frames} FAILED - using previous")
+            if frames:
+                frames.append(frames[-1])  # repeat last frame
+    return frames
+
+
+def wav2lip_sync(image_path, audio_path, out_path):
+    """Run Wav2Lip on a single image."""
+    if not os.path.exists(WAV2LIP_CHECKPOINT):
+        print(f"  Wav2Lip checkpoint missing")
+        return False
     inference_script = os.path.join(WAV2LIP_DIR, "inference.py")
     if not os.path.exists(inference_script):
-        print(f"  Wav2Lip inference.py missing")
         return False
-
     cmd = [
         "python", inference_script,
         "--checkpoint_path", WAV2LIP_CHECKPOINT,
@@ -86,23 +90,19 @@ def wav2lip_sync(image_path: str, audio_path: str, out_path: str) -> bool:
         print("  Running Wav2Lip...")
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=900)
         if result.returncode != 0:
-            print(f"  Wav2Lip failed: {result.stderr[-400:]}")
+            print(f"  Wav2Lip fail: {result.stderr[-300:]}")
             return False
         if os.path.exists(out_path) and os.path.getsize(out_path) > 10000:
-            print(f"  Wav2Lip OK: {os.path.getsize(out_path)//1024} KB")
+            print(f"  Wav2Lip OK")
             return True
-        print("  Wav2Lip output missing or too small")
         return False
-    except subprocess.TimeoutExpired:
-        print("  Wav2Lip timeout")
-        return False
-    except Exception as exc:  # noqa: BLE001
-        print(f"  Wav2Lip error: {str(exc)[:200]}")
+    except Exception as exc:
+        print(f"  Wav2Lip err: {str(exc)[:200]}")
         return False
 
 
-def static_video(image_path: str, audio_path: str, out_path: str) -> bool:
-    """Fallback: static image + audio as video (no lipsync)."""
+def static_video(image_path, audio_path, out_path):
+    """Fallback: static image + audio."""
     try:
         dur = subprocess.check_output([
             "ffprobe", "-v", "error", "-show_entries", "format=duration",
@@ -117,14 +117,7 @@ def static_video(image_path: str, audio_path: str, out_path: str) -> bool:
                    "pad=1080:1920:(ow-iw)/2:(oh-ih)/2",
             out_path,
         ], check=True, timeout=300)
-        print(f"  Static video OK: {out_path}")
         return True
-    except Exception as exc:  # noqa: BLE001
-        print(f"  Static video failed: {str(exc)[:200]}")
+    except Exception as exc:
+        print(f"  Static fail: {str(exc)[:200]}")
         return False
-
-
-def make_clip(prompt: str, path: str, seed: int = 0) -> bool:
-    """Kept for backward compat. Not used in new pipeline."""
-    img_path = path.rsplit(".", 1)[0] + ".jpg"
-    return pollinations_image(prompt, img_path)
