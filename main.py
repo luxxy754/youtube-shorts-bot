@@ -1,13 +1,17 @@
-"""AI Shorts bot: story -> scene images -> Ken Burns motion -> sfx+music -> upload."""
+"""Talking Vegetables Shorts: story -> images -> dialogue -> lipsync -> motion -> upload."""
 import json
 import os
 import random
 
 from scripts.assemble import join_clips, mix
-from scripts.audio import get_music, get_sfx, music_credit
-from scripts.story import generate_story, scene_prompt
+from scripts.audio import eleven_dialogue, get_music, get_sfx, music_credit
+from scripts.story import generate_story, scene_dialogue, scene_prompt, scene_sfx
 from scripts.upload_youtube import have_credentials, upload_to_youtube
-from scripts.video import CLIP_SECONDS, make_clip
+from scripts.video import (
+    pollinations_image,
+    static_video,
+    wav2lip_sync,
+)
 
 OUT = "output"
 NUM_SCENES = int(os.getenv("NUM_SCENES", "4"))
@@ -15,80 +19,4 @@ MUSIC_VOLUME = float(os.getenv("MUSIC_VOLUME", "0.16"))
 
 
 def build_metadata(story, credit=None):
-    tags = [h.lstrip("#") for h in story.get("hashtags", [])]
-    tags += [k for k in story.get("keywords", [])]
-    title = story["title"].strip()
-    if "#shorts" not in title.lower():
-        title += " #shorts"
-    desc = story.get("description", "").strip()
-    desc += "\n\n" + " ".join(story.get("hashtags", []))
-    desc += "\n\nKeywords: " + ", ".join(story.get("keywords", []))
-    if credit:
-        desc += f"\n\n{credit}"
-    return title, desc, tags[:25]
-
-
-def main():
-    os.makedirs(OUT, exist_ok=True)
-    story = generate_story(NUM_SCENES)
-
-    images = []
-    seed = random.randint(1, 10**6)
-    total_scenes = len(story["scenes"])
-    for i, sc in enumerate(story["scenes"]):
-        print(f"Scene {i + 1}/{total_scenes}: {sc['visual'][:80]}...")
-        img_path = os.path.join(OUT, f"scene_{i}.jpg")
-        if make_clip(scene_prompt(story, i), img_path, seed + i):
-            images.append(img_path)
-        else:
-            print("  Scene skipped (image generation failed)")
-
-    if not images:
-        print("WARNING: No scene image could be generated. Skipping this run.")
-        print("Will retry on next schedule.")
-        return
-
-    # Align scenes with the images we actually generated.
-    scenes = story["scenes"][:len(images)]
-
-    print(f"Building {len(images)} motion clips ({CLIP_SECONDS}s each)...")
-    joined, durs = join_clips(images, OUT, CLIP_SECONDS)
-
-    print("Audio...")
-    sfx = get_sfx(scenes, OUT)
-    music = get_music(
-        story.get("music", "playful cartoon background music"),
-        os.path.join(OUT, "music.mp3"),
-        seconds=max(8, int(sum(durs)) + 2),
-    )
-
-    final = os.path.join(OUT, "final_short.mp4")
-    try:
-        mix(joined, durs, sfx, music, final, music_volume=MUSIC_VOLUME)
-    except Exception as exc:  # noqa: BLE001
-        print(f"  Mix with music failed ({str(exc)[:200]}), retrying without music")
-        music = None
-        try:
-            mix(joined, durs, sfx, music, final, music_volume=MUSIC_VOLUME)
-        except Exception as exc2:  # noqa: BLE001
-            print(f"  Mix with sfx failed too ({str(exc2)[:200]}), retrying silent")
-            sfx = [None] * len(sfx)
-            mix(joined, durs, sfx, music, final, music_volume=MUSIC_VOLUME)
-
-    print(f"Video ready: {final} ({sum(durs):.1f}s)")
-
-    title, desc, tags = build_metadata(story, music_credit(music))
-    with open(os.path.join(OUT, "meta.json"), "w", encoding="utf-8") as f:
-        json.dump({"title": title, "description": desc, "tags": tags},
-                  f, ensure_ascii=False, indent=2)
-
-    if os.getenv("DRY_RUN", "").lower() in {"1", "true", "yes"}:
-        print("DRY_RUN on: skipping upload.")
-    elif not have_credentials():
-        print("YT_* secrets missing: skipping upload.")
-    else:
-        upload_to_youtube(final, title, desc, tags)
-
-
-if __name__ == "__main__":
-    main()
+    tags = [h.lstrip("#") for h in story.get("
