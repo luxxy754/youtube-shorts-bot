@@ -1,11 +1,4 @@
-"""Video generation via Agnes AI v2.0 - FAST parallel version.
-
-Key improvements:
-  - Uses agnes-video-v2.0 model (20 RPM instead of 1 RPM)
-  - Submits all 3 clips in PARALLEL
-  - Short poll intervals (3s instead of 5s)
-  - Long timeout for reliability
-"""
+"""Video generation via Agnes AI - CORRECT model for video."""
 import os
 import subprocess
 import time
@@ -14,16 +7,14 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
 
 AGNES_BASE = "https://apihub.agnes-ai.com/v1"
-AGNES_MODEL = os.getenv("AGNES_MODEL", "agnes-video-v2.0")
+AGNES_MODEL = os.getenv("AGNES_MODEL", "agnes-video-2.5")
 CLIP_SECONDS = int(os.getenv("CLIP_SECONDS", "5"))
 NUM_CLIPS = int(os.getenv("NUM_CLIPS", "3"))
-POLL_TIMEOUT = int(os.getenv("AGNES_POLL_TIMEOUT", "600"))   # 10 min per clip
-POLL_INTERVAL = int(os.getenv("AGNES_POLL_INTERVAL", "3"))    # 3 sec (fast)
-ROUND_WAIT = int(os.getenv("AGNES_ROUND_WAIT", "10"))
+POLL_TIMEOUT = int(os.getenv("AGNES_POLL_TIMEOUT", "600"))
+POLL_INTERVAL = int(os.getenv("AGNES_POLL_INTERVAL", "3"))
 
 
 def _get_keys():
-    """Collect all Agnes keys in order."""
     keys = []
     for i in range(1, 6):
         k = os.getenv(f"AGNES_API_KEY_{i}", "").strip()
@@ -35,7 +26,7 @@ def _get_keys():
 
 
 def _create_task(prompt, api_key):
-    """Create a video generation task. Returns task_id or None."""
+    """Create a video generation task."""
     try:
         r = requests.post(
             f"{AGNES_BASE}/videos",
@@ -53,18 +44,18 @@ def _create_task(prompt, api_key):
             },
             timeout=30,
         )
+        print(f"    Create HTTP {r.status_code}")
         if r.status_code == 200:
             data = r.json()
-            task_id = data.get("video_id") or data.get("id") or data.get("task_id")
-            return task_id
-        print(f"    Create HTTP {r.status_code}: {r.text[:150]}")
+            return data.get("video_id") or data.get("id") or data.get("task_id")
+        print(f"    Body: {r.text[:300]}")
     except Exception as exc:
-        print(f"    Create err: {str(exc)[:120]}")
+        print(f"    Create err: {str(exc)[:150]}")
     return None
 
 
 def _poll_task(task_id, api_key, label=""):
-    """Poll task until complete. Returns video URL or None."""
+    """Poll until complete."""
     start = time.time()
     while time.time() - start < POLL_TIMEOUT:
         time.sleep(POLL_INTERVAL)
@@ -104,15 +95,14 @@ def _download(url, out_path):
                 for chunk in r.iter_content(8192):
                     f.write(chunk)
             return True
-    except Exception as exc:
-        print(f"    DL err: {str(exc)[:100]}")
+    except Exception:
+        pass
     return False
 
 
 def _generate_one_clip(clip_idx, prompt, out_path, key_pair):
-    """Generate ONE clip. Used by parallel workers."""
     key_num, api_key = key_pair
-    label = f"Clip{clip_idx + 1}/KEY_{key_num}"
+    label = f"Clip{clip_idx + 1}/K{key_num}"
 
     print(f"  [{label}] Creating task...")
     task_id = _create_task(prompt, api_key)
@@ -121,20 +111,17 @@ def _generate_one_clip(clip_idx, prompt, out_path, key_pair):
         return (clip_idx, None)
 
     print(f"  [{label}] Task: {task_id}")
-
     video_url = _poll_task(task_id, api_key, label)
     if not video_url:
         return (clip_idx, None)
 
     if _download(video_url, out_path):
-        print(f"  [{label}] DONE: {out_path}")
+        print(f"  [{label}] DONE")
         return (clip_idx, out_path)
-
     return (clip_idx, None)
 
 
 def generate_15s_video(image_path, prompt, out_path):
-    """Generate 15s video from 3x 5s clips IN PARALLEL."""
     keys = _get_keys()
     if not keys:
         print("  No AGNES_API_KEY_* found")
@@ -143,37 +130,29 @@ def generate_15s_video(image_path, prompt, out_path):
     print(f"  Found {len(keys)} Agnes keys")
     print(f"  Generating {NUM_CLIPS} clips IN PARALLEL ({CLIP_SECONDS}s each)...")
 
-    # Use different keys for each clip
     clip_jobs = []
     for clip_idx in range(NUM_CLIPS):
         key_pair = keys[clip_idx % len(keys)]
         clip_path = out_path.replace(".mp4", f"_clip{clip_idx}.mp4")
         clip_jobs.append((clip_idx, prompt, clip_path, key_pair))
 
-    # Parallel execution
     results = {}
     with ThreadPoolExecutor(max_workers=NUM_CLIPS) as pool:
-        futures = {
-            pool.submit(_generate_one_clip, *job): job[0]
-            for job in clip_jobs
-        }
+        futures = {pool.submit(_generate_one_clip, *job): job[0] for job in clip_jobs}
         for fut in as_completed(futures):
             clip_idx = futures[fut]
             try:
                 _, path = fut.result()
                 results[clip_idx] = path
-            except Exception as exc:
-                print(f"  Clip {clip_idx + 1} exception: {str(exc)[:150]}")
+            except Exception:
                 results[clip_idx] = None
 
     clip_paths = [results[i] for i in range(NUM_CLIPS) if results.get(i)]
-    print(f"\n  Successful clips: {len(clip_paths)}/{NUM_CLIPS}")
+    print(f"\n  Successful: {len(clip_paths)}/{NUM_CLIPS}")
 
     if len(clip_paths) < 2:
-        print(f"  Only {len(clip_paths)} clips succeeded")
         return False
 
-    # Concatenate
     print(f"  Concatenating {len(clip_paths)} clips...")
     lst_path = out_path.replace(".mp4", "_list.txt")
     with open(lst_path, "w") as f:
@@ -186,16 +165,12 @@ def generate_15s_video(image_path, prompt, out_path):
             "-f", "concat", "-safe", "0", "-i", lst_path,
             "-c", "copy", "-movflags", "+faststart", out_path,
         ], check=True, timeout=120)
-        if os.path.exists(out_path) and os.path.getsize(out_path) > 10000:
-            print(f"  Final video: {out_path}")
-            return True
-    except Exception as exc:
-        print(f"  Concat error: {str(exc)[:150]}")
-    return False
+        return os.path.exists(out_path) and os.path.getsize(out_path) > 10000
+    except Exception:
+        return False
 
 
 def pollinations_image(prompt, out_path, seed=None):
-    """Generate base image via Pollinations (free)."""
     import urllib.parse
     clean = " ".join(prompt.split())[:1200]
     encoded = urllib.parse.quote(clean)
@@ -220,7 +195,7 @@ def pollinations_image(prompt, out_path, seed=None):
 
 
 def static_video(image_path, audio_path, out_path):
-    """Fallback: static image + audio."""
+    """Fallback: static image + audio (FIXED ffmpeg command)."""
     try:
         dur = subprocess.check_output([
             "ffprobe", "-v", "error", "-show_entries", "format=duration",
@@ -237,5 +212,6 @@ def static_video(image_path, audio_path, out_path):
             out_path,
         ], check=True, timeout=300)
         return True
-    except Exception:
+    except Exception as exc:
+        print(f"  Static err: {str(exc)[:200]}")
         return False
