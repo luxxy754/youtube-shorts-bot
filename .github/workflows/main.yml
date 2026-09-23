@@ -21,7 +21,7 @@ concurrency:
 jobs:
   build-and-post:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
 
@@ -47,15 +47,16 @@ jobs:
           python -c "import main; print('main.py imports OK')"
 
       - name: Generate and upload Short
-        timeout-minutes: 50
+        timeout-minutes: 30
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
 
-          VIDEO_KEY_1: ${{ secrets.VIDEO_KEY_1 }}
-          VIDEO_KEY_2: ${{ secrets.VIDEO_KEY_2 }}
-          VIDEO_KEY_3: ${{ secrets.VIDEO_KEY_3 }}
-          VIDEO_KEY_4: ${{ secrets.VIDEO_KEY_4 }}
+          # ---- Agnes API keys (3 accounts) ----
+          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          AGNES_API_KEY_2: ${{ secrets.AGNES_API_KEY_2 }}
+          AGNES_API_KEY_3: ${{ secrets.AGNES_API_KEY_3 }}
+          AGNES_MODEL: "agnes-video-v2.0"
 
           ELEVEN_KEY_1: ${{ secrets.ELEVEN_KEY_1 }}
           ELEVEN_KEY_2: ${{ secrets.ELEVEN_KEY_2 }}
@@ -70,11 +71,13 @@ jobs:
 
           NUM_SCENES: "1"
           NUM_CLIPS: "3"
-          CLIP_DURATION: "5"
+          CLIP_SECONDS: "5"
           MUSIC_VOLUME: "0.16"
-          MAGIC_HOUR_MODEL: "wan-2.2"
-          VIDEO_RESOLUTION: "480p"
-          MAGIC_HOUR_POLL_TIMEOUT: "1800"
+
+          # ---- FAST Agnes settings ----
+          AGNES_POLL_TIMEOUT: "600"
+          AGNES_POLL_INTERVAL: "3"
+          AGNES_ROUND_WAIT: "10"
         run: python -u main.py
 
       - name: Keep a copy of the video
