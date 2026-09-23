@@ -7,13 +7,18 @@ on:
         description: "Only make the video, do not upload to YouTube"
         type: boolean
         default: false
+  # 4 runs daily, 6 hours apart. Each run produces ONE Short.
+  # 2 shorts/day requirement => 2 of these will actually upload a video,
+  # the other 2 act as retries if a previous run failed.
   schedule:
-    - cron: "0 20,8 * * *"
+    - cron: "0 2 * * *"    # 02:00 UTC (07:00 AM PKT)
+    - cron: "0 8 * * *"    # 08:00 UTC (01:00 PM PKT)
+    - cron: "0 14 * * *"   # 14:00 UTC (07:00 PM PKT)
+    - cron: "0 20 * * *"   # 20:00 UTC (01:00 AM PKT)
 
 permissions:
   contents: read
 
-# Prevent overlapping runs (a stuck run would otherwise block the next schedule).
 concurrency:
   group: ai-shorts-bot
   cancel-in-progress: false
@@ -21,7 +26,7 @@ concurrency:
 jobs:
   build-and-post:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -39,24 +44,8 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Generate and upload Short
-        timeout-minutes: 40
+        timeout-minutes: 20
         env:
-          # ---- Agnes AI keys (free, no card, multi-account rotation) ----
-          AGNES_API_KEY_1: ${{ secrets.AGNES_API_KEY_1 }}
-          AGNES_API_KEY_2: ${{ secrets.AGNES_API_KEY_2 }}
-          AGNES_API_KEY_3: ${{ secrets.AGNES_API_KEY_3 }}
-          AGNES_MODEL: "agnes-video-2.5-flash"
-
-          # ---- Agnes timing knobs (tune these if you hit the step timeout) ----
-          # Max seconds to wait for ONE clip before moving to the next key.
-          AGNES_POLL_MAX_WAIT: "240"
-          # Seconds between status polls.
-          AGNES_POLL_INTERVAL: "5"
-          # Seconds to wait between retry rounds.
-          AGNES_ROUND_WAIT: "20"
-          # Number of rounds (each round tries all keys once).
-          AGNES_MAX_ROUNDS: "2"
-
           # ---- Story generation ----
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
@@ -74,10 +63,15 @@ jobs:
 
           DRY_RUN: ${{ inputs.dry_run }}
 
-          # Story / clip settings
-          NUM_SCENES: "2"
+          # ---- Story / scene settings ----
+          NUM_SCENES: "4"
           CLIP_SECONDS: "5"
           MUSIC_VOLUME: "0.16"
+
+          # ---- Image generation ----
+          IMAGE_MODEL: "flux"
+          IMAGE_TIMEOUT: "180"
+          IMAGE_RETRIES: "3"
         run: python main.py
 
       - name: Keep a copy of the video
