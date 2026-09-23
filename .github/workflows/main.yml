@@ -87,16 +87,16 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
 
-          # ---- ElevenLabs keys ----
+          # ---- edge-tts settings (no API key!) ----
+          TTS_LANG: "hi"          # "hi" for Hindi, "ur" for Urdu
+          TTS_GENDER: "female"    # "female" or "male"
+          TTS_RATE: "-8%"         # slower for kids
+          TTS_PITCH: "+2Hz"
+
+          # ---- ElevenLabs keys (optional - only for SFX/music) ----
           ELEVEN_KEY_1: ${{ secrets.ELEVEN_KEY_1 }}
           ELEVEN_KEY_2: ${{ secrets.ELEVEN_KEY_2 }}
           ELEVEN_KEY_3: ${{ secrets.ELEVEN_KEY_3 }}
-
-          # ---- Hindi Voice settings ----
-          ELEVEN_TTS_MODEL: "eleven_multilingual_v2"
-          ELEVEN_VOICE_HINDI_1: ${{ secrets.ELEVEN_VOICE_HINDI_1 }}
-          ELEVEN_VOICE_HINDI_2: ${{ secrets.ELEVEN_VOICE_HINDI_2 }}
-          ELEVEN_VOICE_HINDI_3: ${{ secrets.ELEVEN_VOICE_HINDI_3 }}
 
           # ---- YouTube upload ----
           YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
@@ -106,16 +106,13 @@ jobs:
 
           DRY_RUN: ${{ inputs.dry_run }}
 
-          # ---- Story / scene settings ----
           NUM_SCENES: "4"
           MUSIC_VOLUME: "0.16"
 
-          # ---- Image generation ----
           IMAGE_MODEL: "flux"
           IMAGE_TIMEOUT: "240"
           IMAGE_RETRIES: "4"
 
-          # ---- Wav2Lip ----
           WAV2LIP_CHECKPOINT: ${{ github.workspace }}/Wav2Lip/checkpoints/wav2lip_gan.pth
         run: python main.py
 
