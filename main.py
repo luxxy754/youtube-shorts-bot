@@ -1,278 +1,130 @@
-"""Video generation via Magic Hour API - correct upload-urls flow.
-
-Flow:
-  1. POST /v1/files/upload-urls -> get upload_url + file_path
-  2. PUT image to upload_url
-  3. POST /v1/image-to-video with assets.image_file_path
-  4. Poll + download
-"""
+"""Cat Shorts: story -> base image -> Magic Hour 15s video -> upload."""
+import json
 import os
+import shutil
 import subprocess
 import time
 
-import requests
+from scripts.assemble import mix
+from scripts.audio import get_music, get_sfx, music_credit
+from scripts.story import generate_story
+from scripts.upload_youtube import have_credentials, upload_to_youtube
+from scripts.video import (
+    generate_15s_video,
+    pollinations_image,
+    static_video,
+)
 
-MH_BASE = "https://api.magichour.ai/v1"
-MH_UPLOAD_URLS = f"{MH_BASE}/files/upload-urls"
-MH_VIDEO_URL = f"{MH_BASE}/image-to-video"
-MH_MODEL = os.getenv("MAGIC_HOUR_MODEL", "wan-2.2")
-RESOLUTION = os.getenv("VIDEO_RESOLUTION", "480p")
-ASPECT_RATIO = "9:16"
-POLL_TIMEOUT = int(os.getenv("MAGIC_HOUR_POLL_TIMEOUT", "900"))
-POLL_INTERVAL = 5
-
-
-def _get_keys():
-    keys = []
-    for i in range(1, 6):
-        k = os.getenv(f"VIDEO_KEY_{i}", "").strip()
-        if k:
-            keys.append((i, k))
-    return keys
+OUT = "output"
+NUM_SCENES = int(os.getenv("NUM_SCENES", "1"))
+MUSIC_VOLUME = float(os.getenv("MUSIC_VOLUME", "0.16"))
 
 
-def _get_upload_url(api_key, extension="jpg"):
-    """Step 1: Ask Magic Hour for an upload URL."""
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-    }
-    payload = {
-        "items": [
-            {"type": "image", "extension": extension}
-        ]
-    }
-    r = requests.post(MH_UPLOAD_URLS, headers=headers, json=payload, timeout=60)
-    print(f"    Upload-URLs HTTP {r.status_code}")
-    if r.status_code not in (200, 201):
-        print(f"    Body: {r.text[:250]}")
-        return None, None
-
-    data = r.json()
-    items = data.get("items", [])
-    if not items:
-        print(f"    No items in response: {data}")
-        return None, None
-
-    first = items[0]
-    upload_url = first.get("upload_url")
-    file_path = first.get("file_path")
-    if not upload_url or not file_path:
-        print(f"    Missing fields: {first}")
-        return None, None
-    print(f"    file_path: {file_path}")
-    return upload_url, file_path
+def build_metadata(story, credit=None):
+    tags = [h.lstrip("#") for h in story.get("hashtags", [])]
+    tags += [k for k in story.get("keywords", [])]
+    title = story["title"].strip()
+    if "#shorts" not in title.lower():
+        title += " #shorts"
+    desc = story.get("description", "").strip()
+    desc += "\n\n" + " ".join(story.get("hashtags", []))
+    desc += "\n\nKeywords: " + ", ".join(story.get("keywords", []))
+    if credit:
+        desc += f"\n\n{credit}"
+    return title, desc, tags[:25]
 
 
-def _put_to_upload_url(upload_url, image_path, content_type="image/jpeg"):
-    """Step 2: PUT the image to the signed upload URL."""
-    try:
-        with open(image_path, "rb") as f:
-            image_bytes = f.read()
-        r = requests.put(
-            upload_url,
-            data=image_bytes,
-            headers={"Content-Type": content_type},
-            timeout=180,
-        )
-        print(f"    PUT HTTP {r.status_code}")
-        return r.status_code in (200, 201, 204)
-    except Exception as exc:
-        print(f"    PUT err: {str(exc)[:150]}")
-        return False
+def main():
+    print("=" * 60)
+    print("CAT SHORTS BOT - STARTING")
+    print("=" * 60)
+    os.makedirs(OUT, exist_ok=True)
 
+    print("\n[1/6] Generating story...")
+    story = generate_story(NUM_SCENES, frames_per_scene=6)
 
-def _submit_job(image_file_path, prompt, duration, api_key):
-    """Step 3: Submit video job with assets.image_file_path."""
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-    }
-    payload = {
-        "model": MH_MODEL,
-        "assets": {"image_file_path": image_file_path},
-        "end_seconds": duration,
-        "resolution": RESOLUTION,
-        "aspect_ratio": ASPECT_RATIO,
-        "prompt": prompt,
-    }
-    try:
-        r = requests.post(MH_VIDEO_URL, headers=headers, json=payload, timeout=30)
-        print(f"    Submit HTTP {r.status_code}")
-        if r.status_code in (200, 201):
-            data = r.json()
-            job_id = data.get("id") or data.get("job_id")
-            print(f"    Job ID: {job_id}")
-            return job_id
-        print(f"    Body: {r.text[:250]}")
-    except Exception as exc:
-        print(f"    Submit err: {str(exc)[:150]}")
-    return None
+    scene = story["scenes"][0]
+    print(f"\n[2/6] Generating 15-second video")
+    print(f"Prompt: {scene['visual'][:100]}...")
 
+    img_path = os.path.join(OUT, "hero.jpg")
+    print("\nGenerating base image...")
+    if not pollinations_image(scene["visual"], img_path):
+        print("FAILED: Base image generation")
+        return
+    print(f"  Image saved: {img_path}")
 
-def _poll_job(job_id, api_key):
-    headers = {"Authorization": f"Bearer {api_key}"}
-    start = time.time()
-    while time.time() - start < POLL_TIMEOUT:
-        time.sleep(POLL_INTERVAL)
+    print("\n[3/6] Magic Hour video generation...")
+    t0 = time.time()
+    video_path = os.path.join(OUT, "hero_15s.mp4")
+
+    magic_hour_ok = generate_15s_video(img_path, scene["visual"], video_path)
+
+    if not magic_hour_ok:
+        print("Magic Hour failed - using static fallback")
+        silent = os.path.join(OUT, "silent.mp3")
         try:
-            r = requests.get(f"{MH_VIDEO_URL}/{job_id}", headers=headers, timeout=30)
-            if r.status_code != 200:
-                continue
-            data = r.json()
-            status = data.get("status", "").lower()
-            if status in ("complete", "completed", "succeeded", "done"):
-                url = data.get("url") or data.get("download_url")
-                if not url:
-                    downloads = data.get("downloads", [])
-                    if downloads and isinstance(downloads, list):
-                        url = downloads[0].get("url")
-                return url
-            if status in ("error", "failed"):
-                print(f"    Job failed: {data.get('error', 'unknown')}")
-                return None
-            progress = data.get("progress", 0)
-            elapsed = int(time.time() - start)
-            print(f"    Status: {status} ({progress}%) [{elapsed}s]")
-        except Exception:
-            continue
-    print(f"    Poll timeout")
-    return None
-
-
-def _download(url, out_path):
-    try:
-        r = requests.get(url, timeout=300, stream=True)
-        if r.status_code == 200:
-            with open(out_path, "wb") as f:
-                for chunk in r.iter_content(8192):
-                    f.write(chunk)
-            return True
-        print(f"    Download HTTP {r.status_code}")
-    except Exception as exc:
-        print(f"    Download err: {str(exc)[:120]}")
-    return False
-
-
-def generate_clip(image_path, prompt, duration, out_path, api_key):
-    """Full flow: upload-urls -> PUT -> submit -> poll -> download."""
-    # Step 1: Get upload URL
-    upload_url, file_path = _get_upload_url(api_key, "jpg")
-    if not upload_url:
-        return False
-
-    # Step 2: Upload image
-    if not _put_to_upload_url(upload_url, image_path):
-        print("    Image PUT failed")
-        return False
-
-    # Step 3: Submit video job
-    job_id = _submit_job(file_path, prompt, duration, api_key)
-    if not job_id:
-        return False
-
-    # Step 4: Poll
-    video_url = _poll_job(job_id, api_key)
-    if not video_url:
-        return False
-
-    # Step 5: Download
-    return _download(video_url, out_path)
-
-
-def generate_15s_video(image_path, prompt, out_path):
-    """Build 15s video from 3x 5s clips using 4 keys."""
-    keys = _get_keys()
-    if not keys:
-        print("  No VIDEO_KEY_* found")
-        return False
-    print(f"  Found {len(keys)} keys")
-
-    clip_paths = []
-    for clip_idx in range(3):
-        clip_path = out_path.replace(".mp4", f"_clip{clip_idx}.mp4")
-        key_idx = (clip_idx % len(keys)) + 1
-        print(f"  === Clip {clip_idx + 1}/3 (KEY_{key_idx}) ===")
-
-        ordered = [(i, k) for i, k in keys if i == key_idx] + \
-                  [(i, k) for i, k in keys if i != key_idx]
-
-        success = False
-        for i, key in ordered:
-            if generate_clip(image_path, prompt, 5, clip_path, key):
-                clip_paths.append(clip_path)
-                success = True
-                print(f"  Clip {clip_idx + 1} OK via KEY_{i}")
-                break
-        if not success:
-            print(f"  Clip {clip_idx + 1} FAILED")
-
-    if len(clip_paths) < 2:
-        print(f"  Only {len(clip_paths)} clips - need 2+")
-        return False
-
-    print(f"  Concatenating {len(clip_paths)} clips...")
-    lst_path = out_path.replace(".mp4", "_list.txt")
-    with open(lst_path, "w") as f:
-        for cp in clip_paths:
-            f.write(f"file '{os.path.abspath(cp)}'\n")
-    try:
-        subprocess.run([
-            "ffmpeg", "-y", "-loglevel", "error",
-            "-f", "concat", "-safe", "0", "-i", lst_path,
-            "-c", "copy", "-movflags", "+faststart", out_path,
-        ], check=True, timeout=180)
-        if os.path.exists(out_path) and os.path.getsize(out_path) > 10000:
-            print(f"  Final: {out_path}")
-            return True
-    except Exception as exc:
-        print(f"  Concat err: {str(exc)[:150]}")
-    return False
-
-
-def pollinations_image(prompt, out_path, seed=None):
-    import urllib.parse
-    clean = " ".join(prompt.split())[:1200]
-    encoded = urllib.parse.quote(clean)
-    if seed is None:
-        seed = int(time.time())
-    url = (
-        f"https://image.pollinations.ai/prompt/{encoded}"
-        f"?width=720&height=1280&model=flux"
-        f"&nologo=true&enhance=true&safe=true&seed={seed}"
-    )
-    for attempt in range(1, 4):
-        try:
-            r = requests.get(url, timeout=120)
-            if r.status_code == 200 and r.content and len(r.content) > 5000:
-                with open(out_path, "wb") as f:
-                    f.write(r.content)
-                return True
-            print(f"    Image HTTP {r.status_code}")
+            subprocess.run([
+                "ffmpeg", "-y", "-loglevel", "error",
+                "-f", "lavfi",
+                "-i", "anullsrc=r=44100:cl=stereo",
+                "-t", "15",
+                "-c:a", "aac",
+                silent,
+            ], check=True, timeout=60)
+            if not static_video(img_path, silent, video_path):
+                print("FAILED: Fallback also failed")
+                return
         except Exception as exc:
-            print(f"    Image err: {str(exc)[:100]}")
-        time.sleep(3)
-    return False
+            print(f"FAILED: Fallback error - {str(exc)[:200]}")
+            return
 
+    print(f"  Video ready in {time.time() - t0:.1f}s")
 
-def static_video(image_path, audio_path, out_path):
-    """Fallback: static image + audio."""
+    print("\n[4/6] Getting duration...")
     try:
-        dur = subprocess.check_output([
+        dur = float(subprocess.check_output([
             "ffprobe", "-v", "error", "-show_entries", "format=duration",
-            "-of", "default=nk=1:nw=1", audio_path], text=True).strip()
-        subprocess.run([
-            "ffmpeg", "-y", "-loglevel", "error",
-            "-loop", "1", "-i", image_path,
-            "-i", audio_path,
-            "-c:v", "libx264", "-preset", "veryfast", "-crf", "22",
-            "-c:a", "aac", "-b:a", "192k", "-pix_fmt", "yuv420p",
-            "-t", str(dur), "-shortest",
-            "-vf", "scale=720:1280:force_original_aspect_ratio=decrease,"
-                   "pad=720:1280:(ow-iw)/2:(oh-ih)/2",
-            out_path,
-        ], check=True, timeout=300)
-        return True
+            "-of", "default=nk=1:nw=1", video_path], text=True).strip())
+    except Exception:
+        dur = 15.0
+    print(f"  Duration: {dur:.1f}s")
+
+    print("\n[5/6] Adding cat sounds + music...")
+    scenes_list = [scene]
+    sfx = get_sfx(scenes_list, OUT)
+    music = get_music(
+        story.get("music", "playful cartoon music"),
+        os.path.join(OUT, "music.mp3"),
+        seconds=int(dur) + 2,
+    )
+
+    final = os.path.join(OUT, "final_short.mp4")
+    try:
+        mix(video_path, [dur], sfx, music, final, music_volume=MUSIC_VOLUME)
+        print(f"  Final video: {final}")
     except Exception as exc:
-        print(f"  Static failed: {str(exc)[:200]}")
-        return False
+        print(f"  Mix failed: {str(exc)[:200]}")
+        shutil.copy(video_path, final)
+        print(f"  Using raw video: {final}")
+
+    print("\n[6/6] Saving metadata + uploading...")
+    title, desc, tags = build_metadata(story, music_credit(music))
+    with open(os.path.join(OUT, "meta.json"), "w", encoding="utf-8") as f:
+        json.dump({"title": title, "description": desc, "tags": tags},
+                  f, ensure_ascii=False, indent=2)
+
+    if os.getenv("DRY_RUN", "").lower() in {"1", "true", "yes"}:
+        print("DRY_RUN: skipping upload.")
+    elif not have_credentials():
+        print("YT_* missing: skipping upload.")
+    else:
+        upload_to_youtube(final, title, desc, tags)
+
+    print("=" * 60)
+    print("DONE")
+    print("=" * 60)
+
+
+if __name__ == "__main__":
+    main()
