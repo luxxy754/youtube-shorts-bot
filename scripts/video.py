@@ -1,10 +1,10 @@
-"""Video generation via Magic Hour API - PARALLEL clip generation.
+"""Video generation via Agnes AI v2.0 - FAST parallel version.
 
-Speed optimizations:
-  - 3 clips submitted IN PARALLEL (not sequential)
-  - 3x faster than sequential
-  - Long poll timeout for free tier
-  - Falls back to sequential on failure
+Key improvements:
+  - Uses agnes-video-v2.0 model (20 RPM instead of 1 RPM)
+  - Submits all 3 clips in PARALLEL
+  - Short poll intervals (3s instead of 5s)
+  - Long timeout for reliability
 """
 import os
 import subprocess
@@ -13,168 +13,123 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import requests
 
-MH_BASE = "https://api.magichour.ai/v1"
-MH_UPLOAD_URLS = f"{MH_BASE}/files/upload-urls"
-MH_VIDEO_URL = f"{MH_BASE}/image-to-video"
-MH_MODEL = os.getenv("MAGIC_HOUR_MODEL", "wan-2.2")
-RESOLUTION = os.getenv("VIDEO_RESOLUTION", "480p")
-ASPECT_RATIO = "9:16"
-POLL_TIMEOUT = int(os.getenv("MAGIC_HOUR_POLL_TIMEOUT", "1800"))
-POLL_INTERVAL = 10
+AGNES_BASE = "https://apihub.agnes-ai.com/v1"
+AGNES_MODEL = os.getenv("AGNES_MODEL", "agnes-video-v2.0")
+CLIP_SECONDS = int(os.getenv("CLIP_SECONDS", "5"))
 NUM_CLIPS = int(os.getenv("NUM_CLIPS", "3"))
-CLIP_DURATION = int(os.getenv("CLIP_DURATION", "5"))
+POLL_TIMEOUT = int(os.getenv("AGNES_POLL_TIMEOUT", "600"))   # 10 min per clip
+POLL_INTERVAL = int(os.getenv("AGNES_POLL_INTERVAL", "3"))    # 3 sec (fast)
+ROUND_WAIT = int(os.getenv("AGNES_ROUND_WAIT", "10"))
 
 
 def _get_keys():
+    """Collect all Agnes keys in order."""
     keys = []
     for i in range(1, 6):
-        k = os.getenv(f"VIDEO_KEY_{i}", "").strip()
+        k = os.getenv(f"AGNES_API_KEY_{i}", "").strip()
+        if not k and i == 1:
+            k = os.getenv("AGNES_API_KEY", "").strip()
         if k:
             keys.append((i, k))
     return keys
 
 
-def _get_upload_url(api_key, extension="jpg"):
-    """Step 1: Ask Magic Hour for upload URL."""
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-    }
-    payload = {"items": [{"type": "image", "extension": extension}]}
+def _create_task(prompt, api_key):
+    """Create a video generation task. Returns task_id or None."""
     try:
-        r = requests.post(MH_UPLOAD_URLS, headers=headers, json=payload, timeout=60)
-        if r.status_code not in (200, 201):
-            return None, None
-        data = r.json()
-        items = data.get("items", [])
-        if not items:
-            return None, None
-        first = items[0]
-        return first.get("upload_url"), first.get("file_path")
-    except Exception:
-        return None, None
-
-
-def _put_to_upload_url(upload_url, image_path):
-    """Step 2: PUT image to upload URL."""
-    try:
-        with open(image_path, "rb") as f:
-            image_bytes = f.read()
-        r = requests.put(
-            upload_url,
-            data=image_bytes,
-            headers={"Content-Type": "image/jpeg"},
-            timeout=180,
+        r = requests.post(
+            f"{AGNES_BASE}/videos",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": AGNES_MODEL,
+                "prompt": prompt,
+                "mode": "text",
+                "seconds": str(CLIP_SECONDS),
+                "size": "720P",
+                "aspect_ratio": "9:16",
+            },
+            timeout=30,
         )
-        return r.status_code in (200, 201, 204)
-    except Exception:
-        return False
-
-
-def _submit_job(image_file_path, prompt, duration, api_key):
-    """Step 3: Submit video job."""
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-    }
-    payload = {
-        "model": MH_MODEL,
-        "assets": {"image_file_path": image_file_path},
-        "end_seconds": duration,
-        "resolution": RESOLUTION,
-        "aspect_ratio": ASPECT_RATIO,
-        "prompt": prompt,
-    }
-    try:
-        r = requests.post(MH_VIDEO_URL, headers=headers, json=payload, timeout=30)
-        if r.status_code in (200, 201):
-            return r.json().get("id") or r.json().get("job_id")
-    except Exception:
-        pass
+        if r.status_code == 200:
+            data = r.json()
+            task_id = data.get("video_id") or data.get("id") or data.get("task_id")
+            return task_id
+        print(f"    Create HTTP {r.status_code}: {r.text[:150]}")
+    except Exception as exc:
+        print(f"    Create err: {str(exc)[:120]}")
     return None
 
 
-def _poll_job(job_id, api_key, label=""):
-    """Poll until complete."""
-    headers = {"Authorization": f"Bearer {api_key}"}
+def _poll_task(task_id, api_key, label=""):
+    """Poll task until complete. Returns video URL or None."""
     start = time.time()
     while time.time() - start < POLL_TIMEOUT:
         time.sleep(POLL_INTERVAL)
         try:
-            r = requests.get(f"{MH_VIDEO_URL}/{job_id}", headers=headers, timeout=30)
+            r = requests.get(
+                "https://apihub.agnes-ai.com/agnesapi",
+                params={"video_id": task_id, "model_name": AGNES_MODEL},
+                headers={"Authorization": f"Bearer {api_key}"},
+                timeout=20,
+            )
             if r.status_code != 200:
                 continue
             data = r.json()
-            status = data.get("status", "").lower()
-            if status in ("complete", "completed", "succeeded", "done"):
-                url = data.get("url") or data.get("download_url")
-                if not url:
-                    downloads = data.get("downloads", [])
-                    if downloads and isinstance(downloads, list):
-                        url = downloads[0].get("url")
+            status = (data.get("status") or "").lower()
+
+            if status == "completed":
+                url = (data.get("metadata") or {}).get("url") or data.get("video_url")
                 return url
-            if status in ("error", "failed"):
+            if status in ("failed", "error"):
+                print(f"    [{label}] Failed: {data.get('error', 'unknown')}")
                 return None
+
             progress = data.get("progress", 0)
             elapsed = int(time.time() - start)
             print(f"    [{label}] {status} ({progress}%) [{elapsed}s]")
         except Exception:
             continue
-    print(f"    [{label}] Poll timeout after {POLL_TIMEOUT}s")
+    print(f"    [{label}] Poll timeout")
     return None
 
 
 def _download(url, out_path):
     try:
-        r = requests.get(url, timeout=300, stream=True)
+        r = requests.get(url, timeout=180, stream=True)
         if r.status_code == 200:
             with open(out_path, "wb") as f:
                 for chunk in r.iter_content(8192):
                     f.write(chunk)
             return True
-    except Exception:
-        pass
+    except Exception as exc:
+        print(f"    DL err: {str(exc)[:100]}")
     return False
 
 
-def _generate_one_clip(clip_idx, image_path, prompt, out_path, key_pair):
-    """Generate ONE clip (used by parallel workers)."""
+def _generate_one_clip(clip_idx, prompt, out_path, key_pair):
+    """Generate ONE clip. Used by parallel workers."""
     key_num, api_key = key_pair
     label = f"Clip{clip_idx + 1}/KEY_{key_num}"
 
-    print(f"  [{label}] Starting...")
-
-    # Get upload URL
-    upload_url, file_path = _get_upload_url(api_key, "jpg")
-    if not upload_url:
-        print(f"  [{label}] Upload-URLs failed")
+    print(f"  [{label}] Creating task...")
+    task_id = _create_task(prompt, api_key)
+    if not task_id:
+        print(f"  [{label}] Task creation failed")
         return (clip_idx, None)
 
-    # Upload image
-    if not _put_to_upload_url(upload_url, image_path):
-        print(f"  [{label}] PUT failed")
-        return (clip_idx, None)
+    print(f"  [{label}] Task: {task_id}")
 
-    # Submit job
-    job_id = _submit_job(file_path, prompt, CLIP_DURATION, api_key)
-    if not job_id:
-        print(f"  [{label}] Submit failed")
-        return (clip_idx, None)
-
-    print(f"  [{label}] Job submitted: {job_id}")
-
-    # Poll
-    video_url = _poll_job(job_id, api_key, label)
+    video_url = _poll_task(task_id, api_key, label)
     if not video_url:
-        print(f"  [{label}] Poll failed")
         return (clip_idx, None)
 
-    # Download
     if _download(video_url, out_path):
         print(f"  [{label}] DONE: {out_path}")
         return (clip_idx, out_path)
 
-    print(f"  [{label}] Download failed")
     return (clip_idx, None)
 
 
@@ -182,20 +137,20 @@ def generate_15s_video(image_path, prompt, out_path):
     """Generate 15s video from 3x 5s clips IN PARALLEL."""
     keys = _get_keys()
     if not keys:
-        print("  No VIDEO_KEY_* found")
+        print("  No AGNES_API_KEY_* found")
         return False
 
-    print(f"  Found {len(keys)} keys")
-    print(f"  Generating {NUM_CLIPS} clips IN PARALLEL ({CLIP_DURATION}s each)...")
+    print(f"  Found {len(keys)} Agnes keys")
+    print(f"  Generating {NUM_CLIPS} clips IN PARALLEL ({CLIP_SECONDS}s each)...")
 
-    # Prepare clip jobs: use different keys for each clip
+    # Use different keys for each clip
     clip_jobs = []
     for clip_idx in range(NUM_CLIPS):
         key_pair = keys[clip_idx % len(keys)]
         clip_path = out_path.replace(".mp4", f"_clip{clip_idx}.mp4")
-        clip_jobs.append((clip_idx, image_path, prompt, clip_path, key_pair))
+        clip_jobs.append((clip_idx, prompt, clip_path, key_pair))
 
-    # Run ALL clips in parallel
+    # Parallel execution
     results = {}
     with ThreadPoolExecutor(max_workers=NUM_CLIPS) as pool:
         futures = {
@@ -205,18 +160,17 @@ def generate_15s_video(image_path, prompt, out_path):
         for fut in as_completed(futures):
             clip_idx = futures[fut]
             try:
-                _, result_path = fut.result()
-                results[clip_idx] = result_path
+                _, path = fut.result()
+                results[clip_idx] = path
             except Exception as exc:
                 print(f"  Clip {clip_idx + 1} exception: {str(exc)[:150]}")
                 results[clip_idx] = None
 
-    # Collect successful clips
     clip_paths = [results[i] for i in range(NUM_CLIPS) if results.get(i)]
     print(f"\n  Successful clips: {len(clip_paths)}/{NUM_CLIPS}")
 
     if len(clip_paths) < 2:
-        print(f"  Only {len(clip_paths)} clips succeeded - need 2+")
+        print(f"  Only {len(clip_paths)} clips succeeded")
         return False
 
     # Concatenate
@@ -231,7 +185,7 @@ def generate_15s_video(image_path, prompt, out_path):
             "ffmpeg", "-y", "-loglevel", "error",
             "-f", "concat", "-safe", "0", "-i", lst_path,
             "-c", "copy", "-movflags", "+faststart", out_path,
-        ], check=True, timeout=180)
+        ], check=True, timeout=120)
         if os.path.exists(out_path) and os.path.getsize(out_path) > 10000:
             print(f"  Final video: {out_path}")
             return True
@@ -241,7 +195,7 @@ def generate_15s_video(image_path, prompt, out_path):
 
 
 def pollinations_image(prompt, out_path, seed=None):
-    """Generate base image."""
+    """Generate base image via Pollinations (free)."""
     import urllib.parse
     clean = " ".join(prompt.split())[:1200]
     encoded = urllib.parse.quote(clean)
@@ -254,14 +208,14 @@ def pollinations_image(prompt, out_path, seed=None):
     )
     for attempt in range(1, 4):
         try:
-            r = requests.get(url, timeout=120)
+            r = requests.get(url, timeout=90)
             if r.status_code == 200 and r.content and len(r.content) > 5000:
                 with open(out_path, "wb") as f:
                     f.write(r.content)
                 return True
         except Exception:
             pass
-        time.sleep(3)
+        time.sleep(2)
     return False
 
 
