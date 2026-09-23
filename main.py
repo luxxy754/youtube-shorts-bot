@@ -54,7 +54,7 @@ def main():
         return
     print(f"  Image saved: {img_path}")
 
-    print("\n[3/6] Magic Hour video generation...")
+    print("\n[3/6] Magic Hour video generation (parallel)...")
     t0 = time.time()
     video_path = os.path.join(OUT, "hero_15s.mp4")
 
