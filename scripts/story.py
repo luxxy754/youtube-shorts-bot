@@ -1,5 +1,8 @@
-"""Viral short story generator for kids.
-Creates fast, visual, dialogue-free stories designed for vertical Shorts.
+"""Story generator for AI Shorts - IMAGE-focused prompts.
+
+Each "scene" now produces ONE cinematic still image rather than a video.
+So prompts focus on composition, framing, lighting, and character clarity
+rather than motion descriptions.
 """
 import json
 import os
@@ -9,7 +12,6 @@ import re
 import requests
 
 
-# Kids-friendly themes — simple, warm, easy to understand
 THEMES = [
     "a tiny kitten learns to share a toy with a little puppy friend",
     "a small duckling gets lost in a garden and a kind kitten helps it find its way",
@@ -21,137 +23,92 @@ THEMES = [
     "a kitten helps a sad friend feel happy again with a gentle hug",
     "a puppy learns to wait patiently for its food and gets a surprise",
     "a kitten discovers that being different is okay and makes a new friend",
-    "a small puppy finds a lost baby animal and helps it get home safely",
-    "a cute kitten secretly follows a delivery cart and causes funny trouble",
-    "a tiny animal tries to copy a bigger animal and creates a funny ending",
-    "a little duck follows a kitten into a gentle adventure",
-    "a small puppy protects a tiny duckling from a harmless funny situation",
 ]
 
 
-# Pixar-style 3D for kids — warm, cute, simple
 STYLE = (
-    "Pixar-style 3D animated short film for young children, "
+    "Pixar-style 3D animated movie still, cinematic quality, "
     "very cute stylized animals with soft rounded shapes, "
-    "big friendly eyes, warm and expressive faces, "
-    "soft colorful fur, bright cheerful colors, "
-    "gentle lighting with soft shadows, "
-    "simple clear backgrounds, "
-    "smooth slow movements, "
-    "child-friendly camera angles, "
-    "vertical 9:16 composition, "
-    "no text, no subtitles, no watermark, "
-    "no scary elements, no violence, no humans, "
-    "no 2D illustration, no anime, no realistic rendering"
+    "big friendly expressive eyes, warm detailed faces, "
+    "soft fluffy fur with visible individual strands, "
+    "bright cheerful colors, warm golden-hour lighting, "
+    "shallow depth of field with soft bokeh background, "
+    "detailed but simple background, "
+    "vertical 9:16 composition, full subject visible in frame, "
+    "shot on cinema camera look, "
+    "absolutely no text, no subtitles, no watermark, no logo, "
+    "no humans, no scary elements, no violence, "
+    "no 2D illustration, no anime, no sketch, no realistic photorealism"
 )
 
 
 FALLBACK = {
     "title": "The Tiny Kitten and the Lost Duckling 🥹🐱 #shorts",
     "description": "A tiny kitten helps a little duckling find its way home.",
-    "hashtags": [
-        "#cat", "#kitten", "#animals", "#cute", "#funny",
-        "#animation", "#3danimation", "#shorts", "#kids"
-    ],
-    "keywords": [
-        "cute kitten animation for kids",
-        "funny animal short",
-        "3d animal animation",
-        "cute cat story for children",
-        "viral animal shorts",
-        "funny kitten video",
-        "cinematic animation",
-        "youtube shorts"
-    ],
+    "hashtags": ["#cat", "#kitten", "#animals", "#cute", "#funny",
+                 "#animation", "#3danimation", "#shorts", "#kids"],
+    "keywords": ["cute kitten animation for kids", "funny animal short",
+                 "3d animal animation", "cute cat story for children",
+                 "viral animal shorts", "funny kitten video"],
     "character": (
         "a tiny fluffy orange tabby kitten with soft orange-and-white fur, "
         "large expressive green eyes, small rounded ears and a tiny blue collar, "
         "standing beside a very small yellow duckling with soft yellow feathers, "
-        "orange beak and glossy black eyes, in a colorful realistic-looking small town"
+        "orange beak and glossy black eyes"
     ),
     "scenes": [
-        {
-            "visual": "The tiny orange tabby kitten notices the little yellow duckling alone beside a small puddle, freezes for a moment and looks toward it with worried wide eyes while the camera slowly pushes toward the kitten.",
-            "sfx": "soft surprised gasp and tiny duck chirp"
-        },
-        {
-            "visual": "The tiny orange tabby kitten carefully runs toward the little yellow duckling and places one paw in front of it as a harmless rolling leaf approaches, while the camera tracks low beside the kitten.",
-            "sfx": "quick soft footsteps and leaf rustle"
-        },
-        {
-            "visual": "The little yellow duckling suddenly hugs the tiny orange tabby kitten, and the kitten looks completely surprised before giving a proud little smile, as the camera quickly pushes into their happy faces.",
-            "sfx": "cute chirp followed by a soft happy sparkle sound"
-        },
-        {
-            "visual": "The tiny orange tabby kitten proudly walks away with the little yellow duckling following directly behind, but the kitten suddenly slips on the harmless puddle and looks embarrassed at the camera while the duckling reacts with wide eyes.",
-            "sfx": "small slip sound and comedic pop"
-        },
+        {"visual": "The tiny orange tabby kitten notices the little yellow duckling alone beside a small puddle, freezes with worried wide eyes. Medium shot, eye-level, warm afternoon light.",
+         "sfx": "soft surprised gasp and tiny duck chirp"},
+        {"visual": "The tiny orange tabby kitten carefully runs toward the little yellow duckling and places one paw in front of it protectively. Wide shot, low angle, golden light.",
+         "sfx": "quick soft footsteps and leaf rustle"},
+        {"visual": "The little yellow duckling hugs the tiny orange tabby kitten, and the kitten looks completely surprised before giving a proud little smile. Close-up, warm backlight.",
+         "sfx": "cute chirp followed by a soft happy sparkle sound"},
+        {"visual": "The tiny orange tabby kitten proudly walks away with the little yellow duckling following, but the kitten slips on a harmless puddle and looks embarrassed. Wide shot, comedic angle.",
+         "sfx": "small slip sound and comedic pop"},
     ],
-    "music": (
-        "fast playful cinematic instrumental with pizzicato strings, marimba, "
-        "light drums, soft bass and short comedic accents, no vocals"
-    ),
+    "music": ("fast playful cinematic instrumental with pizzicato strings, "
+              "marimba, light drums, soft bass, no vocals"),
 }
 
 
 def _prompt(n_scenes):
     theme = random.choice(THEMES)
-
     return f"""
-Create ONE highly visual viral YouTube Shorts story for YOUNG CHILDREN.
+You are writing a SHORT, kids-friendly YouTube Shorts story that will be
+told using {n_scenes} CINEMATIC STILL IMAGES (not video clips).
 
-THEME:
-{theme}
+THEME: {theme}
 
-The video must feel like a modern cinematic 3D animal short for kids.
+Each scene's "visual" field will be sent DIRECTLY to an image generator,
+so it must describe a SINGLE FROZEN MOMENT in the story - a photograph,
+not an action sequence. Focus on:
+  - WHO is in frame and their exact facial expression
+  - WHAT they are physically doing right now (one action only)
+  - WHERE they are (simple, clean background)
+  - CAMERA FRAMING (close-up / medium shot / wide shot, angle)
+  - LIGHTING and mood
 
-IMPORTANT STORY STYLE:
-- No dialogue.
-- No voiceover.
-- Story must be understandable purely from body language and visuals.
-- Family friendly. Safe for kids.
-- No violence, blood, weapons, horror, or anything scary.
-- Start with an immediate visual hook.
-- Every scene must cause the next scene.
-- Build gentle tension or curiosity.
-- End with a funny, warm, or happy payoff.
-- Make the final moment visually memorable and heartwarming.
-- Characters must remain visually identical throughout the entire story.
-- Keep emotions clear: happy, sad, surprised, friendly, warm.
-
-STRUCTURE:
-Scene 1 = immediate hook / gentle problem.
-Scene 2 = character tries to help or attempt something.
-Scene 3 = situation escalates or almost works.
-Scene 4 = warm/funny payoff.
-
-Each scene is approximately 3-5 seconds.
-
-For EVERY scene:
-- Describe ONE clear dominant physical action.
-- Mention the exact character description when needed.
-- Use natural animal body movement.
-- Give ONE camera movement.
-- Give a clear facial expression.
-- Keep the number of props very low.
-- Do not introduce unnecessary characters.
-- Do not change fur color, eye color, body size or environment.
-- Do not use confusing pronouns.
-- Keep it simple enough for a 4-year-old to follow.
+CRITICAL RULES:
+- No dialogue. No voiceover. Story is understood from images alone.
+- Family friendly. No violence, blood, weapons, horror, or scary elements.
+- Character appearance MUST stay identical across all scenes.
+- Each scene must clearly link to the next (before -> attempt -> climax -> payoff).
+- Show clear emotions: happy, surprised, warm, gentle, funny.
+- Keep props minimal. No extra characters beyond the main ones.
+- Do NOT describe camera movement (no "camera pushes in") - only static framing.
+- Do NOT describe motion like "runs toward" - describe the frozen pose instead.
 
 Return ONLY valid JSON:
 
 {{
-  "title": "warm curiosity-driven title under 80 characters ending with #shorts",
+  "title": "warm curiosity-driven title under 80 chars ending with #shorts",
   "description": "one or two short warm sentences",
   "hashtags": ["#cat", "#animals", "#cute", "#animation", "#shorts", "#kids"],
-  "keywords": [
-    "6-8 YouTube search phrases for kids animal videos"
-  ],
-  "character": "one detailed sentence containing the exact appearance of every main character and the main environment",
+  "keywords": ["6-8 YouTube search phrases for kids animal videos"],
+  "character": "one detailed sentence describing the EXACT appearance of every main character (fur color, eye color, size, collar, etc.) and the main environment",
   "scenes": [
     {{
-      "visual": "one concrete cinematic shot describing action, expression and one camera movement",
+      "visual": "ONE frozen moment: subject + expression + action pose + framing + lighting. 2-3 sentences max.",
       "sfx": "short sound effect description"
     }}
   ],
@@ -176,15 +133,10 @@ def _gemini(prompt):
     model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
     response = requests.post(
-        url,
-        params={"key": key},
-        json={
-            "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {
-                "responseMimeType": "application/json",
-                "temperature": 1.0,
-            },
-        },
+        url, params={"key": key},
+        json={"contents": [{"parts": [{"text": prompt}]}],
+              "generationConfig": {"responseMimeType": "application/json",
+                                    "temperature": 1.0}},
         timeout=90,
     )
     response.raise_for_status()
@@ -199,12 +151,10 @@ def _groq(prompt):
     response = requests.post(
         "https://api.groq.com/openai/v1/chat/completions",
         headers={"Authorization": f"Bearer {key}"},
-        json={
-            "model": os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
-            "messages": [{"role": "user", "content": prompt}],
-            "response_format": {"type": "json_object"},
-            "temperature": 1.0,
-        },
+        json={"model": os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
+              "messages": [{"role": "user", "content": prompt}],
+              "response_format": {"type": "json_object"},
+              "temperature": 1.0},
         timeout=90,
     )
     response.raise_for_status()
@@ -245,6 +195,7 @@ def generate_story(n_scenes=4):
 
 
 def scene_prompt(story, index):
+    """Build the image-generation prompt for one scene."""
     scenes = story.get("scenes", [])
     if not scenes:
         return ""
@@ -255,43 +206,27 @@ def scene_prompt(story, index):
     prompt = f"""
 {STYLE}
 
-CHARACTER CONTINUITY:
+CHARACTER (must appear EXACTLY as described in every image):
 {character}
 
-CURRENT SHOT:
+THIS SCENE:
 {visual}
 
-This is shot {index + 1} of a continuous short film for young children.
+Shot {index + 1} of a continuous short film. The animal's appearance must
+match the previous shot EXACTLY (same fur, same eyes, same collar).
 
-The character appearance MUST remain identical to previous shots.
+Requirements:
+- Full subject visible, well framed, not cropped
+- Cinematic, warm, cozy, kid-friendly
+- Simple clean background so the character stands out
+- Vertical 9:16 framing
 
-KIDS-FRIENDLY REQUIREMENTS:
-- The action must be simple and easy to understand for a 4-year-old.
-- Show clear emotions: happy, sad, surprised, friendly, warm.
-- No confusing or scary elements.
-- Warm, cozy feeling throughout.
-- The animal's face should be clearly visible and expressive.
+Do NOT include any text, watermark, logo, or human.
 
-Prioritize:
-- believable animal anatomy
-- smooth gentle body movement
-- expressive friendly face
-- clear readable action
-- soft cinematic lighting
-- cute stylized fur
-- natural soft shadows
-- gentle camera movement
-- vertical 9:16 framing
-- full subject visibility
-
-NEGATIVE:
-text, subtitles, watermark, logo, human, extra limbs,
+NEGATIVE: text, watermark, logo, signature, human, extra limbs,
 extra eyes, duplicated animal, distorted face, deformed paws,
-floating objects, cropped head, cropped body, flat illustration,
-2D drawing, anime, sketch, low quality, blurry frame,
-scary, dark, violence, blood
-
-Generate ONLY the visual shot.
+floating objects, cropped head, flat illustration, 2D drawing,
+anime, sketch, blurry, low quality, scary, dark, violence.
 """
     return " ".join(prompt.split())
 
