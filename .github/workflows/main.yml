@@ -8,8 +8,8 @@ on:
         type: boolean
         default: false
   schedule:
-    - cron: "0 2 * * *"
-    - cron: "0 14 * * *"
+    - cron: "0 2 * * *"    # 02:00 UTC
+    - cron: "0 14 * * *"   # 14:00 UTC
 
 permissions:
   contents: read
@@ -21,7 +21,7 @@ concurrency:
 jobs:
   build-and-post:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
@@ -39,15 +39,18 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Generate and upload Short
-        timeout-minutes: 40
+        timeout-minutes: 35
         env:
+          # ---- Story generation ----
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
 
+          # ---- Cat sounds + music (ElevenLabs) ----
           ELEVEN_KEY_1: ${{ secrets.ELEVEN_KEY_1 }}
           ELEVEN_KEY_2: ${{ secrets.ELEVEN_KEY_2 }}
           ELEVEN_KEY_3: ${{ secrets.ELEVEN_KEY_3 }}
 
+          # ---- YouTube upload ----
           YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
@@ -55,15 +58,18 @@ jobs:
 
           DRY_RUN: ${{ inputs.dry_run }}
 
+          # ---- Story / animation settings ----
           NUM_SCENES: "4"
           FRAMES_PER_SCENE: "6"
           FPS: "8"
           SCENE_SECONDS: "4.0"
           MUSIC_VOLUME: "0.16"
 
+          # ---- FAST parallel image generation ----
           IMAGE_MODEL: "flux"
-          IMAGE_TIMEOUT: "240"
-          IMAGE_RETRIES: "3"
+          IMAGE_CONCURRENCY: "6"
+          IMAGE_TIMEOUT: "60"
+          IMAGE_RETRIES: "2"
         run: python main.py
 
       - name: Keep a copy of the video
