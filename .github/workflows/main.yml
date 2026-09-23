@@ -1,4 +1,4 @@
-name: Talking Veggies Shorts
+name: Cat Shorts
 
 on:
   workflow_dispatch:
@@ -8,20 +8,20 @@ on:
         type: boolean
         default: false
   schedule:
-    - cron: "0 2 * * *"    # 02:00 UTC
-    - cron: "0 14 * * *"   # 14:00 UTC
+    - cron: "0 2 * * *"
+    - cron: "0 14 * * *"
 
 permissions:
   contents: read
 
 concurrency:
-  group: talking-veggies
+  group: cat-shorts
   cancel-in-progress: false
 
 jobs:
   build-and-post:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
 
@@ -36,20 +36,19 @@ jobs:
           sudo apt-get install -y ffmpeg wget
 
       - name: Install Python deps
-        run: |
-          pip install -r requirements.txt
+        run: pip install -r requirements.txt
 
       - name: Cache Wav2Lip repo
         uses: actions/cache@v4
         with:
           path: Wav2Lip
-          key: wav2lip-repo-v3
+          key: wav2lip-repo-v4
 
       - name: Cache Wav2Lip model
         uses: actions/cache@v4
         with:
           path: Wav2Lip/checkpoints
-          key: wav2lip-gan-v3
+          key: wav2lip-gan-v4
 
       - name: Clone Wav2Lip
         run: |
@@ -81,24 +80,20 @@ jobs:
                       librosa==0.10.2 opencv-python-headless tqdm
 
       - name: Generate and upload Short
-        timeout-minutes: 100
+        timeout-minutes: 150
         env:
-          # ---- Story generation ----
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
 
-          # ---- edge-tts settings (no API key!) ----
-          TTS_LANG: "hi"          # "hi" for Hindi, "ur" for Urdu
-          TTS_GENDER: "female"    # "female" or "male"
-          TTS_RATE: "-8%"         # slower for kids
-          TTS_PITCH: "+2Hz"
-
-          # ---- ElevenLabs keys (optional - only for SFX/music) ----
           ELEVEN_KEY_1: ${{ secrets.ELEVEN_KEY_1 }}
           ELEVEN_KEY_2: ${{ secrets.ELEVEN_KEY_2 }}
           ELEVEN_KEY_3: ${{ secrets.ELEVEN_KEY_3 }}
 
-          # ---- YouTube upload ----
+          TTS_LANG: "hi"
+          TTS_GENDER: "female"
+          TTS_RATE: "-8%"
+          TTS_PITCH: "+2Hz"
+
           YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
@@ -106,12 +101,15 @@ jobs:
 
           DRY_RUN: ${{ inputs.dry_run }}
 
+          # ---- Animation settings ----
           NUM_SCENES: "4"
+          FRAMES_PER_SCENE: "6"
+          FPS: "8"
           MUSIC_VOLUME: "0.16"
 
           IMAGE_MODEL: "flux"
           IMAGE_TIMEOUT: "240"
-          IMAGE_RETRIES: "4"
+          IMAGE_RETRIES: "3"
 
           WAV2LIP_CHECKPOINT: ${{ github.workspace }}/Wav2Lip/checkpoints/wav2lip_gan.pth
         run: python main.py
