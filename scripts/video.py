@@ -1,16 +1,10 @@
-"""Video generation via Magic Hour API (wan-2.2 model).
-
-Uses image_url approach (public URL required).
-Falls back to base64 if URL approach fails.
-"""
-import base64
+"""Video generation via Magic Hour API (wan-2.2 model) using image_url."""
 import os
 import subprocess
 import time
 
 import requests
 
-# Magic Hour endpoints (verify from docs)
 MH_VIDEO_URL = "https://api.magichour.ai/v1/image-to-video"
 MH_MODEL = os.getenv("MAGIC_HOUR_MODEL", "wan-2.2")
 RESOLUTION = os.getenv("VIDEO_RESOLUTION", "480p")
@@ -28,11 +22,11 @@ def _get_keys():
     return keys
 
 
-def _upload_image_public(image_path):
-    """Upload to catbox.moe -> public URL."""
-    # Option 1: catbox.moe
+def _upload_public(image_path):
+    """Upload image to a public host and return direct URL."""
+    # Try 1: catbox.moe
     try:
-        print("    Uploading to catbox.moe...")
+        print("    Trying catbox.moe...")
         with open(image_path, "rb") as f:
             r = requests.post(
                 "https://catbox.moe/user/api.php",
@@ -41,15 +35,16 @@ def _upload_image_public(image_path):
                 timeout=90,
             )
         if r.status_code == 200 and r.text.strip().startswith("http"):
-            print(f"    catbox.moe OK: {r.text.strip()}")
-            return r.text.strip()
-        print(f"    catbox.moe HTTP {r.status_code}: {r.text[:100]}")
+            url = r.text.strip()
+            print(f"    catbox.moe OK: {url}")
+            return url
+        print(f"    catbox.moe HTTP {r.status_code}")
     except Exception as exc:
         print(f"    catbox.moe err: {str(exc)[:100]}")
 
-    # Option 2: tmpfiles.org
+    # Try 2: tmpfiles.org
     try:
-        print("    Uploading to tmpfiles.org...")
+        print("    Trying tmpfiles.org...")
         with open(image_path, "rb") as f:
             r = requests.post(
                 "https://tmpfiles.org/api/v1/upload",
@@ -57,17 +52,19 @@ def _upload_image_public(image_path):
                 timeout=90,
             )
         if r.status_code == 200:
-            url = r.json().get("data", {}).get("url", "")
+            data = r.json()
+            url = data.get("data", {}).get("url", "")
             if url:
                 direct = url.replace("tmpfiles.org/", "tmpfiles.org/dl/")
-                print(f"    tmpfiles OK: {direct}")
+                print(f"    tmpfiles.org OK: {direct}")
                 return direct
+        print(f"    tmpfiles.org HTTP {r.status_code}")
     except Exception as exc:
-        print(f"    tmpfiles err: {str(exc)[:100]}")
+        print(f"    tmpfiles.org err: {str(exc)[:100]}")
 
-    # Option 3: uguu.se
+    # Try 3: uguu.se
     try:
-        print("    Uploading to uguu.se...")
+        print("    Trying uguu.se...")
         with open(image_path, "rb") as f:
             r = requests.post(
                 "https://uguu.se/upload.php",
@@ -78,24 +75,25 @@ def _upload_image_public(image_path):
             files = r.json().get("files", [])
             if files and files[0].get("url"):
                 url = files[0]["url"]
-                print(f"    uguu OK: {url}")
+                print(f"    uguu.se OK: {url}")
                 return url
+        print(f"    uguu.se HTTP {r.status_code}")
     except Exception as exc:
-        print(f"    uguu err: {str(exc)[:100]}")
+        print(f"    uguu.se err: {str(exc)[:100]}")
 
     print("    All upload hosts failed")
     return None
 
 
 def _submit_job(image_url, prompt, duration, api_key):
-    """Submit video job using image_url."""
+    """Submit video job using image_url (CORRECT field name)."""
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
     }
     payload = {
         "model": MH_MODEL,
-        "assets": {"image_url": image_url},
+        "assets": {"image_url": image_url},  # <-- Correct field!
         "end_seconds": duration,
         "resolution": RESOLUTION,
         "aspect_ratio": ASPECT_RATIO,
@@ -109,7 +107,7 @@ def _submit_job(image_url, prompt, duration, api_key):
             job_id = data.get("id") or data.get("job_id")
             print(f"    Job ID: {job_id}")
             return job_id
-        print(f"    Body: {r.text[:300]}")
+        print(f"    Body: {r.text[:250]}")
     except Exception as exc:
         print(f"    Submit err: {str(exc)[:150]}")
     return None
@@ -141,7 +139,7 @@ def _poll_job(job_id, api_key):
             print(f"    Status: {status} ({progress}%) [{elapsed}s]")
         except Exception:
             continue
-    print(f"    Poll timeout")
+    print(f"    Poll timeout after {POLL_TIMEOUT}s")
     return None
 
 
@@ -153,13 +151,13 @@ def _download(url, out_path):
                 for chunk in r.iter_content(8192):
                     f.write(chunk)
             return True
+        print(f"    Download HTTP {r.status_code}")
     except Exception as exc:
-        print(f"    DL err: {str(exc)[:120]}")
+        print(f"    Download err: {str(exc)[:120]}")
     return False
 
 
 def generate_clip(image_url, prompt, duration, out_path, api_key):
-    """Generate one clip using a public image URL."""
     job_id = _submit_job(image_url, prompt, duration, api_key)
     if not job_id:
         return False
@@ -177,9 +175,9 @@ def generate_15s_video(image_path, prompt, out_path):
         return False
     print(f"  Found {len(keys)} keys")
 
-    # Upload image ONCE, reuse for all clips
+    # Upload image ONCE
     print("  Uploading image to public host...")
-    image_url = _upload_image_public(image_path)
+    image_url = _upload_public(image_path)
     if not image_url:
         print("  Public URL failed")
         return False
@@ -252,7 +250,7 @@ def pollinations_image(prompt, out_path, seed=None):
 
 
 def static_video(image_path, audio_path, out_path):
-    """Fallback: static image + audio (FIXED ffmpeg command)."""
+    """Fallback: static image + audio."""
     try:
         dur = subprocess.check_output([
             "ffprobe", "-v", "error", "-show_entries", "format=duration",
