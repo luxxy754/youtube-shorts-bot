@@ -1,6 +1,5 @@
-"""Image generation for cat animation + Wav2Lip lipsync."""
+"""Image generation for cat animation frames."""
 import os
-import subprocess
 import time
 import urllib.parse
 
@@ -12,16 +11,9 @@ IMAGE_MODEL = os.getenv("IMAGE_MODEL", "flux")
 IMAGE_TIMEOUT = int(os.getenv("IMAGE_TIMEOUT", "240"))
 IMAGE_RETRIES = int(os.getenv("IMAGE_RETRIES", "3"))
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-WAV2LIP_DIR = os.path.join(ROOT, "Wav2Lip")
-WAV2LIP_CHECKPOINT = os.getenv(
-    "WAV2LIP_CHECKPOINT",
-    os.path.join(WAV2LIP_DIR, "checkpoints", "wav2lip_gan.pth"),
-)
 
-
-def pollinations_image(prompt: str, out_path: str, seed: int = None) -> bool:
-    """Generate one image. Seed helps consistency."""
+def pollinations_image(prompt, out_path, seed=None):
+    """Generate one image."""
     clean = " ".join(prompt.split())[:1500]
     encoded = urllib.parse.quote(clean)
     if seed is None:
@@ -48,76 +40,16 @@ def pollinations_image(prompt: str, out_path: str, seed: int = None) -> bool:
 
 
 def generate_scene_frames(prompt_fn, scene_index, n_frames, out_dir, base_seed=0):
-    """Generate N frames for one scene.
-
-    prompt_fn(frame_index) -> prompt string
-    Returns list of frame paths (only successful ones).
-    """
+    """Generate N frames for one scene."""
     frames = []
     for f in range(n_frames):
         fp = os.path.join(out_dir, f"scene_{scene_index}_frame_{f}.jpg")
-        # Same seed + offset ensures similar character across frames
         seed = base_seed + scene_index * 1000 + f
         if pollinations_image(prompt_fn(f), fp, seed=seed):
             frames.append(fp)
             print(f"  Frame {f+1}/{n_frames} OK")
         else:
-            print(f"  Frame {f+1}/{n_frames} FAILED - using previous")
+            print(f"  Frame {f+1}/{n_frames} FAILED")
             if frames:
-                frames.append(frames[-1])  # repeat last frame
+                frames.append(frames[-1])
     return frames
-
-
-def wav2lip_sync(image_path, audio_path, out_path):
-    """Run Wav2Lip on a single image."""
-    if not os.path.exists(WAV2LIP_CHECKPOINT):
-        print(f"  Wav2Lip checkpoint missing")
-        return False
-    inference_script = os.path.join(WAV2LIP_DIR, "inference.py")
-    if not os.path.exists(inference_script):
-        return False
-    cmd = [
-        "python", inference_script,
-        "--checkpoint_path", WAV2LIP_CHECKPOINT,
-        "--face", image_path,
-        "--audio", audio_path,
-        "--outfile", out_path,
-        "--pads", "0", "10", "0", "0",
-        "--resize_factor", "1",
-        "--nosmooth",
-    ]
-    try:
-        print("  Running Wav2Lip...")
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=900)
-        if result.returncode != 0:
-            print(f"  Wav2Lip fail: {result.stderr[-300:]}")
-            return False
-        if os.path.exists(out_path) and os.path.getsize(out_path) > 10000:
-            print(f"  Wav2Lip OK")
-            return True
-        return False
-    except Exception as exc:
-        print(f"  Wav2Lip err: {str(exc)[:200]}")
-        return False
-
-
-def static_video(image_path, audio_path, out_path):
-    """Fallback: static image + audio."""
-    try:
-        dur = subprocess.check_output([
-            "ffprobe", "-v", "error", "-show_entries", "format=duration",
-            "-of", "default=nk=1:nw=1", audio_path], text=True).strip()
-        subprocess.run([
-            "ffmpeg", "-y", "-loglevel", "error",
-            "-loop", "1", "-i", image_path, "-i", audio_path,
-            "-c:v", "libx264", "-preset", "veryfast", "-crf", "22",
-            "-c:a", "aac", "-b:a", "192k", "-pix_fmt", "yuv420p",
-            "-t", dur, "-shortest",
-            "-vf", "scale=1080:1920:force_original_aspect_ratio=decrease,"
-                   "pad=1080:1920:(ow-iw)/2:(oh-ih)/2",
-            out_path,
-        ], check=True, timeout=300)
-        return True
-    except Exception as exc:
-        print(f"  Static fail: {str(exc)[:200]}")
-        return False
