@@ -321,6 +321,8 @@ def build_final_audio(voice_paths, scene_timings, total_duration, bg_music_path,
 
     graph += (
         "[mix]loudnorm=I=-14:TP=-1.5:LRA=9,"
+        f"aresample={SR},"
+        f"apad=whole_dur={total_duration:.3f},"
         f"atrim=0:{total_duration:.3f},"
         "alimiter=limit=0.97[master]"
     )
