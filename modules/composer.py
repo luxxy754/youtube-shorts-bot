@@ -385,9 +385,15 @@ class ShortsComposer:
                 )
                 master_clip = AudioFileClip(master_path)
                 
-                # FIX: Trim master audio if it slightly exceeds total_duration
-                if master_clip.duration > total_duration:
-                    master_clip = master_clip.subclip(0, total_duration)
+                # FIX: moviepy can't read the last few frames of an audio file
+                # (t > duration error). Always keep a small safety margin and
+                # shrink the video to match the real audio length.
+                safe_duration = min(total_duration, master_clip.duration) - 0.1
+                if safe_duration < total_duration:
+                    print("Audio/video length sync: " + str(round(total_duration, 2))
+                          + "s -> " + str(round(safe_duration, 2)) + "s")
+                    total_duration = safe_duration
+                master_clip = master_clip.subclip(0, total_duration)
 
                 opened_audio.append(master_clip)
                 final_audio = master_clip
