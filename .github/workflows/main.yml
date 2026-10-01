@@ -2,9 +2,9 @@ name: Auto Generate and Post YouTube Shorts
 
 on:
   schedule:
-    - cron: '30 2 * * *'
-    - cron: '30 7 * * *'
-    - cron: '30 14 * * *'
+    - cron: '30 7 * * *'   # 12:30 PM PKT (Lunch/Afternoon Peak)
+    - cron: '30 12 * * *'  # 5:30 PM PKT (Evening Commute Peak)
+    - cron: '30 15 * * *'  # 8:30 PM PKT (Night Prime Time Peak)
   workflow_dispatch:
 
 permissions:
