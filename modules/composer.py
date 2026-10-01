@@ -384,6 +384,11 @@ class ShortsComposer:
                     out_dir=os.path.join(self.output_dir, "mix"),
                 )
                 master_clip = AudioFileClip(master_path)
+                
+                # FIX: Trim master audio if it slightly exceeds total_duration
+                if master_clip.duration > total_duration:
+                    master_clip = master_clip.subclip(0, total_duration)
+
                 opened_audio.append(master_clip)
                 final_audio = master_clip
             except Exception as e:
