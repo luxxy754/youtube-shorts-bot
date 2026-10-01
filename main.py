@@ -1,3 +1,4 @@
+import sys
 import os
 import json
 import time
@@ -333,7 +334,7 @@ def main():
     except Exception as e:
         print(f"Composition failed: {e}")
         notify_telegram(f"Video composition failed: {e}")
-        return
+        sys.exit(1)
 
     if not os.path.exists(final_video_path):
         print("Final video file create nahi hui.")
