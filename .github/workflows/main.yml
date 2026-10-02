@@ -2,9 +2,9 @@ name: Auto Generate and Post YouTube Shorts
 
 on:
   schedule:
-    - cron: '30 7 * * *'   # 12:30 PM PKT (Lunch/Afternoon Peak)
-    - cron: '30 12 * * *'  # 5:30 PM PKT (Evening Commute Peak)
-    - cron: '30 15 * * *'  # 8:30 PM PKT (Night Prime Time Peak)
+    - cron: '30 2 * * *'
+    - cron: '30 7 * * *'
+    - cron: '30 14 * * *'
   workflow_dispatch:
 
 permissions:
@@ -77,10 +77,14 @@ jobs:
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
         PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
-        YOUTUBE_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
-        YOUTUBE_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
-        YOUTUBE_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+        YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+        YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+        YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
         YOUTUBE_PLAYLIST_ID: ${{ secrets.YOUTUBE_PLAYLIST_ID }}
+        YOUTUBE_CLIENT_ID_2: ${{ secrets.YOUTUBE_CLIENT_ID_2 }}
+        YOUTUBE_CLIENT_SECRET_2: ${{ secrets.YOUTUBE_CLIENT_SECRET_2 }}
+        YOUTUBE_REFRESH_TOKEN_2: ${{ secrets.YOUTUBE_REFRESH_TOKEN_2 }}
+        YOUTUBE_PLAYLIST_ID_2: ${{ secrets.YOUTUBE_PLAYLIST_ID_2 }}
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
