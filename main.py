@@ -89,9 +89,9 @@ BASE_TAGS = [
 
 
 def get_youtube_channels():
-    """Channel 1 = existing secrets. Channel 2 is OPTIONAL: it is used only when
-    YOUTUBE_REFRESH_TOKEN_2 is set. If CLIENT_ID_2 / CLIENT_SECRET_2 are not set,
-    channel 1's client id/secret are reused. Playlist ids are per-channel."""
+    """Channel 1 = existing secrets. Extra channels (2, 3, ...) are OPTIONAL: each is
+    used only when YOUTUBE_REFRESH_TOKEN_<n> is set. If CLIENT_ID_<n> / CLIENT_SECRET_<n>
+    are not set, channel 1's client id/secret are reused. Playlist ids are per-channel."""
     channels = [{
         "name": "Channel 1",
         "client_id": YOUTUBE_CLIENT_ID,
@@ -99,14 +99,16 @@ def get_youtube_channels():
         "refresh_token": YOUTUBE_REFRESH_TOKEN,
         "playlist_id": YOUTUBE_PLAYLIST_ID,
     }]
-    token2 = os.getenv("YOUTUBE_REFRESH_TOKEN_2")
-    if token2:
+    for n in range(2, 6):  # supports channels 2..5
+        token = os.getenv(f"YOUTUBE_REFRESH_TOKEN_{n}")
+        if not token:
+            continue
         channels.append({
-            "name": "Channel 2",
-            "client_id": os.getenv("YOUTUBE_CLIENT_ID_2") or YOUTUBE_CLIENT_ID,
-            "client_secret": os.getenv("YOUTUBE_CLIENT_SECRET_2") or YOUTUBE_CLIENT_SECRET,
-            "refresh_token": token2,
-            "playlist_id": os.getenv("YOUTUBE_PLAYLIST_ID_2", ""),
+            "name": f"Channel {n}",
+            "client_id": os.getenv(f"YOUTUBE_CLIENT_ID_{n}") or YOUTUBE_CLIENT_ID,
+            "client_secret": os.getenv(f"YOUTUBE_CLIENT_SECRET_{n}") or YOUTUBE_CLIENT_SECRET,
+            "refresh_token": token,
+            "playlist_id": os.getenv(f"YOUTUBE_PLAYLIST_ID_{n}", ""),
         })
     return channels
 
