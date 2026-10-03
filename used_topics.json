@@ -218,6 +218,13 @@
       "format": "personal_what_if",
       "title": "Dimag Karta Hai Har Raat Yeh Safai! 🧠",
       "fact": "During deep sleep, the brain's glymphatic system washes away metabolic waste using cerebrospinal fluid."
+    },
+    {
+      "date": "2026-10-03T06:36:12",
+      "category": "time, clocks and calendars",
+      "format": "top3",
+      "title": "Waqt Har Jagah Alag Chalta Hai! ⏳",
+      "fact": "Time dilation causes time to pass at different rates depending on gravity and altitude, making Earth's core slightly younger than its surface and requiring GPS satellites to constantly adjust their clocks."
     }
   ]
 }
