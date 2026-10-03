@@ -225,6 +225,13 @@
       "format": "top3",
       "title": "Waqt Har Jagah Alag Chalta Hai! ⏳",
       "fact": "Time dilation causes time to pass at different rates depending on gravity and altitude, making Earth's core slightly younger than its surface and requiring GPS satellites to constantly adjust their clocks."
+    },
+    {
+      "date": "2026-10-03T08:24:30",
+      "category": "sports and the limits of the human body",
+      "format": "shocking_fact",
+      "title": "Running ke dauran haddiya mudti kyu hain? 🏃",
+      "fact": "Human bones, specifically the tibia, slightly bend and elastically deform under running impact to absorb force and prevent fractures."
     }
   ]
 }
