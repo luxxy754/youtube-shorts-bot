@@ -407,6 +407,27 @@
       "format": "top3",
       "title": "समय के ये तीन अजीब सच ⏰",
       "fact": "Time moves slightly faster at high altitudes due to weaker gravity, and the Diomede Islands have a twenty-one hour time difference despite being just a few kilometers apart."
+    },
+    {
+      "date": "2026-10-05T21:36:43",
+      "category": "extreme weather (lightning, storms, ice, rain)",
+      "format": "mystery_explained",
+      "title": "Aasman se girte hain jaanleva patthar! 🧊",
+      "fact": "Supercooled water droplets in extreme thunderstorms can instantly freeze into giant hailstones upon collision."
+    },
+    {
+      "date": "2026-10-05T21:43:32",
+      "category": "volcanoes, earthquakes and how the Earth works",
+      "format": "myth_vs_truth",
+      "title": "North Pole apni jagah badal raha hai! 🧭",
+      "fact": "Earth's magnetic north pole drifts constantly due to liquid iron movement in the outer core, but historical pole reversals take thousands of years."
+    },
+    {
+      "date": "2026-10-05T21:48:19",
+      "category": "wild animals and their survival tricks",
+      "format": "shocking_fact",
+      "title": "Baraf mein zinda jam jata hai ye mendhak 🐸",
+      "fact": "Wood frogs survive winter by freezing solid and thawing back to life in spring."
     }
   ]
 }
