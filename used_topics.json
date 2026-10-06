@@ -428,6 +428,27 @@
       "format": "shocking_fact",
       "title": "Baraf mein zinda jam jata hai ye mendhak 🐸",
       "fact": "Wood frogs survive winter by freezing solid and thawing back to life in spring."
+    },
+    {
+      "date": "2026-10-06T09:11:25",
+      "category": "technology, robots, computers and smartphones",
+      "format": "mystery_explained",
+      "title": "ऐसे पहचानता है CAPTCHA आपको! 💻",
+      "fact": "CAPTCHA's 'I am not a robot' checkbox detects humans by tracking the subconscious microscopic shaky movements of the cursor, which automated bots cannot replicate."
+    },
+    {
+      "date": "2026-10-06T09:21:00",
+      "category": "space, planets, stars and astronauts",
+      "format": "personal_what_if",
+      "title": "Space Me Height Badhne Ka Sach! 🚀",
+      "fact": "Astronauts grow up to two inches taller in space due to spinal decompression in microgravity, but experience back pain when returning to Earth as gravity compresses the spine back to its normal size."
+    },
+    {
+      "date": "2026-10-06T09:29:45",
+      "category": "deserts, mountains and extreme places on Earth",
+      "format": "myth_vs_truth",
+      "title": "Lut Desert mein maut bhi nahi sadti! 🏜️",
+      "fact": "In the Lut Desert of Iran, the surface temperature is so extreme (up to 70.7 degrees Celsius) that it creates a sterile environment where bacteria cannot survive, preventing organic matter and milk from spoiling."
     }
   ]
 }
