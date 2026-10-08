@@ -32,6 +32,13 @@ CTA_POSITION_RATIO = 0.85
 CTA_START_RATIO = 0.55
 CTA_FADE_DURATION = 0.5
 
+# ============================================================
+# AUDIO TAIL BUFFER
+# ============================================================
+# End-of-video audio cut fix: master audio ke end mein thoda extra
+# buffer chhod do taake last word poora sunai de aur koi abrupt cut na ho.
+AUDIO_TAIL_BUFFER = 0.35
+
 
 class ShortsComposer:
     def __init__(self, output_dir="output"):
@@ -349,12 +356,12 @@ class ShortsComposer:
             codec="libx264",
             audio_codec="aac",
             audio_bitrate="192k",
-            fps=24,                       # 30 se 24 kar diya (tez)
-            preset="ultrafast",           # medium se ultrafast (bohat tez)
-            ffmpeg_params=["-pix_fmt", "yuv420p", "-crf", "23"],  # 22 se 23 (tez)
+            fps=24,
+            preset="ultrafast",
+            ffmpeg_params=["-pix_fmt", "yuv420p", "-crf", "23"],
             temp_audiofile=os.path.join(self.output_dir, "temp_audio.m4a"),
             remove_temp=True,
-            threads=4,                    # multi-threading
+            threads=4,
         )
         return output_path
 
@@ -416,12 +423,14 @@ class ShortsComposer:
                 print("Scene " + str(index + 1) + " ready")
 
             total_duration = timeline
-            print("Total: " + str(round(total_duration, 1)) + "s")
+            print("Total (timeline): " + str(round(total_duration, 1)) + "s")
 
             if not voice_clips:
                 raise RuntimeError("No voice clips ready")
 
             # ---- audio: voice EQ/comp + synthesized SFX + ducked BGM + loudnorm ----
+            # NOTE: build_final_audio ab khud audio ko poora banata hai (atrim safe).
+            # Agar wo fail ho to simple mix par jaate hain.
             try:
                 master_path = build_final_audio(
                     voiceover_paths[:count],
@@ -432,9 +441,13 @@ class ShortsComposer:
                 )
                 master_clip = AudioFileClip(master_path)
                 opened_audio.append(master_clip)
+
                 real_len = float(master_clip.duration or 0)
+                # FIX: pehle min() use ho raha tha jo last word ko cut kar deta tha.
+                # Ab actual audio duration use karte hain + tail buffer.
                 if real_len > 1.0:
-                    total_duration = min(total_duration, real_len - 0.15)
+                    total_duration = real_len + AUDIO_TAIL_BUFFER
+                    print("Total (real audio + buffer): " + str(round(total_duration, 2)) + "s")
                 final_audio = master_clip
             except Exception as e:
                 print("Pro audio mix failed, using simple mix: " + str(e))
@@ -450,7 +463,7 @@ class ShortsComposer:
 
             overlays = []
 
-            # Word-by-word Hinglish captions (replaces the old block captions)
+            # Word-by-word captions
             if word_scenes:
                 try:
                     from modules.captions import build_word_caption_clips
