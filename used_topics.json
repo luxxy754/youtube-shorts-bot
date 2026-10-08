@@ -554,6 +554,33 @@
       "format": "personal_what_if",
       "title": "Pao ke neeche zameen kyon hil rahi? 🤯",
       "fact": "Earth's tectonic plates move at about the same speed as human fingernails grow, driven by heat from the core."
+    },
+    {
+      "date": "2026-10-08T09:13:58",
+      "category": "trees, plants and forests",
+      "format": "myth_vs_truth",
+      "title": "Aag se zinda hone wala ped! 🌲",
+      "fact": "Giant sequoia trees actually need intense forest fires to reproduce, as the extreme heat melts the resin on their cones, allowing them to release their seeds.",
+      "video_id": "XPMgrjwGV7g",
+      "channel": "Channel 1"
+    },
+    {
+      "date": "2026-10-08T09:18:31",
+      "category": "science labs, experiments and discoveries",
+      "format": "shocking_fact",
+      "title": "Sound Waves Se Paani Mein Sooraj Jitni Heat? ☀️",
+      "fact": "Sonoluminescence: intense sound waves in water create collapsing bubbles that emit short bursts of light and temperatures comparable to the surface of the sun.",
+      "video_id": "oWt1DesEMxU",
+      "channel": "Channel 2"
+    },
+    {
+      "date": "2026-10-08T09:22:01",
+      "category": "history's strangest records and museum objects",
+      "format": "mystery_explained",
+      "title": "2400 Saal Purani Taza Laash Ka Raaz! 😱",
+      "fact": "The Tollund Man, a naturally mummified corpse from the 4th century BC, was so perfectly preserved by the acidic peat bog in Denmark that police in 1950 mistook him for a recent murder victim.",
+      "video_id": "rDMhof11J4I",
+      "channel": "Channel 3"
     }
   ]
 }
