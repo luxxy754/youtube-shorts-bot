@@ -32,13 +32,6 @@ CTA_POSITION_RATIO = 0.85
 CTA_START_RATIO = 0.55
 CTA_FADE_DURATION = 0.5
 
-# ============================================================
-# AUDIO TAIL BUFFER
-# ============================================================
-# End-of-video audio cut fix: master audio ke end mein thoda extra
-# buffer chhod do taake last word poora sunai de aur koi abrupt cut na ho.
-AUDIO_TAIL_BUFFER = 0.35
-
 
 class ShortsComposer:
     def __init__(self, output_dir="output"):
@@ -429,8 +422,8 @@ class ShortsComposer:
                 raise RuntimeError("No voice clips ready")
 
             # ---- audio: voice EQ/comp + synthesized SFX + ducked BGM + loudnorm ----
-            # NOTE: build_final_audio ab khud audio ko poora banata hai (atrim safe).
-            # Agar wo fail ho to simple mix par jaate hain.
+            # build_final_audio ab khud actual voice duration ke hisaab se master banata hai,
+            # isliye last word cut nahi hota.
             try:
                 master_path = build_final_audio(
                     voiceover_paths[:count],
@@ -443,11 +436,10 @@ class ShortsComposer:
                 opened_audio.append(master_clip)
 
                 real_len = float(master_clip.duration or 0)
-                # FIX: pehle min() use ho raha tha jo last word ko cut kar deta tha.
-                # Ab actual audio duration use karte hain + tail buffer.
+                # WAPAS SAFE: min() use karo, na ki real_len + buffer.
+                # (real_len + buffer karne se captions ka timing toot gaya tha)
                 if real_len > 1.0:
-                    total_duration = real_len + AUDIO_TAIL_BUFFER
-                    print("Total (real audio + buffer): " + str(round(total_duration, 2)) + "s")
+                    total_duration = min(total_duration, real_len - 0.15)
                 final_audio = master_clip
             except Exception as e:
                 print("Pro audio mix failed, using simple mix: " + str(e))
