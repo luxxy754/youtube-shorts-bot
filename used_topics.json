@@ -679,6 +679,29 @@
       "format": "psychology_fact",
       "title": "The Sneaky Coffee Trap You Fall For ☕",
       "fact": "The decoy effect causes consumers to choose a more expensive option when an asymmetrically priced decoy option makes the expensive choice appear like an obvious bargain."
+    },
+    {
+      "date": "2026-10-10T10:38:12",
+      "category": "psychology of first impressions, attraction and body language (only well-established findings)",
+      "format": "psychology_effect",
+      "title": "Why Gossiping Secretly Backfires On You 🧠",
+      "fact": "Spontaneous trait transference causes people to unconsciously attribute the traits you describe in others to your own personality."
+    },
+    {
+      "date": "2026-10-10T10:42:42",
+      "category": "psychology of habits, procrastination, motivation and willpower",
+      "format": "myth_vs_truth",
+      "title": "How to Stop Procrastinating Today 💡",
+      "fact": "Implementation intentions, which involve deciding on a specific time and place for a task in advance, drastically increase follow-through by reducing decision fatigue.",
+      "video_id": "aRUptlbyy44",
+      "channel": "Channel 2"
+    },
+    {
+      "date": "2026-10-10T10:45:33",
+      "category": "childhood, learning and curiosity: how people learn and why praise/habits stick",
+      "format": "top3",
+      "title": "Why smart kids quit first 🧠",
+      "fact": "Children who are praised for effort rather than innate intelligence develop a growth mindset and persist longer through difficult challenges."
     }
   ]
 }
