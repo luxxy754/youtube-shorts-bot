@@ -702,6 +702,33 @@
       "format": "top3",
       "title": "Why smart kids quit first 🧠",
       "fact": "Children who are praised for effort rather than innate intelligence develop a growth mindset and persist longer through difficult challenges."
+    },
+    {
+      "date": "2026-10-10T16:10:30",
+      "category": "focus and attention: why the mind wanders, multitasking, distraction",
+      "format": "personal_what_if",
+      "title": "Why Quick Distractions Drain Your Brain 🧠",
+      "fact": "Attention residue causes severe mental fatigue because part of your attention remains stuck on an interrupted task long after you switch away.",
+      "video_id": "hZX-BeUZlfQ",
+      "channel": "Channel 1"
+    },
+    {
+      "date": "2026-10-10T16:29:37",
+      "category": "sleep, dreams and tiredness: what they do to mood and behaviour",
+      "format": "psychology_effect",
+      "title": "Why minor annoyances trigger pure panic 😴",
+      "fact": "Sleep deprivation decouples the prefrontal cortex from the amygdala, causing the brain to process minor daily annoyances as immediate threats.",
+      "video_id": "gLo6z_qWa0o",
+      "channel": "Channel 2"
+    },
+    {
+      "date": "2026-10-10T16:36:49",
+      "category": "friendship, relationships, texting, jealousy and loneliness (well-established findings only)",
+      "format": "psychology_fact",
+      "title": "Why People Secretly Like You More 🤫",
+      "fact": "The liking gap proves people systematically underestimate how much a new acquaintance enjoyed their company and liked their personality.",
+      "video_id": "zFerM2dXSko",
+      "channel": "Channel 3"
     }
   ]
 }
