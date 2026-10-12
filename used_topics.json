@@ -101,27 +101,6 @@
   },
   "_recent": [
     {
-      "date": "2026-10-01T08:27:24",
-      "category": "sports and the limits of the human body",
-      "format": "myth_vs_truth",
-      "title": "Pahad Par Achanak Blindness Kyun Hoti Hai? 🏔️",
-      "fact": "High-altitude hypoxia deprives the retina and visual cortex of sufficient oxygen, causing temporary vision loss or high-altitude retinal hemorrhage in mountaineers, which usually resolves upon descent."
-    },
-    {
-      "date": "2026-10-01T08:50:23",
-      "category": "psychology and everyday human habits",
-      "format": "mystery_explained",
-      "title": "Kya Aapki Yaadash Poori Tarah Jhoothi Hai? 🧠",
-      "fact": "Human memory reconstructs details upon retrieval rather than playing back a static recording, making memories prone to distortion over time."
-    },
-    {
-      "date": "2026-10-01T10:22:57",
-      "category": "food and cooking science",
-      "format": "personal_what_if",
-      "title": "Khaane Se Pehle Yeh Baat Jaan Lo 🍍",
-      "fact": "Pineapples contain bromelain, a protein-digesting enzyme that temporarily breaks down proteins on human tongue tissue when eaten fresh."
-    },
-    {
       "date": "2026-10-01T10:59:43",
       "category": "history's strangest records and museum objects",
       "format": "shocking_fact",
@@ -774,6 +753,33 @@
       "title": "Why you can never truly focus 🧠",
       "fact": "Unconscious attention switching and task fragmentation create a heavy cognitive burden known as attention residue, which severely harms focus.",
       "video_id": "o5kDGxkPg-0",
+      "channel": "Channel 3"
+    },
+    {
+      "date": "2026-10-12T20:13:56",
+      "category": "everyday human behaviour: why people do small things in daily life (phone, friends, family, work)",
+      "format": "psychology_effect",
+      "title": "Why You Forget Things Entering a Room 🚪",
+      "fact": "Passing through physical doorways triggers the Doorway Effect, an event boundary that causes the brain to compartmentalize memories and temporarily forget recent intentions.",
+      "video_id": "Q6GuYqX5nGY",
+      "channel": "Channel 1"
+    },
+    {
+      "date": "2026-10-12T20:19:33",
+      "category": "sleep, dreams and tiredness: what they do to mood and behaviour",
+      "format": "psychology_fact",
+      "title": "Why Six Hours of Sleep Tricks You 🥱",
+      "fact": "Chronic restriction to six hours of sleep causes cognitive performance to severely degrade while the subjective feeling of sleepiness plateaus, tricking people into believing they have adapted.",
+      "video_id": "brg68OYLFvc",
+      "channel": "Channel 2"
+    },
+    {
+      "date": "2026-10-12T20:24:49",
+      "category": "childhood, learning and curiosity: how people learn and why praise/habits stick",
+      "format": "top3",
+      "title": "Why calling kids smart actually backfires 🧠",
+      "fact": "Praising children for innate intelligence promotes a fixed mindset and fear of failure, whereas praising their effort and strategies fosters resilience and a growth mindset.",
+      "video_id": "AqCP6tPGwMI",
       "channel": "Channel 3"
     }
   ]
