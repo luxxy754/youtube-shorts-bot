@@ -101,13 +101,6 @@
   },
   "_recent": [
     {
-      "date": "2026-10-03T08:24:30",
-      "category": "sports and the limits of the human body",
-      "format": "shocking_fact",
-      "title": "Running ke dauran haddiya mudti kyu hain? 🏃",
-      "fact": "Human bones, specifically the tibia, slightly bend and elastically deform under running impact to absorb force and prevent fractures."
-    },
-    {
       "date": "2026-10-03T08:54:29",
       "category": "psychology and everyday human habits",
       "format": "personal_what_if",
@@ -800,6 +793,15 @@
       "title": "Why willpower vanishes by three pm #Shorts",
       "fact": "Decision fatigue depletes cognitive control throughout the day, causing people to choose immediate rewards over long-term goals by late afternoon.",
       "video_id": "67VTX4j15Zo",
+      "channel": "Channel 3"
+    },
+    {
+      "date": "2026-10-13T17:02:01",
+      "category": "childhood, learning and curiosity: how people learn and why habits stick",
+      "format": "psychology_fact",
+      "title": "Your Kid Copies You Instantly #shorts #psychology",
+      "fact": "Children learn physical tasks and rules faster through observation and mirror neuron activation than through explicit verbal instruction.",
+      "video_id": "59MVvRqeqOI",
       "channel": "Channel 3"
     }
   ]
