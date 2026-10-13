@@ -101,27 +101,6 @@
   },
   "_recent": [
     {
-      "date": "2026-10-01T10:59:43",
-      "category": "history's strangest records and museum objects",
-      "format": "shocking_fact",
-      "title": "Paintings made of real corpses? 🎨",
-      "fact": "Artists used ground-up ancient Egyptian mummies to make a brown paint pigment called 'Mummy Brown' until manufacturing stopped in the twentieth century."
-    },
-    {
-      "date": "2026-10-01T13:28:08",
-      "category": "trees, plants and forests",
-      "format": "mystery_explained",
-      "title": "Trees Secretly Talk Underground 🌳",
-      "fact": "Trees communicate and share resources with each other underground through an extensive network of fungal hyphae known as the mycorrhizal network or wood wide web."
-    },
-    {
-      "date": "2026-10-01T14:43:57",
-      "category": "science labs, experiments and discoveries",
-      "format": "personal_what_if",
-      "title": "Paani Me Light Kaise Qaid Hui? 🤯",
-      "fact": "Laser beams can become trapped inside a stream of water through total internal reflection, acting like a flexible light pipe."
-    },
-    {
       "date": "2026-10-01T19:29:27",
       "category": "extreme weather (lightning, storms, ice, rain)",
       "format": "myth_vs_truth",
@@ -780,6 +759,33 @@
       "title": "Why calling kids smart actually backfires 🧠",
       "fact": "Praising children for innate intelligence promotes a fixed mindset and fear of failure, whereas praising their effort and strategies fosters resilience and a growth mindset.",
       "video_id": "AqCP6tPGwMI",
+      "channel": "Channel 3"
+    },
+    {
+      "date": "2026-10-13T03:25:23",
+      "category": "decision making, cognitive biases and why smart people make silly choices",
+      "format": "personal_what_if",
+      "title": "Your brain rewrites your past choices 🧠",
+      "fact": "People misremember past choices and rewrite their own memories to justify what they picked through choice-supportive bias.",
+      "video_id": "YBKd5PsG6qs",
+      "channel": "Channel 1"
+    },
+    {
+      "date": "2026-10-13T03:31:31",
+      "category": "emotions, mood, stress and how people react to them",
+      "format": "psychology_fact",
+      "title": "Why Venting Anger Backfires 😡",
+      "fact": "Venting anger or engaging in aggressive catharsis increases physiological arousal and hostile reflexes rather than releasing them.",
+      "video_id": "emx_x8SZ9EE",
+      "channel": "Channel 2"
+    },
+    {
+      "date": "2026-10-13T03:37:26",
+      "category": "psychology of habits, procrastination, motivation and willpower",
+      "format": "top3",
+      "title": "Why You Clean Instead of Working 🧠",
+      "fact": "Procrastination and motivation are driven by structured procrastination, the goal-gradient effect, and the region-beta paradox rather than simple laziness.",
+      "video_id": "Ark8EVFX1Lk",
       "channel": "Channel 3"
     }
   ]
