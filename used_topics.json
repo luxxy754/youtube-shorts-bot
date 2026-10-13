@@ -101,20 +101,6 @@
   },
   "_recent": [
     {
-      "date": "2026-10-03T08:54:29",
-      "category": "psychology and everyday human habits",
-      "format": "personal_what_if",
-      "title": "Duniya Ka Sabse Shaant Kamra! 🤫",
-      "fact": "In an anechoic chamber, the complete absence of external sound forces the brain to hallucinate sounds to fill the sensory void, making it extremely difficult for anyone to remain inside for even an hour."
-    },
-    {
-      "date": "2026-10-03T10:08:18",
-      "category": "trees, plants and forests",
-      "format": "mystery_explained",
-      "title": "Baans ke ped ek saath kyun marte hain? 🎋",
-      "fact": "Bamboo plants of the same cohort flower simultaneously worldwide after decades of vegetative growth and then die at the same time due to an internal genetic clock."
-    },
-    {
       "date": "2026-10-03T10:21:12",
       "category": "history's strangest records and museum objects",
       "format": "myth_vs_truth",
@@ -803,6 +789,24 @@
       "fact": "Children learn physical tasks and rules faster through observation and mirror neuron activation than through explicit verbal instruction.",
       "video_id": "59MVvRqeqOI",
       "channel": "Channel 3"
+    },
+    {
+      "date": "2026-10-13T21:50:55",
+      "category": "everyday human behaviour: why people do small things with family, friends and co-workers",
+      "format": "personal_what_if",
+      "title": "Why doing nothing feels less guilty #shorts #psychology",
+      "fact": "The Omission Bias causes people to judge harmful inactions less severely than harmful actions with identical outcomes.",
+      "video_id": "aLOVpAWGB1c",
+      "channel": "Channel 1"
+    },
+    {
+      "date": "2026-10-13T21:54:46",
+      "category": "habit loops around spending, subscriptions and impulse buys",
+      "format": "top3",
+      "title": "Why Free Stuff Costs You More #Shorts",
+      "fact": "Zero-price effects cause consumers to radically overvalue free bundled add-ons, driving irrational subscription and impulse purchase decisions.",
+      "video_id": "wfcGjkHqwc4",
+      "channel": "Channel 2"
     }
   ]
 }
