@@ -101,27 +101,6 @@
   },
   "_recent": [
     {
-      "date": "2026-10-01T20:28:59",
-      "category": "deserts, mountains and extreme places on Earth",
-      "format": "top3",
-      "title": "Dharti Ki 3 Khatarnak Jagah! 🌍",
-      "fact": "Three extreme places on Earth with unusual properties: Antarctica's rainless dry valleys, Ecuador's space-closest Mount Chimborazo, and Ethiopia's sterile acidic springs of Dallol."
-    },
-    {
-      "date": "2026-10-02T08:59:51",
-      "category": "ancient civilizations, temples and ruins",
-      "format": "shocking_fact",
-      "title": "Kailasa Temple: Pahad Kaat Kar Banaya Mandir! 🤯",
-      "fact": "Kailasa temple in Ellora was carved top-down from a single massive rock using vertical excavation."
-    },
-    {
-      "date": "2026-10-02T13:24:46",
-      "category": "fire, ice and extreme temperatures",
-      "format": "mystery_explained",
-      "title": "Garam Paani Jaldi Barf Kyun Banta Hai? ❄️",
-      "fact": "Boiling water freezes faster than cold water when exposed to freezing temperatures, known as the Mpemba effect."
-    },
-    {
       "date": "2026-10-02T14:06:03",
       "category": "deep ocean and sea animals",
       "format": "myth_vs_truth",
@@ -789,6 +768,33 @@
       "fact": "The halo effect causes people to unconsciously assume that someone who is physically attractive also possesses positive internal traits like intelligence and kindness.",
       "video_id": "7MGtwMN8rts",
       "channel": "Channel 1"
+    },
+    {
+      "date": "2026-10-13T11:28:58",
+      "category": "memory: why we forget, false memories, why we remember some things forever",
+      "format": "psychology_fact",
+      "title": "Your brain is lying to your face 🧠",
+      "fact": "People misremember past choices and rewrite their own memories to justify what they picked through choice-supportive bias.",
+      "video_id": "FLwQ05zRiI4",
+      "channel": "Channel 1"
+    },
+    {
+      "date": "2026-10-13T11:37:20",
+      "category": "focus and attention: why the mind wanders, multitasking, distraction",
+      "format": "top3",
+      "title": "Your brain lies about multitasking 🧠",
+      "fact": "True multitasking is a neurological impossibility, and human brains can only process one cognitive task at a time.",
+      "video_id": "7mQDHD-X5h4",
+      "channel": "Channel 2"
+    },
+    {
+      "date": "2026-10-13T11:42:08",
+      "category": "friendship, relationships, texting, jealousy and loneliness (well-established findings only)",
+      "format": "psychology_effect",
+      "title": "One rude moment ruins your entire image 😳",
+      "fact": "Spontaneous trait transference causes people to associate the negative traits you describe in others directly with your own character.",
+      "video_id": "rbQiUlfr9Ak",
+      "channel": "Channel 3"
     }
   ]
 }
