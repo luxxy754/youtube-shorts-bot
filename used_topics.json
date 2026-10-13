@@ -101,13 +101,6 @@
   },
   "_recent": [
     {
-      "date": "2026-10-01T19:29:27",
-      "category": "extreme weather (lightning, storms, ice, rain)",
-      "format": "myth_vs_truth",
-      "title": "Aasman mein kahan jati hai ulti bijli ⚡",
-      "fact": "Lightning can travel upwards from clouds into the upper atmosphere in phenomena known as blue jets and red sprites."
-    },
-    {
       "date": "2026-10-01T20:28:59",
       "category": "deserts, mountains and extreme places on Earth",
       "format": "top3",
@@ -787,6 +780,15 @@
       "fact": "Procrastination and motivation are driven by structured procrastination, the goal-gradient effect, and the region-beta paradox rather than simple laziness.",
       "video_id": "Ark8EVFX1Lk",
       "channel": "Channel 3"
+    },
+    {
+      "date": "2026-10-13T11:03:29",
+      "category": "psychology of first impressions, attraction and body language (only well-established findings)",
+      "format": "psychology_effect",
+      "title": "Why you trust pretty strangers instantly 😳",
+      "fact": "The halo effect causes people to unconsciously assume that someone who is physically attractive also possesses positive internal traits like intelligence and kindness.",
+      "video_id": "7MGtwMN8rts",
+      "channel": "Channel 1"
     }
   ]
 }
