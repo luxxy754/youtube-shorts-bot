@@ -101,13 +101,6 @@
   },
   "_recent": [
     {
-      "date": "2026-10-03T14:13:53",
-      "category": "space, planets, stars and astronauts",
-      "format": "mystery_explained",
-      "title": "Garam barf wala anokha planet! 😱",
-      "fact": "On the exoplanet Gliese 436 b, extreme gravitational pressure compresses water into solid Ice X despite surface temperatures of around 439 degrees Celsius, creating a phenomenon of burning hot ice."
-    },
-    {
       "date": "2026-10-03T14:20:24",
       "category": "deserts, mountains and extreme places on Earth",
       "format": "myth_vs_truth",
@@ -811,6 +804,15 @@
       "fact": "Neuroimaging by Gregory Berns shows that peer pressure actually alters visual perception in the brain rather than just prompting conscious social compliance.",
       "video_id": "sEou8L5tvlk",
       "channel": "Channel 2"
+    },
+    {
+      "date": "2026-10-14T18:35:14",
+      "category": "emotions, mood and how people react when someone hurts them",
+      "format": "story",
+      "title": "Why silence hurts your brain #shorts #facts",
+      "fact": "When someone gives you the silent treatment, your brain registers it using the same neural pathways as physical pain.",
+      "video_id": "Ou0xICR3jgQ",
+      "channel": "Channel 3"
     }
   ]
 }
