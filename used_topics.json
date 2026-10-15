@@ -101,13 +101,6 @@
   },
   "_recent": [
     {
-      "date": "2026-10-03T14:20:24",
-      "category": "deserts, mountains and extreme places on Earth",
-      "format": "myth_vs_truth",
-      "title": "Sahara ke neeche chhupa hai ek samandar! 😱",
-      "fact": "The Nubian Sandstone Aquifer System lies beneath the Sahara Desert and contains a massive volume of fossil groundwater."
-    },
-    {
       "date": "2026-10-03T14:26:04",
       "category": "insects and tiny creatures",
       "format": "top3",
@@ -813,6 +806,15 @@
       "fact": "When someone gives you the silent treatment, your brain registers it using the same neural pathways as physical pain.",
       "video_id": "Ou0xICR3jgQ",
       "channel": "Channel 3"
+    },
+    {
+      "date": "2026-10-15T18:22:17",
+      "category": "psychology of first impressions, attraction and body language (well-established findings)",
+      "format": "myth_vs_truth",
+      "title": "Why Instant Smiles Ruin First Impressions 🙂",
+      "fact": "Dynamic facial expression research shows slow-onset smiles that develop gradually across the face are perceived as significantly more authentic, attractive, and trustworthy than instant smiles.",
+      "video_id": "Gft7v2vDdgc",
+      "channel": "Channel 2"
     }
   ]
 }
