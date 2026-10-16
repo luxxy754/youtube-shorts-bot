@@ -101,20 +101,6 @@
   },
   "_recent": [
     {
-      "date": "2026-10-03T18:19:19",
-      "category": "time, clocks and calendars",
-      "format": "personal_what_if",
-      "title": "बुध पर एक साल दिन से छोटा है! 🪐",
-      "fact": "A solar day on Mercury is twice as long as its year due to its slow rotation and fast orbit."
-    },
-    {
-      "date": "2026-10-04T08:38:53",
-      "category": "trees, plants and forests",
-      "format": "myth_vs_truth",
-      "title": "Ghaas Ki Khushboo Ka Asli Sach! 🌿",
-      "fact": "The fresh scent of cut grass is actually a chemical distress signal released by the plant to attract predatory insects that eat pests."
-    },
-    {
       "date": "2026-10-04T08:45:38",
       "category": "food and cooking science",
       "format": "shocking_fact",
@@ -821,6 +807,24 @@
       "fact": "The magnitude gap in social psychology shows perpetrators minimize harm to preserve their moral identity, while victims magnify the threat to prevent future harm.",
       "video_id": "KPnxCO5btzk",
       "channel": "Channel 1"
+    },
+    {
+      "date": "2026-10-16T23:36:12",
+      "category": "friendship, texting, jealousy and loneliness (well-established findings only)",
+      "format": "personal_what_if",
+      "title": "Why Unread Texts Make You Spiral #relationships",
+      "fact": "When awaiting a text reply, the brain's social pain network interprets delayed communication as ostracism, activating evolutionary threat defenses that bias neutral silence into perceived hostility.",
+      "video_id": "3OT-0hjY_ZA",
+      "channel": "Channel 2"
+    },
+    {
+      "date": "2026-10-16T23:40:54",
+      "category": "social psychology: crowds, conformity, persuasion, why we copy others",
+      "format": "story",
+      "title": "Why You Secretly Copy People #relationships",
+      "fact": "The chameleon effect causes people to unconsciously mimic postures and gestures to build social rapport.",
+      "video_id": "o7PB9jXp8Cs",
+      "channel": "Channel 3"
     }
   ]
 }
