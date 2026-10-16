@@ -101,13 +101,6 @@
   },
   "_recent": [
     {
-      "date": "2026-10-03T18:13:55",
-      "category": "human body and brain (eyes, heart, hands, sleep)",
-      "format": "shocking_fact",
-      "title": "लोहा गलाने वाला एसिड पेट में क्यों नहीं जलता? 😱",
-      "fact": "Stomach acid is strong enough to dissolve metal, but the stomach protects itself by producing a thick layer of mucus and constantly renewing its lining."
-    },
-    {
       "date": "2026-10-03T18:19:19",
       "category": "time, clocks and calendars",
       "format": "personal_what_if",
@@ -819,6 +812,15 @@
       "fact": "Keeping hands visible during initial interactions dramatically increases perceived trustworthiness because human survival instincts prioritize scanning hands for potential threats.",
       "video_id": "N5bDdNoigaI",
       "channel": "Channel 3"
+    },
+    {
+      "date": "2026-10-16T21:04:17",
+      "category": "emotions, mood and how people react when someone hurts them",
+      "format": "myth_vs_truth",
+      "title": "Why They Never Admit Hurting You #relationships",
+      "fact": "The magnitude gap in social psychology shows perpetrators minimize harm to preserve their moral identity, while victims magnify the threat to prevent future harm.",
+      "video_id": "KPnxCO5btzk",
+      "channel": "Channel 1"
     }
   ]
 }
