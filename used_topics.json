@@ -101,20 +101,6 @@
   },
   "_recent": [
     {
-      "date": "2026-10-04T13:31:21",
-      "category": "space, planets, stars and astronauts",
-      "format": "mystery_explained",
-      "title": "Space Mein Rona Kyun Mana Hai? 😢",
-      "fact": "In zero gravity, tears do not fall but instead accumulate into a ball around the eye, causing severe irritation and temporarily blinding the astronaut inside their helmet."
-    },
-    {
-      "date": "2026-10-04T13:36:13",
-      "category": "insects and tiny creatures",
-      "format": "personal_what_if",
-      "title": "Yeh Keeda Mutton Se Nafrat Kara Dega 🥩",
-      "fact": "A bite from the Lone Star tick can transmit alpha-gal carbohydrate molecules into the human bloodstream, triggering an immune response that causes a permanent or long-term allergy to red meat."
-    },
-    {
       "date": "2026-10-04T18:18:14",
       "category": "extreme weather (lightning, storms, ice, rain)",
       "format": "top3",
@@ -831,6 +817,24 @@
       "fact": "Involuntary smiling or nervous laughter during acute emotional hurt is an evolved appeasement grimace meant to de-escalate social aggression and signal non-threat.",
       "video_id": "ykrtn5VY7oU",
       "channel": "Channel 3"
+    },
+    {
+      "date": "2026-10-18T20:37:56",
+      "category": "psychology of first impressions, attraction and body language (well-established findings)",
+      "format": "psychology_effect",
+      "title": "Why cold people feel so magnetic",
+      "fact": "The gain-loss theory of attraction proves that people value praise and affection most when it comes from someone who was initially critical or aloof.",
+      "video_id": "o7rkumNosCc",
+      "channel": "Channel 1"
+    },
+    {
+      "date": "2026-10-18T20:44:51",
+      "category": "social psychology: crowds, conformity, persuasion, why we copy others",
+      "format": "personal_what_if",
+      "title": "Why You Pick Busy Restaurants #shorts #facts",
+      "fact": "Informational social influence causes people to join long lines because the brain treats other people's actions as pre-tested safety data when facing uncertainty, creating social cascades where nobody has actually verified the quality.",
+      "video_id": "MIP9jjWdBcw",
+      "channel": "Channel 2"
     }
   ]
 }
