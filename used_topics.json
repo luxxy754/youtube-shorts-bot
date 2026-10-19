@@ -101,20 +101,6 @@
   },
   "_recent": [
     {
-      "date": "2026-10-04T18:18:14",
-      "category": "extreme weather (lightning, storms, ice, rain)",
-      "format": "top3",
-      "title": "Mausam Ke Teen Khatarnak Sach! ⚡",
-      "fact": "Three extreme weather phenomena: the continuous Catatumbo lightning in Venezuela, waterspouts causing fish rain, and lightning bolts being five times hotter than the sun's surface."
-    },
-    {
-      "date": "2026-10-04T18:26:48",
-      "category": "science labs, experiments and discoveries",
-      "format": "myth_vs_truth",
-      "title": "Heera Koyla Nahi Hai! 💎",
-      "fact": "Natural diamonds formed billions of years ago in Earth's mantle from primordial carbon, long before land plants existed, and are not made from coal."
-    },
-    {
       "date": "2026-10-04T18:33:19",
       "category": "psychology and everyday human habits",
       "format": "mystery_explained",
@@ -834,6 +820,24 @@
       "title": "Why You Pick Busy Restaurants #shorts #facts",
       "fact": "Informational social influence causes people to join long lines because the brain treats other people's actions as pre-tested safety data when facing uncertainty, creating social cascades where nobody has actually verified the quality.",
       "video_id": "MIP9jjWdBcw",
+      "channel": "Channel 2"
+    },
+    {
+      "date": "2026-10-19T19:58:15",
+      "category": "emotions, mood and how people react when someone hurts them",
+      "format": "story",
+      "title": "Why Little Mistakes Win Friends #shorts #mindset",
+      "fact": "The Pratfall Effect shows that capable individuals become significantly more likable after making minor blunders, because perceived perfection creates intimidating social distance.",
+      "video_id": "b9Sz_-Uqa2k",
+      "channel": "Channel 1"
+    },
+    {
+      "date": "2026-10-19T20:04:40",
+      "category": "psychology of first impressions, attraction and body language (well-established findings)",
+      "format": "psychology_effect",
+      "title": "Why you trust people who copy you #shorts #psychology",
+      "fact": "The chameleon effect occurs when people unconsciously mimic each other's postures, gestures, and mannerisms, which naturally increases mutual liking, rapport, and trust.",
+      "video_id": "lygzTGCCrBA",
       "channel": "Channel 2"
     }
   ]

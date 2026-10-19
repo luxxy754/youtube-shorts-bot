@@ -14,9 +14,9 @@
       "video_id": "wfcGjkHqwc4"
     }
   },
-  "last_post_date_et_Channel 1": "2026-10-18",
-  "last_post_time_et_Channel 1": "16:42",
-  "last_video_id_Channel 1": "o7rkumNosCc",
+  "last_post_date_et_Channel 1": "2026-10-19",
+  "last_post_time_et_Channel 1": "16:02",
+  "last_video_id_Channel 1": "b9Sz_-Uqa2k",
   "history": [
     {
       "date": "2026-10-14",
@@ -101,11 +101,23 @@
       "time": "16:48",
       "channel": "Channel 2",
       "video_id": "MIP9jjWdBcw"
+    },
+    {
+      "date": "2026-10-19",
+      "time": "16:02",
+      "channel": "Channel 1",
+      "video_id": "b9Sz_-Uqa2k"
+    },
+    {
+      "date": "2026-10-19",
+      "time": "16:08",
+      "channel": "Channel 2",
+      "video_id": "lygzTGCCrBA"
     }
   ],
-  "last_post_date_et_Channel 2": "2026-10-18",
-  "last_post_time_et_Channel 2": "16:48",
-  "last_video_id_Channel 2": "MIP9jjWdBcw",
+  "last_post_date_et_Channel 2": "2026-10-19",
+  "last_post_time_et_Channel 2": "16:08",
+  "last_video_id_Channel 2": "lygzTGCCrBA",
   "last_post_date_et_Channel 3": "2026-10-18",
   "last_post_time_et_Channel 3": "13:25",
   "last_video_id_Channel 3": "ykrtn5VY7oU"
