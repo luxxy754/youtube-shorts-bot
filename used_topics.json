@@ -101,13 +101,6 @@
   },
   "_recent": [
     {
-      "date": "2026-10-05T09:31:46",
-      "category": "ancient civilizations, temples and ruins",
-      "format": "mystery_explained",
-      "title": "Roman Concrete Ka Asli Secret! 🏛️",
-      "fact": "Ancient Roman concrete possessed self-healing properties activated by water reacting with lime clasts to fill cracks."
-    },
-    {
       "date": "2026-10-05T16:23:42",
       "category": "money, gold and strange facts about wealth",
       "format": "myth_vs_truth",
@@ -845,6 +838,15 @@
       "fact": "The liking gap in social psychology proves that after conversations, people systematically underestimate how much their friends and acquaintances liked them and enjoyed their company.",
       "video_id": "wblPQBdwp1w",
       "channel": "Channel 3"
+    },
+    {
+      "date": "2026-10-20T22:17:59",
+      "category": "everyday human behaviour: why people do small things with family, friends and co-workers",
+      "format": "psychology_effect",
+      "title": "Why Extra Gifts Secretly Ruin Presents 🎁",
+      "fact": "The presenter's paradox shows that adding an inexpensive bonus item to an expensive gift causes recipients to average the overall value, lowering perceived quality.",
+      "video_id": "T9ttFqh_b7M",
+      "channel": "Channel 2"
     }
   ]
 }
