@@ -101,13 +101,6 @@
   },
   "_recent": [
     {
-      "date": "2026-10-05T16:35:18",
-      "category": "time, clocks and calendars",
-      "format": "top3",
-      "title": "समय के ये तीन अजीब सच ⏰",
-      "fact": "Time moves slightly faster at high altitudes due to weaker gravity, and the Diomede Islands have a twenty-one hour time difference despite being just a few kilometers apart."
-    },
-    {
       "date": "2026-10-05T21:36:43",
       "category": "extreme weather (lightning, storms, ice, rain)",
       "format": "mystery_explained",
@@ -851,6 +844,15 @@
       "fact": "Loneliness triggers evolutionary social hypervigilance, causing the brain to misinterpret neutral or warm social gestures as hostile threats and paradoxically push friends away.",
       "video_id": "ZHTeg_bx8N8",
       "channel": "Channel 3"
+    },
+    {
+      "date": "2026-10-21T22:21:11",
+      "category": "social psychology: crowds, conformity, persuasion, why we copy others",
+      "format": "myth_vs_truth",
+      "title": "Why Nobody Speaks Up in Bad Meetings 🤐",
+      "fact": "Pluralistic ignorance causes individuals in a group to privately reject a norm or decision while mistakenly assuming everyone else supports it, resulting in everyone silently conforming to an illusion.",
+      "video_id": "FpsCxc6m6bo",
+      "channel": "Channel 2"
     }
   ]
 }
