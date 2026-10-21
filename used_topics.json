@@ -101,20 +101,6 @@
   },
   "_recent": [
     {
-      "date": "2026-10-05T16:23:42",
-      "category": "money, gold and strange facts about wealth",
-      "format": "myth_vs_truth",
-      "title": "असली सोना कौन सा है? 🪙",
-      "fact": "Pyrite or fool's gold is chemically iron disulfide and not real gold, yet historical gold rushes caused miners to mistake it for actual wealth."
-    },
-    {
-      "date": "2026-10-05T16:30:20",
-      "category": "food and cooking science",
-      "format": "shocking_fact",
-      "title": "Microwave Mein Angoor Ki Aag! 🔥",
-      "fact": "Microwaving two touching grape halves traps electromagnetic waves between them, creating a superheated hotspot that ionizes potassium and sodium to produce glowing plasma fire."
-    },
-    {
       "date": "2026-10-05T16:35:18",
       "category": "time, clocks and calendars",
       "format": "top3",
@@ -847,6 +833,24 @@
       "fact": "The presenter's paradox shows that adding an inexpensive bonus item to an expensive gift causes recipients to average the overall value, lowering perceived quality.",
       "video_id": "T9ttFqh_b7M",
       "channel": "Channel 2"
+    },
+    {
+      "date": "2026-10-21T18:36:20",
+      "category": "friendship, texting, jealousy and loneliness (well-established findings only)",
+      "format": "story",
+      "title": "Why people actually love talking to you #shorts #psychology",
+      "fact": "The liking gap in social psychology shows that people systematically underestimate how much conversation partners enjoyed their company.",
+      "video_id": "owA4ZKMxIV8",
+      "channel": "Channel 1"
+    },
+    {
+      "date": "2026-10-21T18:40:56",
+      "category": "friendship, texting, jealousy and loneliness (well-established findings only)",
+      "format": "personal_what_if",
+      "title": "Why loneliness makes you push people away",
+      "fact": "Loneliness triggers evolutionary social hypervigilance, causing the brain to misinterpret neutral or warm social gestures as hostile threats and paradoxically push friends away.",
+      "video_id": "ZHTeg_bx8N8",
+      "channel": "Channel 3"
     }
   ]
 }
