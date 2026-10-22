@@ -101,20 +101,6 @@
   },
   "_recent": [
     {
-      "date": "2026-10-05T21:36:43",
-      "category": "extreme weather (lightning, storms, ice, rain)",
-      "format": "mystery_explained",
-      "title": "Aasman se girte hain jaanleva patthar! 🧊",
-      "fact": "Supercooled water droplets in extreme thunderstorms can instantly freeze into giant hailstones upon collision."
-    },
-    {
-      "date": "2026-10-05T21:43:32",
-      "category": "volcanoes, earthquakes and how the Earth works",
-      "format": "myth_vs_truth",
-      "title": "North Pole apni jagah badal raha hai! 🧭",
-      "fact": "Earth's magnetic north pole drifts constantly due to liquid iron movement in the outer core, but historical pole reversals take thousands of years."
-    },
-    {
       "date": "2026-10-05T21:48:19",
       "category": "wild animals and their survival tricks",
       "format": "shocking_fact",
@@ -853,6 +839,24 @@
       "fact": "Pluralistic ignorance causes individuals in a group to privately reject a norm or decision while mistakenly assuming everyone else supports it, resulting in everyone silently conforming to an illusion.",
       "video_id": "FpsCxc6m6bo",
       "channel": "Channel 2"
+    },
+    {
+      "date": "2026-10-22T18:31:34",
+      "category": "emotions, mood and how people react when someone hurts them",
+      "format": "story",
+      "title": "Why Friends Stay Mad Longer #shorts #facts",
+      "fact": "Friends often stay angry at someone who hurt you much longer than you do because they absorb the emotional shock without getting the personal apology or resolution that gave you closure.",
+      "video_id": "FbI6d8gGxJk",
+      "channel": "Channel 2"
+    },
+    {
+      "date": "2026-10-22T18:38:15",
+      "category": "friendship, texting, jealousy and loneliness (well-established findings only)",
+      "format": "psychology_effect",
+      "title": "Why Your Friend's Success Stings 🤫 #Shorts",
+      "fact": "Tesser's self-evaluation maintenance model shows people feel threatened and envious when a close friend succeeds in a domain relevant to their personal identity.",
+      "video_id": "DOCPe3BvquU",
+      "channel": "Channel 3"
     }
   ]
 }
