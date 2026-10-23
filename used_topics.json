@@ -101,20 +101,6 @@
   },
   "_recent": [
     {
-      "date": "2026-10-06T09:11:25",
-      "category": "technology, robots, computers and smartphones",
-      "format": "mystery_explained",
-      "title": "ऐसे पहचानता है CAPTCHA आपको! 💻",
-      "fact": "CAPTCHA's 'I am not a robot' checkbox detects humans by tracking the subconscious microscopic shaky movements of the cursor, which automated bots cannot replicate."
-    },
-    {
-      "date": "2026-10-06T09:21:00",
-      "category": "space, planets, stars and astronauts",
-      "format": "personal_what_if",
-      "title": "Space Me Height Badhne Ka Sach! 🚀",
-      "fact": "Astronauts grow up to two inches taller in space due to spinal decompression in microgravity, but experience back pain when returning to Earth as gravity compresses the spine back to its normal size."
-    },
-    {
       "date": "2026-10-06T09:29:45",
       "category": "deserts, mountains and extreme places on Earth",
       "format": "myth_vs_truth",
@@ -859,6 +845,24 @@
       "fact": "Social rejection activates the same neural regions in the brain as physical pain, triggering real physiological stress reactions.",
       "video_id": "1PmFZcyTBf4",
       "channel": "Channel 1"
+    },
+    {
+      "date": "2026-10-23T18:19:24",
+      "category": "psychology of first impressions, attraction and body language (well-established findings)",
+      "format": "story",
+      "title": "Why terror makes you fall in love #shorts #psychology",
+      "fact": "People misinterpret physiological arousal from fear or excitement as romantic attraction due to the misattribution of arousal.",
+      "video_id": "4CJmsfdaUlE",
+      "channel": "Channel 1"
+    },
+    {
+      "date": "2026-10-23T18:28:41",
+      "category": "friendship, texting, jealousy and loneliness (well-established findings only)",
+      "format": "psychology_effect",
+      "title": "Why You Bond Faster Over Dislikes 🤫 #relationships",
+      "fact": "People form stronger and faster social bonds when sharing negative attitudes about a third party than when sharing positive interests.",
+      "video_id": "kjpgIwgLa9I",
+      "channel": "Channel 3"
     }
   ]
 }
