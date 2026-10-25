@@ -101,27 +101,6 @@
   },
   "_recent": [
     {
-      "date": "2026-10-06T14:36:16",
-      "category": "fire, ice and extreme temperatures",
-      "format": "top3",
-      "title": "Invisible gas par tairti hai naav! 🤯",
-      "fact": "Sulfur hexafluoride gas is extremely dense, allowing light objects like foil boats to float on it, and deeply lowers the human voice when inhaled."
-    },
-    {
-      "date": "2026-10-06T19:42:58",
-      "category": "trees, plants and forests",
-      "format": "myth_vs_truth",
-      "title": "Ped Aapas Mein Baat Karte Hain 🌳",
-      "fact": "Trees share nutrients and signals through underground fungal networks in forests."
-    },
-    {
-      "date": "2026-10-06T19:48:20",
-      "category": "science labs, experiments and discoveries",
-      "format": "shocking_fact",
-      "title": "आवाज़ उठा सकती है भारी चीज़ें! 🤯",
-      "fact": "Sound waves can physically lift and levitate small objects in mid-air using acoustic levitation."
-    },
-    {
       "date": "2026-10-06T19:52:54",
       "category": "sports and the limits of the human body",
       "format": "mystery_explained",
@@ -868,6 +847,33 @@
       "title": "Why No One Sees Your Panic #shorts #mindset",
       "fact": "The illusion of transparency causes people to consistently overestimate how obvious their internal nervousness and feelings are to outside observers.",
       "video_id": "E4_cO9NmTTY",
+      "channel": "Channel 3"
+    },
+    {
+      "date": "2026-10-25T17:41:26",
+      "category": "friendship, texting, jealousy and loneliness (well-established findings only)",
+      "format": "myth_vs_truth",
+      "title": "Why oversharing instantly kills new bonds #shorts #facts",
+      "fact": "Self-disclosure reciprocity shows people like you more when you share personal vulnerabilities gradually rather than oversharing right away.",
+      "video_id": "rVEiDicHLzw",
+      "channel": "Channel 1"
+    },
+    {
+      "date": "2026-10-25T17:57:13",
+      "category": "social psychology: crowds, conformity, persuasion, why we copy others",
+      "format": "story",
+      "title": "Why you secretly copy the alpha #relationships",
+      "fact": "When people are uncertain in new groups, they unconsciously mimic the physical posture of the highest-status person nearby.",
+      "video_id": "sZd-0NVfpII",
+      "channel": "Channel 2"
+    },
+    {
+      "date": "2026-10-25T18:06:56",
+      "category": "friendship, texting, jealousy and loneliness (well-established findings only)",
+      "format": "personal_what_if",
+      "title": "Why cheap extra gifts ruin everything 🎁",
+      "fact": "The presenter's paradox demonstrates that adding a cheap bonus item to a valuable gift causes people to average the overall quality, lowering perceived generosity.",
+      "video_id": "5MPBa4Pe29E",
       "channel": "Channel 3"
     }
   ]
