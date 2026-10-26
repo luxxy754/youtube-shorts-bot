@@ -101,13 +101,6 @@
   },
   "_recent": [
     {
-      "date": "2026-10-07T09:03:01",
-      "category": "wild animals and their survival tricks",
-      "format": "top3",
-      "title": "जानवरों के तीन खतरनाक सर्वाइवल ट्रिक्स 🤯",
-      "fact": "Animals use bizarre survival tricks including horned lizards shooting blood from their eyes, opossums playing dead, and pistol shrimp creating extreme underwater shockwaves."
-    },
-    {
       "date": "2026-10-07T09:17:34",
       "category": "space, planets, stars and astronauts",
       "format": "myth_vs_truth",
@@ -877,6 +870,15 @@
       "fact": "Social inhibition causes people to perform worse on complex tasks when being watched because audience presence spikes stress and overloads delicate cognitive focus.",
       "video_id": "phXykh9bQZc",
       "channel": "Channel 2"
+    },
+    {
+      "date": "2026-10-26T23:55:41",
+      "category": "friendship, texting, jealousy and loneliness (well-established findings only)",
+      "format": "myth_vs_truth",
+      "title": "The real reason friends stop texting back",
+      "fact": "People rarely drift apart due to actual lack of time; social psychology shows that when emotional closeness begins to cool, people unconsciously match each other's reduced effort to protect their ego.",
+      "video_id": "zz-Eow1Hm7U",
+      "channel": "Channel 3"
     }
   ]
 }
