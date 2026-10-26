@@ -101,13 +101,6 @@
   },
   "_recent": [
     {
-      "date": "2026-10-06T19:52:54",
-      "category": "sports and the limits of the human body",
-      "format": "mystery_explained",
-      "title": "गहराई में फेफड़े क्यों नहीं फटते? 🌊",
-      "fact": "The mammalian dive reflex triggers a blood shift that floods the chest cavity, protecting a freediver's lungs from imploding even as they shrink under extreme water pressure."
-    },
-    {
       "date": "2026-10-07T09:03:01",
       "category": "wild animals and their survival tricks",
       "format": "top3",
@@ -875,6 +868,15 @@
       "fact": "The presenter's paradox demonstrates that adding a cheap bonus item to a valuable gift causes people to average the overall quality, lowering perceived generosity.",
       "video_id": "5MPBa4Pe29E",
       "channel": "Channel 3"
+    },
+    {
+      "date": "2026-10-26T19:56:18",
+      "category": "social psychology: crowds, conformity, persuasion, why we copy others",
+      "format": "psychology_effect",
+      "title": "Why You Fail When Someone Watches #shorts #psychology",
+      "fact": "Social inhibition causes people to perform worse on complex tasks when being watched because audience presence spikes stress and overloads delicate cognitive focus.",
+      "video_id": "phXykh9bQZc",
+      "channel": "Channel 2"
     }
   ]
 }
