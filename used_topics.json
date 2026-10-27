@@ -101,20 +101,6 @@
   },
   "_recent": [
     {
-      "date": "2026-10-07T09:17:34",
-      "category": "space, planets, stars and astronauts",
-      "format": "myth_vs_truth",
-      "title": "Suraj ka asli rang safed hai! ☀️",
-      "fact": "The sun appears white in space because its light combines all colors, but Earth's atmosphere scatters shorter wavelengths, making it look yellowish."
-    },
-    {
-      "date": "2026-10-07T09:27:04",
-      "category": "extreme weather (lightning, storms, ice, rain)",
-      "format": "personal_what_if",
-      "title": "Baarish Ki Boond Ka Asli Sach 🌧️",
-      "fact": "Raindrops falling from clouds change their shape from spherical to parachute-like due to air resistance."
-    },
-    {
       "date": "2026-10-07T14:48:06",
       "category": "psychology and everyday human habits",
       "format": "top3",
@@ -878,6 +864,24 @@
       "title": "The real reason friends stop texting back",
       "fact": "People rarely drift apart due to actual lack of time; social psychology shows that when emotional closeness begins to cool, people unconsciously match each other's reduced effort to protect their ego.",
       "video_id": "zz-Eow1Hm7U",
+      "channel": "Channel 3"
+    },
+    {
+      "date": "2026-10-27T19:33:00",
+      "category": "emotions, mood and how people react when someone hurts them",
+      "format": "story",
+      "title": "Why Smiling Through Pain Backfires #Shorts",
+      "fact": "Suppressing emotional hurt after an insult causes a measurable spike in cardiovascular arousal and stress for the person holding it in.",
+      "video_id": "1HPVisJyHuE",
+      "channel": "Channel 2"
+    },
+    {
+      "date": "2026-10-27T19:36:53",
+      "category": "everyday human behaviour: why people do small things with family, friends and co-workers",
+      "format": "psychology_effect",
+      "title": "How Memory Alters Your Hangouts 🧠 #Shorts",
+      "fact": "The Peak-End Rule causes people to judge an entire social event based only on its emotional peak and its final moment, ignoring total duration and average experience.",
+      "video_id": "-47KI1FxrmA",
       "channel": "Channel 3"
     }
   ]
