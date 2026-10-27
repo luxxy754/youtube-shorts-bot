@@ -101,13 +101,6 @@
   },
   "_recent": [
     {
-      "date": "2026-10-07T14:48:06",
-      "category": "psychology and everyday human habits",
-      "format": "top3",
-      "title": "Aapke pet mein ek aur dimaag hai 🧠",
-      "fact": "Humans possess a second brain in their gut known as the enteric nervous system, containing millions of neurons that communicate directly with the brain via the vagus nerve."
-    },
-    {
       "date": "2026-10-07T15:02:38",
       "category": "human body and brain (eyes, heart, hands, sleep)",
       "format": "mystery_explained",
@@ -883,6 +876,15 @@
       "fact": "The Peak-End Rule causes people to judge an entire social event based only on its emotional peak and its final moment, ignoring total duration and average experience.",
       "video_id": "-47KI1FxrmA",
       "channel": "Channel 3"
+    },
+    {
+      "date": "2026-10-27T23:49:46",
+      "category": "everyday human behaviour: why people do small things with family, friends and co-workers",
+      "format": "myth_vs_truth",
+      "title": "You judge strangers way too fast #relationships",
+      "fact": "People describe out-group negative behaviors abstractly and in-group behaviors concretely, a phenomenon known as linguistic intergroup bias.",
+      "video_id": "WXaX_oGQN6k",
+      "channel": "Channel 1"
     }
   ]
 }
