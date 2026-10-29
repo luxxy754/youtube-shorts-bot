@@ -101,20 +101,6 @@
   },
   "_recent": [
     {
-      "date": "2026-10-07T15:11:50",
-      "category": "deep ocean and sea animals",
-      "format": "personal_what_if",
-      "title": "Samundar Ka Sabse Lamba Jeev 🐋",
-      "fact": "Deep-sea siphonophores like Apolemia can grow longer than a blue whale, reaching up to forty-five meters as a colony of tiny individual organisms."
-    },
-    {
-      "date": "2026-10-07T20:11:21",
-      "category": "money, gold and strange facts about wealth",
-      "format": "myth_vs_truth",
-      "title": "Pahaad todkar sona nikaalte the Roman log! 💰",
-      "fact": "Ancient Roman miners used a hydraulic mining technique known as ruina montium, channeling water into mountain tunnels to cause massive collapses and expose gold."
-    },
-    {
       "date": "2026-10-07T20:13:52",
       "category": "insects and tiny creatures",
       "format": "mystery_explained",
@@ -887,6 +873,24 @@
       "fact": "The universal eyebrow flash is an involuntary, rapid facial reflex found across all human cultures that signals non-hostility and instant recognition.",
       "video_id": "5ldt7EXwgHE",
       "channel": "Channel 1"
+    },
+    {
+      "date": "2026-10-29T19:46:14",
+      "category": "psychology of first impressions, attraction and body language (well-established findings)",
+      "format": "personal_what_if",
+      "title": "Why You Agree When Someone Leans In #relationships",
+      "fact": "When someone invades your personal space, your amygdala triggers a threat response, causing you to default to submissive or compliant behavior like nodding to quickly de-escalate tension.",
+      "video_id": "M90jvHzl1bE",
+      "channel": "Channel 2"
+    },
+    {
+      "date": "2026-10-29T19:50:47",
+      "category": "everyday human behaviour: why people do small things with family, friends and co-workers",
+      "format": "psychology_effect",
+      "title": "Why you ignore your banking app #money",
+      "fact": "The Ostrich Effect causes people to deliberately avoid useful information about a problem because acknowledging it feels more painful than ignoring it.",
+      "video_id": "B4lCJlI1OZY",
+      "channel": "Channel 3"
     }
   ]
 }
