@@ -101,13 +101,6 @@
   },
   "_recent": [
     {
-      "date": "2026-10-07T20:13:52",
-      "category": "insects and tiny creatures",
-      "format": "mystery_explained",
-      "title": "Car ke niche bhi nahi marta ye keeda! 🤯",
-      "fact": "The diabolical ironclad beetle survives extreme pressure, such as being run over by a car, due to its fused jigsaw-like elytra that delaminate rather than snapping."
-    },
-    {
       "date": "2026-10-07T20:15:15",
       "category": "volcanoes, earthquakes and how the Earth works",
       "format": "personal_what_if",
@@ -891,6 +884,15 @@
       "fact": "The Ostrich Effect causes people to deliberately avoid useful information about a problem because acknowledging it feels more painful than ignoring it.",
       "video_id": "B4lCJlI1OZY",
       "channel": "Channel 3"
+    },
+    {
+      "date": "2026-10-30T00:00:20",
+      "category": "everyday human behaviour: why people do small things with family, friends and co-workers",
+      "format": "myth_vs_truth",
+      "title": "Why Venting Actually Makes You Angrier 🤬",
+      "fact": "Research in emotional regulation shows that venting anger increases heart rate and rehearses aggressive thoughts, whereas quiet distraction effectively reduces emotional arousal.",
+      "video_id": "HdkXZ-1uDfw",
+      "channel": "Channel 1"
     }
   ]
 }
