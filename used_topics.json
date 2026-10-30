@@ -101,15 +101,6 @@
   },
   "_recent": [
     {
-      "date": "2026-10-08T09:13:58",
-      "category": "trees, plants and forests",
-      "format": "myth_vs_truth",
-      "title": "Aag se zinda hone wala ped! 🌲",
-      "fact": "Giant sequoia trees actually need intense forest fires to reproduce, as the extreme heat melts the resin on their cones, allowing them to release their seeds.",
-      "video_id": "XPMgrjwGV7g",
-      "channel": "Channel 1"
-    },
-    {
       "date": "2026-10-08T09:18:31",
       "category": "science labs, experiments and discoveries",
       "format": "shocking_fact",
@@ -895,6 +886,15 @@
       "fact": "Emotional contagion causes people to subconsciously mimic the micro-expressions and body language of stressed individuals nearby, triggering an identical physiological stress response.",
       "video_id": "U2C7NFkGM70",
       "channel": "Channel 2"
+    },
+    {
+      "date": "2026-10-30T23:49:25",
+      "category": "friendship, texting, jealousy and loneliness (well-established findings only)",
+      "format": "story",
+      "title": "Why a single period in your text feels so rude",
+      "fact": "Research shows casual text messages ending with a period are perceived as significantly less sincere and more emotionally cold than unpunctuated texts.",
+      "video_id": "e9bX3NjsjzM",
+      "channel": "Channel 3"
     }
   ]
 }
