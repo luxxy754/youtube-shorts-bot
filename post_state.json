@@ -287,12 +287,18 @@
       "time": "19:53",
       "channel": "Channel 3",
       "video_id": "e9bX3NjsjzM"
+    },
+    {
+      "date": "2026-10-31",
+      "time": "14:44",
+      "channel": "Channel 3",
+      "video_id": "_AxtTvamJWI"
     }
   ],
   "last_post_date_et_Channel 2": "2026-10-30",
   "last_post_time_et_Channel 2": "15:28",
   "last_video_id_Channel 2": "U2C7NFkGM70",
-  "last_post_date_et_Channel 3": "2026-10-30",
-  "last_post_time_et_Channel 3": "19:53",
-  "last_video_id_Channel 3": "e9bX3NjsjzM"
+  "last_post_date_et_Channel 3": "2026-10-31",
+  "last_post_time_et_Channel 3": "14:44",
+  "last_video_id_Channel 3": "_AxtTvamJWI"
 }
