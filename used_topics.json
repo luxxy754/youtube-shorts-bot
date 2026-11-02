@@ -101,22 +101,6 @@
   },
   "_recent": [
     {
-      "date": "2026-10-09T17:25:59",
-      "category": "memory: why we forget, false memories, why we remember some things forever",
-      "format": "psychology_effect",
-      "title": "Why you can't stop thinking about unfinished business 🧠",
-      "fact": "The Zeigarnik effect causes people to remember uncompleted or interrupted tasks much better than completed ones."
-    },
-    {
-      "date": "2026-10-09T17:28:00",
-      "category": "childhood, learning and curiosity: how people learn and why praise/habits stick",
-      "format": "psychology_fact",
-      "title": "Why clever kids give up so fast 🧠",
-      "fact": "Children praise effort rather than intelligence or inherent traits learn to embrace challenges and persist through failure, known as a growth mindset.",
-      "video_id": "-Qfs4ACa6do",
-      "channel": "Channel 3"
-    },
-    {
       "date": "2026-10-10T02:09:52",
       "category": "focus and attention: why the mind wanders, multitasking, distraction",
       "format": "top3",
@@ -895,6 +879,24 @@
       "fact": "Social loafing shows that individuals exert less effort when working in a group compared to working alone because personal accountability drops.",
       "video_id": "m95Z-TBZ_3M",
       "channel": "Channel 1"
+    },
+    {
+      "date": "2026-11-02T22:47:38",
+      "category": "emotions, mood and how people react when someone hurts them",
+      "format": "personal_what_if",
+      "title": "Why your brain keeps replaying what they said",
+      "fact": "When someone hurts you and you immediately replay their exact words in your head, your brain treats that social memory as an active physical threat rather than a past event.",
+      "video_id": "3RJ6heOMZws",
+      "channel": "Channel 1"
+    },
+    {
+      "date": "2026-11-02T22:52:36",
+      "category": "psychology of first impressions, attraction and body language (well-established findings)",
+      "format": "story",
+      "title": "Why You Copy Others Without Knowing 🤫 #Shorts",
+      "fact": "Research on the chameleon effect shows people subconsciously mimic the posture and gestures of higher-status individuals to gain group acceptance and build social trust.",
+      "video_id": "ufB8uXLp_Dg",
+      "channel": "Channel 3"
     }
   ]
 }
