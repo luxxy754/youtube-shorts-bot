@@ -101,22 +101,6 @@
   },
   "_recent": [
     {
-      "date": "2026-10-10T02:09:52",
-      "category": "focus and attention: why the mind wanders, multitasking, distraction",
-      "format": "top3",
-      "title": "Why your phone completely ruins focus 📱",
-      "fact": "Notifications trigger dopamine surges before you read them, training your brain to crave interruptions.",
-      "video_id": "2td_Eqv0iNQ",
-      "channel": "Channel 1"
-    },
-    {
-      "date": "2026-10-10T02:12:29",
-      "category": "emotions, mood, stress and how people react to them",
-      "format": "myth_vs_truth",
-      "title": "Why Your Voice betrays your stress 😰",
-      "fact": "People who experience high ambient noise or stress unconsciously shift their vocal pitch higher because cortisol physical tension tightens vocal cords, making them sound less confident without realizing it."
-    },
-    {
       "date": "2026-10-10T02:14:31",
       "category": "friendship, relationships, texting, jealousy and loneliness (well-established findings only)",
       "format": "psychology_effect",
@@ -897,6 +881,24 @@
       "fact": "Research on the chameleon effect shows people subconsciously mimic the posture and gestures of higher-status individuals to gain group acceptance and build social trust.",
       "video_id": "ufB8uXLp_Dg",
       "channel": "Channel 3"
+    },
+    {
+      "date": "2026-11-03T20:35:35",
+      "category": "everyday human behaviour: why people do small things with family, friends and co-workers",
+      "format": "myth_vs_truth",
+      "title": "Why Advice Secretly Backfires 🤫 #shorts #facts",
+      "fact": "Communication research shows that giving unsolicited advice is perceived as a threat to personal status and competence rather than a supportive gesture.",
+      "video_id": "Kj6aEcLTVhQ",
+      "channel": "Channel 1"
+    },
+    {
+      "date": "2026-11-03T20:47:42",
+      "category": "emotions, mood and how people react when someone hurts them",
+      "format": "personal_what_if",
+      "title": "Why Faking Fine Destroys Your Peace 😳",
+      "fact": "Expressive suppression—hiding felt emotional distress behind a calm exterior—increases autonomic nervous system arousal, prolonging bodily stress responses.",
+      "video_id": "chgUvso0wyE",
+      "channel": "Channel 2"
     }
   ]
 }
