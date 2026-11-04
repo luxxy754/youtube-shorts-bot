@@ -101,15 +101,6 @@
   },
   "_recent": [
     {
-      "date": "2026-10-10T02:14:31",
-      "category": "friendship, relationships, texting, jealousy and loneliness (well-established findings only)",
-      "format": "psychology_effect",
-      "title": "Why You Copy People Without Knowing 🧠",
-      "fact": "People subconsciously mimic the posture, words, and gestures of friends or strangers they want to impress, known as the chameleon effect.",
-      "video_id": "-7x3NIA0cAs",
-      "channel": "Channel 3"
-    },
-    {
       "date": "2026-10-10T10:10:26",
       "category": "everyday human behaviour: why people do small things in daily life (phone, friends, family, work)",
       "format": "top3",
@@ -899,6 +890,15 @@
       "fact": "Expressive suppression—hiding felt emotional distress behind a calm exterior—increases autonomic nervous system arousal, prolonging bodily stress responses.",
       "video_id": "chgUvso0wyE",
       "channel": "Channel 2"
+    },
+    {
+      "date": "2026-11-04T01:19:56",
+      "category": "friendship, texting, jealousy and loneliness (well-established findings only)",
+      "format": "psychology_effect",
+      "title": "Your brain is eavesdropping on everyone #attention",
+      "fact": "The cocktail party effect describes the brain's ability to focus auditory attention on a specific stimulus while filtering out other background noise, while remaining sensitive to personally relevant information like one's own name.",
+      "video_id": "Xau2gPhNDRg",
+      "channel": "Channel 3"
     }
   ]
 }
