@@ -101,13 +101,6 @@
   },
   "_recent": [
     {
-      "date": "2026-10-10T10:27:47",
-      "category": "decision making, cognitive biases and why smart people make silly choices",
-      "format": "psychology_fact",
-      "title": "The Sneaky Coffee Trap You Fall For ☕",
-      "fact": "The decoy effect causes consumers to choose a more expensive option when an asymmetrically priced decoy option makes the expensive choice appear like an obvious bargain."
-    },
-    {
       "date": "2026-10-10T10:38:12",
       "category": "psychology of first impressions, attraction and body language (only well-established findings)",
       "format": "psychology_effect",
@@ -903,6 +896,15 @@
       "fact": "Social proof causes people to use crowd size as an automatic proxy for quality when faced with uncertain choices.",
       "video_id": "xWQEs43i9Dg",
       "channel": "Channel 3"
+    },
+    {
+      "date": "2026-11-05T01:43:42",
+      "category": "friendship, texting, jealousy and loneliness (well-established findings only)",
+      "format": "personal_what_if",
+      "title": "Why you match their exact texting style #Shorts",
+      "fact": "Research on linguistic mimicry shows that people unconsciously copy the sentence length and punctuation style of the person they are texting when they feel insecure or anxious about the relationship.",
+      "video_id": "m5SvJinq58M",
+      "channel": "Channel 1"
     }
   ]
 }
