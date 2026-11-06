@@ -101,33 +101,6 @@
   },
   "_recent": [
     {
-      "date": "2026-10-10T16:10:30",
-      "category": "focus and attention: why the mind wanders, multitasking, distraction",
-      "format": "personal_what_if",
-      "title": "Why Quick Distractions Drain Your Brain 🧠",
-      "fact": "Attention residue causes severe mental fatigue because part of your attention remains stuck on an interrupted task long after you switch away.",
-      "video_id": "hZX-BeUZlfQ",
-      "channel": "Channel 1"
-    },
-    {
-      "date": "2026-10-10T16:29:37",
-      "category": "sleep, dreams and tiredness: what they do to mood and behaviour",
-      "format": "psychology_effect",
-      "title": "Why minor annoyances trigger pure panic 😴",
-      "fact": "Sleep deprivation decouples the prefrontal cortex from the amygdala, causing the brain to process minor daily annoyances as immediate threats.",
-      "video_id": "gLo6z_qWa0o",
-      "channel": "Channel 2"
-    },
-    {
-      "date": "2026-10-10T16:36:49",
-      "category": "friendship, relationships, texting, jealousy and loneliness (well-established findings only)",
-      "format": "psychology_fact",
-      "title": "Why People Secretly Like You More 🤫",
-      "fact": "The liking gap proves people systematically underestimate how much a new acquaintance enjoyed their company and liked their personality.",
-      "video_id": "zFerM2dXSko",
-      "channel": "Channel 3"
-    },
-    {
       "date": "2026-10-11T01:38:25",
       "category": "everyday human behaviour: why people do small things in daily life (phone, friends, family, work)",
       "format": "myth_vs_truth",
@@ -909,6 +882,33 @@
       "fact": "Research shows that withholding an explanation after someone hurts you triggers their anxiety by forcing them to obsessively fill the missing details themselves.",
       "video_id": "CXVF4Z42r3Y",
       "channel": "Channel 1"
+    },
+    {
+      "date": "2026-11-06T20:49:39",
+      "category": "social psychology: crowds, conformity, persuasion, why we copy others",
+      "format": "personal_what_if",
+      "title": "Why You Change Your Mind in Restaurants 🍽️ #relationships",
+      "fact": "Research on sequential choice shows people ordering aloud in groups intentionally pick different menu items to signal uniqueness, leading to significantly lower post-meal satisfaction.",
+      "video_id": "ZoT9A7QkYU0",
+      "channel": "Channel 1"
+    },
+    {
+      "date": "2026-11-06T20:59:45",
+      "category": "everyday human behaviour: why people do small things with family, friends and co-workers",
+      "format": "psychology_effect",
+      "title": "Why Flaws Make You Likeable #relationships",
+      "fact": "The Pratfall Effect shows that when a competent individual makes a minor mistake, their perceived warmth and likeability increases because it humanizes them.",
+      "video_id": "YS1FRZgMmaE",
+      "channel": "Channel 2"
+    },
+    {
+      "date": "2026-11-06T21:04:56",
+      "category": "social psychology: crowds, conformity, persuasion, why we copy others",
+      "format": "story",
+      "title": "Why Odd Requests Work #shorts #psychology",
+      "fact": "The pique technique shows that making an oddly specific request disrupts a person's automatic refusal script, significantly increasing compliance.",
+      "video_id": "SEpXiv3fdaQ",
+      "channel": "Channel 3"
     }
   ]
 }
