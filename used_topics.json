@@ -101,24 +101,6 @@
   },
   "_recent": [
     {
-      "date": "2026-10-11T01:38:25",
-      "category": "everyday human behaviour: why people do small things in daily life (phone, friends, family, work)",
-      "format": "myth_vs_truth",
-      "title": "Why helping people makes you like them 🧠",
-      "fact": "Doing a favor for someone actually makes you like them more due to cognitive dissonance reduction.",
-      "video_id": "nYBsXBIqmRA",
-      "channel": "Channel 1"
-    },
-    {
-      "date": "2026-10-11T01:42:55",
-      "category": "emotions, mood, stress and how people react to them",
-      "format": "psychology_effect",
-      "title": "Why you love your cheap furniture 🪑",
-      "fact": "The IKEA effect causes people to place a disproportionately high value on products they partially created or assembled.",
-      "video_id": "67VibjaRA4o",
-      "channel": "Channel 2"
-    },
-    {
       "date": "2026-10-11T01:46:32",
       "category": "decision making, cognitive biases and why smart people make silly choices",
       "format": "personal_what_if",
@@ -908,6 +890,24 @@
       "title": "Why Odd Requests Work #shorts #psychology",
       "fact": "The pique technique shows that making an oddly specific request disrupts a person's automatic refusal script, significantly increasing compliance.",
       "video_id": "SEpXiv3fdaQ",
+      "channel": "Channel 3"
+    },
+    {
+      "date": "2026-11-07T18:43:50",
+      "category": "social psychology: crowds, conformity, persuasion, why we copy others",
+      "format": "myth_vs_truth",
+      "title": "Why Silent Crowds Lie To You 🤫 #Shorts",
+      "fact": "Pluralistic ignorance causes individuals in a crowd to privately reject a norm but publicly conform to it because they wrongly assume everyone else accepts it.",
+      "video_id": "HahP24okeuo",
+      "channel": "Channel 1"
+    },
+    {
+      "date": "2026-11-07T18:47:39",
+      "category": "everyday human behaviour: why people do small things with family, friends and co-workers",
+      "format": "psychology_effect",
+      "title": "Why You Feel Like You Do All The Chores 🧹",
+      "fact": "Egocentric bias causes people to vividly recall their own efforts while failing to notice others' contributions, leading combined estimates of household chores to exceed one hundred percent.",
+      "video_id": "7FrIRRCbABI",
       "channel": "Channel 3"
     }
   ]
