@@ -101,15 +101,6 @@
   },
   "_recent": [
     {
-      "date": "2026-10-11T01:46:32",
-      "category": "decision making, cognitive biases and why smart people make silly choices",
-      "format": "personal_what_if",
-      "title": "Your brain rewrites your past choices 🧠",
-      "fact": "People subconsciously alter their memories of past choices to justify what they picked, a phenomenon known as choice-supportive bias.",
-      "video_id": "7-Mo-RWIIpQ",
-      "channel": "Channel 3"
-    },
-    {
       "date": "2026-10-11T16:40:56",
       "category": "social psychology: crowds, conformity, persuasion, why we copy others",
       "format": "psychology_fact",
@@ -909,6 +900,15 @@
       "fact": "Egocentric bias causes people to vividly recall their own efforts while failing to notice others' contributions, leading combined estimates of household chores to exceed one hundred percent.",
       "video_id": "7FrIRRCbABI",
       "channel": "Channel 3"
+    },
+    {
+      "date": "2026-11-08T02:23:31",
+      "category": "friendship, texting, jealousy and loneliness (well-established findings only)",
+      "format": "story",
+      "title": "Why you suddenly copy your friend's voice #relationships",
+      "fact": "People subconsciously mimic the speech patterns and mannerisms of those they admire to build rapport.",
+      "video_id": "G7d8N-ALfG8",
+      "channel": "Channel 2"
     }
   ]
 }
