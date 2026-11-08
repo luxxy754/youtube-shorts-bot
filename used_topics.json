@@ -101,24 +101,6 @@
   },
   "_recent": [
     {
-      "date": "2026-10-11T16:40:56",
-      "category": "social psychology: crowds, conformity, persuasion, why we copy others",
-      "format": "psychology_fact",
-      "title": "Why Crowds Ignore Danger in Emergencies 🚨",
-      "fact": "Pluralistic ignorance occurs when group members privately recognize potential danger, but incorrectly assume others are unconcerned because everyone suppresses their outward panic to avoid appearing foolish.",
-      "video_id": "xYO3h6GHlus",
-      "channel": "Channel 1"
-    },
-    {
-      "date": "2026-10-11T16:47:19",
-      "category": "psychology of first impressions, attraction and body language (only well-established findings)",
-      "format": "myth_vs_truth",
-      "title": "Why Staring Ruins Your First Impression 👁️",
-      "fact": "Unbroken eye contact beyond roughly three seconds triggers discomfort and social anxiety rather than projecting confidence.",
-      "video_id": "eqiL6y_Ucfw",
-      "channel": "Channel 2"
-    },
-    {
       "date": "2026-10-11T16:53:59",
       "category": "psychology of habits, procrastination, motivation and willpower",
       "format": "personal_what_if",
@@ -909,6 +891,24 @@
       "fact": "People subconsciously mimic the speech patterns and mannerisms of those they admire to build rapport.",
       "video_id": "G7d8N-ALfG8",
       "channel": "Channel 2"
+    },
+    {
+      "date": "2026-11-08T22:53:43",
+      "category": "emotions, mood and how people react when someone hurts them",
+      "format": "personal_what_if",
+      "title": "Why Rejection Freezes Your Hands 🥶 #Shorts",
+      "fact": "Social rejection activates the sympathetic nervous system to cause peripheral vasoconstriction, physically lowering skin temperature in extremities and temporarily heightening pain sensitivity.",
+      "video_id": "SUw8cMI94pE",
+      "channel": "Channel 2"
+    },
+    {
+      "date": "2026-11-08T22:59:51",
+      "category": "friendship, texting, jealousy and loneliness (well-established findings only)",
+      "format": "psychology_effect",
+      "title": "Why Asking for Favors Makes People Like You 🤝",
+      "fact": "The Ben Franklin effect demonstrates that asking someone for a small favor makes them like you more because their brain resolves cognitive dissonance by concluding they must value you.",
+      "video_id": "4TB_QNpR3vU",
+      "channel": "Channel 3"
     }
   ]
 }
