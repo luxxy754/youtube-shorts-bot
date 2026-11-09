@@ -101,24 +101,6 @@
   },
   "_recent": [
     {
-      "date": "2026-10-11T16:53:59",
-      "category": "psychology of habits, procrastination, motivation and willpower",
-      "format": "personal_what_if",
-      "title": "Why You Keep Betraying Future You 🧠",
-      "fact": "Brain imaging reveals that when people imagine their future selves, the medial prefrontal cortex shows activity patterns similar to when they think about a complete stranger.",
-      "video_id": "povvGhppX7U",
-      "channel": "Channel 3"
-    },
-    {
-      "date": "2026-10-12T02:10:33",
-      "category": "shopping, money and attention psychology: why we buy, scroll and get hooked",
-      "format": "psychology_effect",
-      "title": "Why you buy the same brand 🛒",
-      "fact": "The Mere Exposure Effect causes people to develop a preference for things simply because they are familiar with them, leading consumers to buy familiar brands.",
-      "video_id": "TI9A40etGZo",
-      "channel": "Channel 1"
-    },
-    {
       "date": "2026-10-12T02:20:21",
       "category": "memory: why we forget, false memories, why we remember some things forever",
       "format": "top3",
@@ -909,6 +891,24 @@
       "fact": "The Ben Franklin effect demonstrates that asking someone for a small favor makes them like you more because their brain resolves cognitive dissonance by concluding they must value you.",
       "video_id": "4TB_QNpR3vU",
       "channel": "Channel 3"
+    },
+    {
+      "date": "2026-11-09T23:37:58",
+      "category": "psychology of first impressions, attraction and body language (well-established findings)",
+      "format": "myth_vs_truth",
+      "title": "Why Pauses Create Instant Attraction #Shorts",
+      "fact": "Tolerating silence during social interactions signals emotional composure and conversational dominance, which nonverbal communication research links to perceived attraction and high status.",
+      "video_id": "LgZGLZxr6Wk",
+      "channel": "Channel 1"
+    },
+    {
+      "date": "2026-11-09T23:47:24",
+      "category": "friendship, texting, jealousy and loneliness (well-established findings only)",
+      "format": "story",
+      "title": "Why You Think People Secretly Dislike You 😳",
+      "fact": "The liking gap is a established psychological phenomenon where people systematically underestimate how much conversation partners like them and enjoy their company.",
+      "video_id": "gSGo2D2N8xs",
+      "channel": "Channel 2"
     }
   ]
 }
