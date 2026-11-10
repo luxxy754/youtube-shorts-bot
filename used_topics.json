@@ -101,24 +101,6 @@
   },
   "_recent": [
     {
-      "date": "2026-10-12T02:20:21",
-      "category": "memory: why we forget, false memories, why we remember some things forever",
-      "format": "top3",
-      "title": "Your brain rewrites your past 🧠",
-      "fact": "People misremember past choices and rewrite their own memories to justify what they picked through choice-supportive bias.",
-      "video_id": "esJTKymyPTM",
-      "channel": "Channel 2"
-    },
-    {
-      "date": "2026-10-12T02:23:58",
-      "category": "focus and attention: why the mind wanders, multitasking, distraction",
-      "format": "personal_what_if",
-      "title": "Why you can never truly focus 🧠",
-      "fact": "Unconscious attention switching and task fragmentation create a heavy cognitive burden known as attention residue, which severely harms focus.",
-      "video_id": "o5kDGxkPg-0",
-      "channel": "Channel 3"
-    },
-    {
       "date": "2026-10-12T20:13:56",
       "category": "everyday human behaviour: why people do small things in daily life (phone, friends, family, work)",
       "format": "psychology_effect",
@@ -909,6 +891,24 @@
       "fact": "The liking gap is a established psychological phenomenon where people systematically underestimate how much conversation partners like them and enjoy their company.",
       "video_id": "gSGo2D2N8xs",
       "channel": "Channel 2"
+    },
+    {
+      "date": "2026-11-10T20:50:09",
+      "category": "psychology of first impressions, attraction and body language (well-established findings)",
+      "format": "psychology_effect",
+      "title": "Why flawless people make us uncomfortable #relationships",
+      "fact": "The Pratfall Effect shows that competent people become significantly more likable and attractive when they make a minor, humanizing mistake.",
+      "video_id": "jusBuNcLYiA",
+      "channel": "Channel 1"
+    },
+    {
+      "date": "2026-11-10T21:05:05",
+      "category": "psychology of first impressions, attraction and body language (well-established findings)",
+      "format": "myth_vs_truth",
+      "title": "The Compliment Trap in Attraction #shorts #mindset",
+      "fact": "The gain-loss theory of attraction shows that people are liked significantly more when their initial evaluation of someone starts neutral or critical and gradually warms up, compared to someone who offers constant positive compliments from the start.",
+      "video_id": "sHdRVoWu8a8",
+      "channel": "Channel 3"
     }
   ]
 }
