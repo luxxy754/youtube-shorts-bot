@@ -101,33 +101,6 @@
   },
   "_recent": [
     {
-      "date": "2026-10-12T20:19:33",
-      "category": "sleep, dreams and tiredness: what they do to mood and behaviour",
-      "format": "psychology_fact",
-      "title": "Why Six Hours of Sleep Tricks You 🥱",
-      "fact": "Chronic restriction to six hours of sleep causes cognitive performance to severely degrade while the subjective feeling of sleepiness plateaus, tricking people into believing they have adapted.",
-      "video_id": "brg68OYLFvc",
-      "channel": "Channel 2"
-    },
-    {
-      "date": "2026-10-12T20:24:49",
-      "category": "childhood, learning and curiosity: how people learn and why praise/habits stick",
-      "format": "top3",
-      "title": "Why calling kids smart actually backfires 🧠",
-      "fact": "Praising children for innate intelligence promotes a fixed mindset and fear of failure, whereas praising their effort and strategies fosters resilience and a growth mindset.",
-      "video_id": "AqCP6tPGwMI",
-      "channel": "Channel 3"
-    },
-    {
-      "date": "2026-10-13T03:25:23",
-      "category": "decision making, cognitive biases and why smart people make silly choices",
-      "format": "personal_what_if",
-      "title": "Your brain rewrites your past choices 🧠",
-      "fact": "People misremember past choices and rewrite their own memories to justify what they picked through choice-supportive bias.",
-      "video_id": "YBKd5PsG6qs",
-      "channel": "Channel 1"
-    },
-    {
       "date": "2026-10-13T03:31:31",
       "category": "emotions, mood, stress and how people react to them",
       "format": "psychology_fact",
@@ -909,6 +882,33 @@
       "fact": "Research on the spotlight effect demonstrates that people overestimate how much others notice their appearance or mishaps by roughly fifty percent, because we anchor on our own heightened self-awareness.",
       "video_id": "HeiR9c8_Xr0",
       "channel": "Channel 2"
+    },
+    {
+      "date": "2026-11-11T21:27:33",
+      "category": "friendship, texting, jealousy and loneliness (well-established findings only)",
+      "format": "psychology_effect",
+      "title": "Why Dry Texts Ruin Your Mood 📱 #shorts #psychology",
+      "fact": "Without vocal tone or body language, human cognition defaults to negativity bias, causing neutral text messages to be interpreted as hostile or dismissive.",
+      "video_id": "6vZE_t2KAvU",
+      "channel": "Channel 1"
+    },
+    {
+      "date": "2026-11-11T21:47:52",
+      "category": "social psychology: crowds, conformity, persuasion, why we copy others",
+      "format": "personal_what_if",
+      "title": "Why You Secretly Copy Strangers' Footsteps",
+      "fact": "Spontaneous gait synchronization causes individuals to unconsciously match walking cadences with nearby strangers, which reduces collision risk and boosts mutual feeling of rapport.",
+      "video_id": "bKmqDT0ibmA",
+      "channel": "Channel 2"
+    },
+    {
+      "date": "2026-11-11T22:07:29",
+      "category": "everyday human behaviour: why people do small things with family, friends and co-workers",
+      "format": "myth_vs_truth",
+      "title": "Why Long Excuses Always Backfire 📱 #Shorts",
+      "fact": "Social psychology and communication research demonstrate that providing excessive explanations when declining invitations decreases perceived credibility and makes the other person suspect dishonesty.",
+      "video_id": "diHrqL0GbbQ",
+      "channel": "Channel 3"
     }
   ]
 }
