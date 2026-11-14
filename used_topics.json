@@ -101,33 +101,6 @@
   },
   "_recent": [
     {
-      "date": "2026-10-13T11:28:58",
-      "category": "memory: why we forget, false memories, why we remember some things forever",
-      "format": "psychology_fact",
-      "title": "Your brain is lying to your face 🧠",
-      "fact": "People misremember past choices and rewrite their own memories to justify what they picked through choice-supportive bias.",
-      "video_id": "FLwQ05zRiI4",
-      "channel": "Channel 1"
-    },
-    {
-      "date": "2026-10-13T11:37:20",
-      "category": "focus and attention: why the mind wanders, multitasking, distraction",
-      "format": "top3",
-      "title": "Your brain lies about multitasking 🧠",
-      "fact": "True multitasking is a neurological impossibility, and human brains can only process one cognitive task at a time.",
-      "video_id": "7mQDHD-X5h4",
-      "channel": "Channel 2"
-    },
-    {
-      "date": "2026-10-13T11:42:08",
-      "category": "friendship, relationships, texting, jealousy and loneliness (well-established findings only)",
-      "format": "psychology_effect",
-      "title": "One rude moment ruins your entire image 😳",
-      "fact": "Spontaneous trait transference causes people to associate the negative traits you describe in others directly with your own character.",
-      "video_id": "rbQiUlfr9Ak",
-      "channel": "Channel 3"
-    },
-    {
       "date": "2026-10-13T12:32:15",
       "category": "psychology of first impressions, attraction and body language (well-established findings)",
       "format": "personal_what_if",
@@ -908,6 +881,33 @@
       "title": "Why You Always Say Yes 😳 #shorts #mindset",
       "fact": "The door-in-the-face technique works because refusing an extreme initial request creates internal social pressure to make a concession, making people significantly more likely to accept a smaller follow-up request.",
       "video_id": "l8fXwQQW4b8",
+      "channel": "Channel 3"
+    },
+    {
+      "date": "2026-11-14T01:42:45",
+      "category": "friendship, texting, jealousy and loneliness (well-established findings only)",
+      "format": "story",
+      "title": "Why You Always Delete That Honest Text 📱",
+      "fact": "The beautiful mess effect shows that people evaluate their own expressions of vulnerability as signs of weakness, whereas recipients view those exact same acts as courageous and desirable for building connection.",
+      "video_id": "w3mbJUfic6I",
+      "channel": "Channel 1"
+    },
+    {
+      "date": "2026-11-14T01:55:13",
+      "category": "everyday human behaviour: why people do small things with family, friends and co-workers",
+      "format": "myth_vs_truth",
+      "title": "Why You Forget Names Instantly #shorts #mindset",
+      "fact": "The next-in-line effect in social psychology shows that people fail to recall names heard immediately before their own turn to speak because cognitive resources are diverted to self-rehearsal.",
+      "video_id": "ilJbGcVINy0",
+      "channel": "Channel 2"
+    },
+    {
+      "date": "2026-11-14T02:07:33",
+      "category": "everyday human behaviour: why people do small things with family, friends and co-workers",
+      "format": "psychology_effect",
+      "title": "The One Word That Tricks You 🧠 #shorts #facts",
+      "fact": "Mindless compliance occurs when people automatically grant small requests simply upon hearing the word 'because', even if the reason given provides no new information.",
+      "video_id": "glPF6flToGQ",
       "channel": "Channel 3"
     }
   ]
