@@ -101,15 +101,6 @@
   },
   "_recent": [
     {
-      "date": "2026-10-13T12:43:29",
-      "category": "psychology of habits, procrastination and willpower",
-      "format": "story",
-      "title": "Why willpower vanishes by three pm #Shorts",
-      "fact": "Decision fatigue depletes cognitive control throughout the day, causing people to choose immediate rewards over long-term goals by late afternoon.",
-      "video_id": "67VTX4j15Zo",
-      "channel": "Channel 3"
-    },
-    {
       "date": "2026-10-13T17:02:01",
       "category": "childhood, learning and curiosity: how people learn and why habits stick",
       "format": "psychology_fact",
@@ -909,6 +900,15 @@
       "fact": "The Zeigarnik effect shows that people remember uncompleted or interrupted tasks better than completed ones because incomplete tasks create mental tension that keeps them active in working memory.",
       "video_id": "dR1dx6y8wIA",
       "channel": "Channel 2"
+    },
+    {
+      "date": "2026-11-15T02:58:17",
+      "category": "psychology of first impressions, attraction and body language (well-established findings)",
+      "format": "psychology_effect",
+      "title": "Why Friends Make You Prettier #shorts #facts",
+      "fact": "The group attractiveness effect, or cheerleader effect, makes individual faces appear more attractive in a group because the human visual system automatically averages individual facial features across the group, smoothing out minor asymmetries.",
+      "video_id": "wrLU4Rtog6Y",
+      "channel": "Channel 3"
     }
   ]
 }
