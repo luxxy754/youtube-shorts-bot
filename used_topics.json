@@ -101,33 +101,6 @@
   },
   "_recent": [
     {
-      "date": "2026-10-13T17:02:01",
-      "category": "childhood, learning and curiosity: how people learn and why habits stick",
-      "format": "psychology_fact",
-      "title": "Your Kid Copies You Instantly #shorts #psychology",
-      "fact": "Children learn physical tasks and rules faster through observation and mirror neuron activation than through explicit verbal instruction.",
-      "video_id": "59MVvRqeqOI",
-      "channel": "Channel 3"
-    },
-    {
-      "date": "2026-10-13T21:50:55",
-      "category": "everyday human behaviour: why people do small things with family, friends and co-workers",
-      "format": "personal_what_if",
-      "title": "Why doing nothing feels less guilty #shorts #psychology",
-      "fact": "The Omission Bias causes people to judge harmful inactions less severely than harmful actions with identical outcomes.",
-      "video_id": "aLOVpAWGB1c",
-      "channel": "Channel 1"
-    },
-    {
-      "date": "2026-10-13T21:54:46",
-      "category": "habit loops around spending, subscriptions and impulse buys",
-      "format": "top3",
-      "title": "Why Free Stuff Costs You More #Shorts",
-      "fact": "Zero-price effects cause consumers to radically overvalue free bundled add-ons, driving irrational subscription and impulse purchase decisions.",
-      "video_id": "wfcGjkHqwc4",
-      "channel": "Channel 2"
-    },
-    {
       "date": "2026-10-14T09:51:05",
       "category": "friendship, texting, jealousy and loneliness (well-established findings only)",
       "format": "myth_vs_truth",
@@ -908,6 +881,33 @@
       "title": "Why Friends Make You Prettier #shorts #facts",
       "fact": "The group attractiveness effect, or cheerleader effect, makes individual faces appear more attractive in a group because the human visual system automatically averages individual facial features across the group, smoothing out minor asymmetries.",
       "video_id": "wrLU4Rtog6Y",
+      "channel": "Channel 3"
+    },
+    {
+      "date": "2026-11-16T00:01:52",
+      "category": "friendship, texting, jealousy and loneliness (well-established findings only)",
+      "format": "myth_vs_truth",
+      "title": "The Truth About Friendship Jealousy #shorts #psychology",
+      "fact": "Evolutionary psychology reveals that friendship jealousy functions as an adaptive defense system triggered by third-party threats to prevent replacement and protect valued social bonds.",
+      "video_id": "0U1ZVL9VjKE",
+      "channel": "Channel 1"
+    },
+    {
+      "date": "2026-11-16T00:06:45",
+      "category": "friendship, texting, jealousy and loneliness (well-established findings only)",
+      "format": "story",
+      "title": "Why You Feel Fake Phone Vibrations 📱 #shorts #facts",
+      "fact": "Phantom vibration syndrome occurs when the brain's heightened anticipation of social contact misinterprets minor sensory inputs like clothing friction or muscle twitches as phone vibrations.",
+      "video_id": "RaJVWF53Kt0",
+      "channel": "Channel 2"
+    },
+    {
+      "date": "2026-11-16T00:10:43",
+      "category": "social psychology: crowds, conformity, persuasion, why we copy others",
+      "format": "psychology_effect",
+      "title": "How Small Favors Trick Your Brain 🧠 #Shorts",
+      "fact": "The foot-in-the-door technique demonstrates that agreeing to a small initial request increases compliance with a larger subsequent request because people seek to maintain consistency with their updated self-image.",
+      "video_id": "OoWdr-ur8DU",
       "channel": "Channel 3"
     }
   ]
